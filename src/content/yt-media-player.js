@@ -202,18 +202,18 @@ class YTMediaPlayer {
 	}
 
 	/**
-	 * Generate and inject HTML
+	 * Create and inject DOM elements
 	 */
 	_injectHTML() {
 		const tempDiv = document.createElement('div');
-		tempDiv.innerHTML = this._getHTML();
+		tempDiv.appendChild(this._createPlayerElement());
 		this.playerWrapper = tempDiv.firstElementChild;
 	}
 
 	/**
-	 * Generate complete HTML structure
+	 * Create complete DOM structure
 	 */
-	_getHTML() {
+	_createPlayerElement() {
 		const initialThumbnail =
 			this.options.nowPlayingVideoDetails.thumbnailUrl ||
 			(typeof browser !== 'undefined' ? browser : chrome).runtime.getURL(
@@ -221,44 +221,121 @@ class YTMediaPlayer {
 			);
 
 		const wrapperClasses = this._getWrapperClasses();
-		const playlistHTML = this._getPlaylistHTML();
 
-		return `
-<div class="yt-player-wrapper ${wrapperClasses}">
-	${playlistHTML}
-	<div class="yt-player-controls ${this.options.initialLayout}"> 
-		<div class="yt-playing-details">
-			<div class="yt-seekbar-background">
-				<div class="yt-seekbar-progress"><div class="yt-seekbar-handle"></div></div>
-			</div>
-			<div class="yt-details-overlay">
-				<div class="yt-thumbnail" style="background-image: url('${initialThumbnail}');"></div>
-				<div class="yt-text-content">
-					<div class="yt-video-title">
-						${this.options.nowPlayingVideoDetails.title}
-						<span class="yt-video-author-compact">${this.options.nowPlayingVideoDetails.author}</span>
-					</div>
-					<div class="yt-video-author">${this.options.nowPlayingVideoDetails.author}</div>
-					<div class="yt-playback-info">
-						<div class="yt-video-timer">0:00 / 0:00</div>
-						<div class="yt-seekbar-inline"><div class="yt-seekbar-progress-inline"><div class="yt-seekbar-thumb-inline"></div></div></div>
-					</div>
-				</div>
-			</div>
-		</div>
-		<div class="yt-main-controls">
-			<div class="yt-button-group">
-				${this._getPreviousButtonHTML()}
-				${this._getPlayButtonHTML()}
-				${this._getSkipButtonHTML()}
-			</div>
-			<div class="yt-right-section">
-				${this.options.showVoiceButton ? this._getVoiceButtonHTML() : ''}
-			</div>
-		</div>
-	</div>
-	<div class="yt-gesture-feedback-overlay"></div>
-</div>`;
+		// Create main wrapper
+		const wrapper = document.createElement('div');
+		wrapper.className = `yt-player-wrapper ${wrapperClasses}`;
+
+		// Add playlist if not disabled
+		if (this.options.customPlaylistMode !== DrawerMode.DISABLED) {
+			const playlistElement = this._createPlaylistElement();
+			wrapper.appendChild(playlistElement);
+		}
+
+		// Create player controls
+		const playerControls = document.createElement('div');
+		playerControls.className = `yt-player-controls ${this.options.initialLayout}`;
+
+		// Create playing details
+		const playingDetails = document.createElement('div');
+		playingDetails.className = 'yt-playing-details';
+
+		// Create seekbar background
+		const seekbarBg = document.createElement('div');
+		seekbarBg.className = 'yt-seekbar-background';
+		const seekbarProgress = document.createElement('div');
+		seekbarProgress.className = 'yt-seekbar-progress';
+		const seekbarHandle = document.createElement('div');
+		seekbarHandle.className = 'yt-seekbar-handle';
+		seekbarProgress.appendChild(seekbarHandle);
+		seekbarBg.appendChild(seekbarProgress);
+		playingDetails.appendChild(seekbarBg);
+
+		// Create details overlay
+		const detailsOverlay = document.createElement('div');
+		detailsOverlay.className = 'yt-details-overlay';
+
+		// Create thumbnail
+		const thumbnail = document.createElement('div');
+		thumbnail.className = 'yt-thumbnail';
+		thumbnail.style.backgroundImage = `url('${initialThumbnail}')`;
+		detailsOverlay.appendChild(thumbnail);
+
+		// Create text content
+		const textContent = document.createElement('div');
+		textContent.className = 'yt-text-content';
+
+		// Create video title
+		const videoTitle = document.createElement('div');
+		videoTitle.className = 'yt-video-title';
+		const titleText = this.options.nowPlayingVideoDetails.title || '';
+		const authorText = this.options.nowPlayingVideoDetails.author || '';
+		videoTitle.textContent = titleText;
+		const authorCompact = document.createElement('span');
+		authorCompact.className = 'yt-video-author-compact';
+		authorCompact.textContent = authorText;
+		videoTitle.appendChild(authorCompact);
+		textContent.appendChild(videoTitle);
+
+		// Create video author
+		const videoAuthor = document.createElement('div');
+		videoAuthor.className = 'yt-video-author';
+		videoAuthor.textContent = authorText;
+		textContent.appendChild(videoAuthor);
+
+		// Create playback info
+		const playbackInfo = document.createElement('div');
+		playbackInfo.className = 'yt-playback-info';
+		const videoTimer = document.createElement('div');
+		videoTimer.className = 'yt-video-timer';
+		videoTimer.textContent = '0:00 / 0:00';
+		playbackInfo.appendChild(videoTimer);
+
+		// Create inline seekbar
+		const seekbarInline = document.createElement('div');
+		seekbarInline.className = 'yt-seekbar-inline';
+		const seekbarProgressInline = document.createElement('div');
+		seekbarProgressInline.className = 'yt-seekbar-progress-inline';
+		const seekbarThumbInline = document.createElement('div');
+		seekbarThumbInline.className = 'yt-seekbar-thumb-inline';
+		seekbarProgressInline.appendChild(seekbarThumbInline);
+		seekbarInline.appendChild(seekbarProgressInline);
+		playbackInfo.appendChild(seekbarInline);
+
+		textContent.appendChild(playbackInfo);
+		detailsOverlay.appendChild(textContent);
+		playingDetails.appendChild(detailsOverlay);
+		playerControls.appendChild(playingDetails);
+
+		// Create main controls
+		const mainControls = document.createElement('div');
+		mainControls.className = 'yt-main-controls';
+
+		// Create button group
+		const buttonGroup = document.createElement('div');
+		buttonGroup.className = 'yt-button-group';
+		buttonGroup.appendChild(this._createPreviousButton());
+		buttonGroup.appendChild(this._createPlayButton());
+		buttonGroup.appendChild(this._createSkipButton());
+		mainControls.appendChild(buttonGroup);
+
+		// Create right section
+		const rightSection = document.createElement('div');
+		rightSection.className = 'yt-right-section';
+		if (this.options.showVoiceButton) {
+			rightSection.appendChild(this._createVoiceButton());
+		}
+		mainControls.appendChild(rightSection);
+
+		playerControls.appendChild(mainControls);
+		wrapper.appendChild(playerControls);
+
+		// Create gesture feedback overlay
+		const gestureOverlay = document.createElement('div');
+		gestureOverlay.className = 'yt-gesture-feedback-overlay';
+		wrapper.appendChild(gestureOverlay);
+
+		return wrapper;
 	}
 
 	/**
@@ -291,12 +368,10 @@ class YTMediaPlayer {
 	}
 
 	/**
-	 * Generate playlist HTML if not disabled
+	 * Create playlist element using DOM APIs
 	 */
-	_getPlaylistHTML() {
-		if (this.options.customPlaylistMode === DrawerMode.DISABLED) {
-			return '';
-		}
+	_createPlaylistElement() {
+		const fragment = document.createDocumentFragment();
 
 		const itemCount = this.options.currentPlaylist?.items?.length || 0;
 		const subheaderText = itemCount === 1 ? '1 item' : `${itemCount} items`;
@@ -306,57 +381,186 @@ class YTMediaPlayer {
 			headerText = /^(?:my\s+)?mix/i.test(headerText) ? 'Mix' : 'Playlist';
 		}
 
-		return `
-<div class="yt-drawer-drag-handle" title="Drag to open/close playlist">
-	<div class="yt-drawer-drag-cue"></div>
-	<button class="yt-drawer-close-button" aria-label="Close playlist">&times;</button>
-	<div class="yt-drawer-header-content">
-		<h1 class="yt-drawer-header">${headerText}</h1>
-		<p class="yt-drawer-subheader">${subheaderText}</p>
-	</div>
-</div>
-<div class="yt-player-drawer">
-	<div class="yt-playlist-wrapper"></div>
-</div>`;
+		// Create drag handle
+		const dragHandle = document.createElement('div');
+		dragHandle.className = 'yt-drawer-drag-handle';
+		dragHandle.setAttribute('title', 'Drag to open/close playlist');
+
+		// Create drag cue
+		const dragCue = document.createElement('div');
+		dragCue.className = 'yt-drawer-drag-cue';
+		dragHandle.appendChild(dragCue);
+
+		// Create close button
+		const closeButton = document.createElement('button');
+		closeButton.className = 'yt-drawer-close-button';
+		closeButton.setAttribute('aria-label', 'Close playlist');
+		closeButton.textContent = '×';
+		dragHandle.appendChild(closeButton);
+
+		// Create header content
+		const headerContent = document.createElement('div');
+		headerContent.className = 'yt-drawer-header-content';
+
+		// Create header
+		const header = document.createElement('h1');
+		header.className = 'yt-drawer-header';
+		header.textContent = headerText || '';
+		headerContent.appendChild(header);
+
+		// Create subheader
+		const subheader = document.createElement('p');
+		subheader.className = 'yt-drawer-subheader';
+		subheader.textContent = subheaderText || '';
+		headerContent.appendChild(subheader);
+
+		dragHandle.appendChild(headerContent);
+		fragment.appendChild(dragHandle);
+
+		// Create player drawer
+		const playerDrawer = document.createElement('div');
+		playerDrawer.className = 'yt-player-drawer';
+
+		// Create playlist wrapper
+		const playlistWrapper = document.createElement('div');
+		playlistWrapper.className = 'yt-playlist-wrapper';
+		playerDrawer.appendChild(playlistWrapper);
+
+		fragment.appendChild(playerDrawer);
+
+		return fragment;
 	}
 
 	/**
-	 * Generate button HTML
+	 * Create button elements using DOM APIs
 	 */
-	_getPreviousButtonHTML() {
-		return `
-<button class="yt-control-button yt-prev-button previous">
-	<svg class="icon previous" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-	<svg class="icon restart" viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6s-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8S16.42 4 12 4z"/></svg>
-</button>`;
+	_createPreviousButton() {
+		const button = document.createElement('button');
+		button.className = 'yt-control-button yt-prev-button previous';
+
+		// Create previous icon SVG
+		const previousSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		previousSvg.setAttribute('class', 'icon previous');
+		previousSvg.setAttribute('viewBox', '0 0 24 24');
+		const previousPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		previousPath.setAttribute('d', 'M6 6h2v12H6zm3.5 6l8.5 6V6z');
+		previousSvg.appendChild(previousPath);
+		button.appendChild(previousSvg);
+
+		// Create restart icon SVG
+		const restartSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		restartSvg.setAttribute('class', 'icon restart');
+		restartSvg.setAttribute('viewBox', '0 0 24 24');
+		const restartPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		restartPath.setAttribute('d', 'M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6s-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8S16.42 4 12 4z');
+		restartSvg.appendChild(restartPath);
+		button.appendChild(restartSvg);
+
+		return button;
 	}
 
-	_getPlayButtonHTML() {
-		return `
-<button class="yt-control-button yt-play-button paused">
-	<svg class="icon paused" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-	<svg class="icon playing" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-	<svg class="icon buffering" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="31.416" stroke-dashoffset="31.416"><animate attributeName="stroke-dasharray" dur="2s" values="0 31.416;15.708 15.708;0 31.416" repeatCount="indefinite"/><animate attributeName="stroke-dashoffset" dur="2s" values="0;-15.708;-31.416" repeatCount="indefinite"/></circle></svg>
-</button>`;
+	_createPlayButton() {
+		const button = document.createElement('button');
+		button.className = 'yt-control-button yt-play-button paused';
+
+		// Create paused icon SVG
+		const pausedSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		pausedSvg.setAttribute('class', 'icon paused');
+		pausedSvg.setAttribute('viewBox', '0 0 24 24');
+		const pausedPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		pausedPath.setAttribute('d', 'M8 5v14l11-7z');
+		pausedSvg.appendChild(pausedPath);
+		button.appendChild(pausedSvg);
+
+		// Create playing icon SVG
+		const playingSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		playingSvg.setAttribute('class', 'icon playing');
+		playingSvg.setAttribute('viewBox', '0 0 24 24');
+		const playingPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		playingPath.setAttribute('d', 'M6 19h4V5H6v14zm8-14v14h4V5h-4z');
+		playingSvg.appendChild(playingPath);
+		button.appendChild(playingSvg);
+
+		// Create buffering icon SVG with animation
+		const bufferingSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		bufferingSvg.setAttribute('class', 'icon buffering');
+		bufferingSvg.setAttribute('viewBox', '0 0 24 24');
+		const bufferingCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+		bufferingCircle.setAttribute('cx', '12');
+		bufferingCircle.setAttribute('cy', '12');
+		bufferingCircle.setAttribute('r', '10');
+		bufferingCircle.setAttribute('fill', 'none');
+		bufferingCircle.setAttribute('stroke', 'currentColor');
+		bufferingCircle.setAttribute('stroke-width', '2');
+		bufferingCircle.setAttribute('stroke-linecap', 'round');
+		bufferingCircle.setAttribute('stroke-dasharray', '31.416');
+		bufferingCircle.setAttribute('stroke-dashoffset', '31.416');
+
+		// Create animations
+		const dashArrayAnim = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+		dashArrayAnim.setAttribute('attributeName', 'stroke-dasharray');
+		dashArrayAnim.setAttribute('dur', '2s');
+		dashArrayAnim.setAttribute('values', '0 31.416;15.708 15.708;0 31.416');
+		dashArrayAnim.setAttribute('repeatCount', 'indefinite');
+		bufferingCircle.appendChild(dashArrayAnim);
+
+		const dashOffsetAnim = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+		dashOffsetAnim.setAttribute('attributeName', 'stroke-dashoffset');
+		dashOffsetAnim.setAttribute('dur', '2s');
+		dashOffsetAnim.setAttribute('values', '0;-15.708;-31.416');
+		dashOffsetAnim.setAttribute('repeatCount', 'indefinite');
+		bufferingCircle.appendChild(dashOffsetAnim);
+
+		bufferingSvg.appendChild(bufferingCircle);
+		button.appendChild(bufferingSvg);
+
+		return button;
 	}
 
-	_getSkipButtonHTML() {
-		return `
-<button class="yt-control-button yt-skip-button">
-	<svg class="icon default" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-</button>`;
+	_createSkipButton() {
+		const button = document.createElement('button');
+		button.className = 'yt-control-button yt-skip-button';
+
+		// Create skip icon SVG
+		const skipSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		skipSvg.setAttribute('class', 'icon default');
+		skipSvg.setAttribute('viewBox', '0 0 24 24');
+		const skipPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		skipPath.setAttribute('d', 'M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z');
+		skipSvg.appendChild(skipPath);
+		button.appendChild(skipSvg);
+
+		return button;
 	}
 
-	_getVoiceButtonHTML() {
-		return `
-<button class="yt-voice-search-button normal">
-	<svg class="icon default" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false">
-		<g>
-			<path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"></path>
-			<path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"></path>
-		</g>
-	</svg>
-</button>`;
+	_createVoiceButton() {
+		const button = document.createElement('button');
+		button.className = 'yt-voice-search-button normal';
+
+		// Create voice icon SVG
+		const voiceSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		voiceSvg.setAttribute('class', 'icon default');
+		voiceSvg.setAttribute('viewBox', '0 0 24 24');
+		voiceSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+		voiceSvg.setAttribute('focusable', 'false');
+
+		// Create group element
+		const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+		// Create first path (microphone)
+		const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		path1.setAttribute('d', 'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z');
+		group.appendChild(path1);
+
+		// Create second path (stand)
+		const path2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		path2.setAttribute('d', 'M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z');
+		group.appendChild(path2);
+
+		voiceSvg.appendChild(group);
+		button.appendChild(voiceSvg);
+
+		return button;
 	}
 
 	/**
@@ -1380,10 +1584,12 @@ class YTMediaPlayer {
 	_displayGestureFeedback(actionName) {
 		if (!this.options.showGestureFeedback || !this.gestureFeedbackOverlay) return;
 
-		const iconSVG = this._getGestureIconSVG(actionName);
+		const iconSVG = this._createGestureIconSVG(actionName);
 		if (!iconSVG) return;
 
-		this.gestureFeedbackOverlay.innerHTML = iconSVG;
+		// Clear existing content and append DOM element
+		this.gestureFeedbackOverlay.textContent = '';
+		this.gestureFeedbackOverlay.appendChild(iconSVG);
 		this.gestureFeedbackOverlay.classList.add('visible');
 
 		clearTimeout(this.gestureFeedbackTimeout);
@@ -1397,20 +1603,46 @@ class YTMediaPlayer {
 	/**
 	 * Get gesture icon SVG
 	 */
-	_getGestureIconSVG(actionName) {
-		const style = 'style="width: 64px; height: 64px; fill: currentColor;"';
-		const icons = {
-			restartCurrentVideo: `<svg ${style} viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6s-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8S16.42 4 12 4z"/></svg>`,
-			restartPreviousVideo: `<svg ${style} viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>`,
-			previousVideoOnly: `<svg ${style} viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>`,
-			nextVideo: `<svg ${style} viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>`,
+	_createGestureIconSVG(actionName) {
+		const iconPaths = {
+			restartCurrentVideo: 'M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6s-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8S16.42 4 12 4z',
+			restartPreviousVideo: 'M6 6h2v12H6zm3.5 6l8.5 6V6z',
+			previousVideoOnly: 'M6 6h2v12H6zm3.5 6l8.5 6V6z',
+			nextVideo: 'M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z',
 			playPause: this.playButton?.classList.contains('paused')
-				? `<svg ${style} viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`
-				: `<svg ${style} viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`,
-			toggleVoiceSearch: `<svg ${style} viewBox="0 0 24 24"><g><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"></path><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"></path></g></svg>`,
-			togglePlaylist: `<svg ${style} viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zm0-10v2h14V7H7z"/></svg>`,
+				? 'M8 5v14l11-7z'
+				: 'M6 19h4V5H6v14zm8-14v14h4V5h-4z',
+			toggleVoiceSearch: ['M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z', 'M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z'],
+			togglePlaylist: 'M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zm0-10v2h14V7H7z',
 		};
-		return icons[actionName] || '';
+
+		const pathData = iconPaths[actionName];
+		if (!pathData) return null;
+
+		// Create SVG element using DOM methods
+		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		svg.setAttribute('width', '64');
+		svg.setAttribute('height', '64');
+		svg.setAttribute('viewBox', '0 0 24 24');
+		svg.style.fill = 'currentColor';
+
+		if (Array.isArray(pathData)) {
+			// For icons with multiple paths (like toggleVoiceSearch)
+			const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+			pathData.forEach(d => {
+				const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				path.setAttribute('d', d);
+				g.appendChild(path);
+			});
+			svg.appendChild(g);
+		} else {
+			// For icons with single path
+			const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			path.setAttribute('d', pathData);
+			svg.appendChild(path);
+		}
+
+		return svg;
 	}
 
 	/**
@@ -1833,24 +2065,58 @@ class YTMediaPlayer {
 	/**
 	 * PLAYLIST METHODS
 	 */
-	_renderPlaylistItem(item, isActive) {
+
+
+
+	_createPlaylistItem(item, isActive) {
 		const thumb =
 			item.thumbnailUrl ||
 			(typeof browser !== 'undefined' ? browser : chrome).runtime.getURL(
 				'/assets/default_thumb.png'
 			);
 
-		return `
-<div class="yt-playlist-item ${isActive ? 'active' : ''}" data-item-id="${item.id || ''}">
-	<div class="yt-playlist-item-thumbnail" style="background-image: url('${thumb}');"></div>
-	<div class="yt-playlist-item-info">
-		<h3 class="yt-playlist-item-title" title="${item.title || ''}">${item.title || 'Unknown Title'}</h3>
-		<p class="yt-playlist-item-artist" title="${item.artist || ''}">${
-			item.artist || 'Unknown Artist'
-		}</p>
-	</div>
-	<span class="yt-playlist-item-duration">${item.duration || '0:00'}</span>
-</div>`;
+		// Create main container
+		const container = document.createElement('div');
+		container.className = `yt-playlist-item${isActive ? ' active' : ''}`;
+		if (item.id) {
+			container.setAttribute('data-item-id', item.id);
+		}
+
+		// Create thumbnail
+		const thumbnail = document.createElement('div');
+		thumbnail.className = 'yt-playlist-item-thumbnail';
+		thumbnail.style.backgroundImage = `url('${thumb}')`;
+		container.appendChild(thumbnail);
+
+		// Create info container
+		const info = document.createElement('div');
+		info.className = 'yt-playlist-item-info';
+
+		// Create title
+		const title = document.createElement('h3');
+		title.className = 'yt-playlist-item-title';
+		const titleText = item.title || 'Unknown Title';
+		title.textContent = titleText;
+		title.setAttribute('title', titleText);
+		info.appendChild(title);
+
+		// Create artist
+		const artist = document.createElement('p');
+		artist.className = 'yt-playlist-item-artist';
+		const artistText = item.artist || 'Unknown Artist';
+		artist.textContent = artistText;
+		artist.setAttribute('title', artistText);
+		info.appendChild(artist);
+
+		container.appendChild(info);
+
+		// Create duration
+		const duration = document.createElement('span');
+		duration.className = 'yt-playlist-item-duration';
+		duration.textContent = item.duration || '0:00';
+		container.appendChild(duration);
+
+		return container;
 	}
 
 	/**
@@ -2104,7 +2370,8 @@ class YTMediaPlayer {
 			} else {
 				// Create new
 				const tempDiv = document.createElement('div');
-				tempDiv.innerHTML = this._renderPlaylistItem(item, isActive);
+				// Use DOM creation for secure element construction
+				tempDiv.appendChild(this._createPlaylistItem(item, isActive));
 				element = tempDiv.firstElementChild;
 				this.playlistWrapper.insertBefore(
 					element,
