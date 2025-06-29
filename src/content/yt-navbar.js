@@ -55,13 +55,10 @@ class YTCustomNavbar {
 	}
 
 	/**
-	 * @description Creates the navbar HTML structure and injects it into the DOM.
+	 * @description Creates the navbar DOM structure and injects it into the DOM.
 	 */
 	_createNavbar() {
-		const navbarHTML = this._getNavbarHTML();
-		const tempDiv = document.createElement('div');
-		tempDiv.innerHTML = navbarHTML;
-		this.navbarElement = tempDiv.firstElementChild;
+		this.navbarElement = this._createNavbarElement();
 
 		// Insert at the beginning of body
 		document.body.insertBefore(this.navbarElement, document.body.firstChild);
@@ -70,74 +67,132 @@ class YTCustomNavbar {
 	}
 
 	/**
-	 * @description Generates the HTML structure for the custom navbar.
-	 * @returns {string} The HTML string for the navbar.
+	 * @description Creates the DOM structure for the custom navbar.
+	 * @returns {HTMLElement} The navbar DOM element.
 	 */
-	_getNavbarHTML() {
-		const leftLinks = [];
-		const rightLinks = [];
-		let homeButton = '';
+	_createNavbarElement() {
+		// Create main navbar
+		const navbar = document.createElement('nav');
+		navbar.className = 'yt-custom-navbar';
+
+		// Create home button if enabled
 		if (this.options.showHomeButton) {
-			homeButton = `<div class="yt-navbar-logo">
-          <button class="yt-navbar-logo-button" data-action="home">
-			<svg xmlns="http://www.w3.org/2000/svg" id="yt-ringo2-svg_yt1" viewBox="0 0 30 20" focusable="false" aria-hidden="true">
-				<g>
-					<path d="M14.4848 20C14.4848 20 23.5695 20 25.8229 19.4C27.0917 19.06 28.0459 18.08 28.3808 16.87C29 14.65 29 9.98 29 9.98C29 9.98 29 5.34 28.3808 3.14C28.0459 1.9 27.0917 0.94 25.8229 0.61C23.5695 0 14.4848 0 14.4848 0C14.4848 0 5.42037 0 3.17711 0.61C1.9286 0.94 0.954148 1.9 0.59888 3.14C0 5.34 0 9.98 0 9.98C0 9.98 0 14.65 0.59888 16.87C0.954148 18.08 1.9286 19.06 3.17711 19.4C5.42037 20 14.4848 20 14.4848 20Z"></path>
-					<path d="M19 10L11.5 5.75V14.25L19 10Z" fill="white"></path>
-				</g>
-			</svg> 
-		  </button>
-        </div>`;
+			const logoDiv = document.createElement('div');
+			logoDiv.className = 'yt-navbar-logo';
+
+			const logoButton = document.createElement('button');
+			logoButton.className = 'yt-navbar-logo-button';
+			logoButton.setAttribute('data-action', 'home');
+
+			// Create YouTube logo SVG
+			const logoSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			logoSvg.setAttribute('id', 'yt-ringo2-svg_yt1');
+			logoSvg.setAttribute('viewBox', '0 0 30 20');
+			logoSvg.setAttribute('focusable', 'false');
+			logoSvg.setAttribute('aria-hidden', 'true');
+
+			const logoGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+			// Background path
+			const bgPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			bgPath.setAttribute('d', 'M14.4848 20C14.4848 20 23.5695 20 25.8229 19.4C27.0917 19.06 28.0459 18.08 28.3808 16.87C29 14.65 29 9.98 29 9.98C29 9.98 29 5.34 28.3808 3.14C28.0459 1.9 27.0917 0.94 25.8229 0.61C23.5695 0 14.4848 0 14.4848 0C14.4848 0 5.42037 0 3.17711 0.61C1.9286 0.94 0.954148 1.9 0.59888 3.14C0 5.34 0 9.98 0 9.98C0 9.98 0 14.65 0.59888 16.87C0.954148 18.08 1.9286 19.06 3.17711 19.4C5.42037 20 14.4848 20 14.4848 20Z');
+			logoGroup.appendChild(bgPath);
+
+			// Play button path
+			const playPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			playPath.setAttribute('d', 'M19 10L11.5 5.75V14.25L19 10Z');
+			playPath.setAttribute('fill', 'white');
+			logoGroup.appendChild(playPath);
+
+			logoSvg.appendChild(logoGroup);
+			logoButton.appendChild(logoSvg);
+			logoDiv.appendChild(logoButton);
+			navbar.appendChild(logoDiv);
 		}
 
-		// Build left links
+		// Create left section
+		const leftDiv = document.createElement('div');
+		leftDiv.className = 'yt-navbar-left';
+
+		// Add left links
 		if (this.options.showMixes) {
-			leftLinks.push('<button class="yt-navbar-link" data-action="mixes">MIXES</button>');
+			const mixesBtn = document.createElement('button');
+			mixesBtn.className = 'yt-navbar-link';
+			mixesBtn.setAttribute('data-action', 'mixes');
+			mixesBtn.textContent = 'MIXES';
+			leftDiv.appendChild(mixesBtn);
 		}
 		if (this.options.showPlaylists) {
-			leftLinks.push(
-				'<button class="yt-navbar-link" data-action="playlists">PLAYLISTS</button>'
-			);
+			const playlistsBtn = document.createElement('button');
+			playlistsBtn.className = 'yt-navbar-link';
+			playlistsBtn.setAttribute('data-action', 'playlists');
+			playlistsBtn.textContent = 'PLAYLISTS';
+			leftDiv.appendChild(playlistsBtn);
 		}
 		if (this.options.showLive) {
-			leftLinks.push('<button class="yt-navbar-link" data-action="live">LIVE</button>');
+			const liveBtn = document.createElement('button');
+			liveBtn.className = 'yt-navbar-link';
+			liveBtn.setAttribute('data-action', 'live');
+			liveBtn.textContent = 'LIVE';
+			leftDiv.appendChild(liveBtn);
 		}
 		if (this.options.showMusic) {
-			leftLinks.push('<button class="yt-navbar-link" data-action="music">MUSIC</button>');
+			const musicBtn = document.createElement('button');
+			musicBtn.className = 'yt-navbar-link';
+			musicBtn.setAttribute('data-action', 'music');
+			musicBtn.textContent = 'MUSIC';
+			leftDiv.appendChild(musicBtn);
 		}
 
-		// Build right links
+		navbar.appendChild(leftDiv);
+
+		// Create right section
+		const rightDiv = document.createElement('div');
+		rightDiv.className = 'yt-navbar-right';
+
+		// Add right links
 		if (this.options.showTextSearch) {
-			rightLinks.push(`
-        <button class="yt-navbar-icon-button" data-action="text-search" aria-label="Search">
-          <svg viewBox="0 0 24 24" width="20" height="20">
-            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-          </svg>
-        </button>
-      `);
+			const searchBtn = document.createElement('button');
+			searchBtn.className = 'yt-navbar-icon-button';
+			searchBtn.setAttribute('data-action', 'text-search');
+			searchBtn.setAttribute('aria-label', 'Search');
+
+			const searchSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			searchSvg.setAttribute('viewBox', '0 0 24 24');
+			searchSvg.setAttribute('width', '20');
+			searchSvg.setAttribute('height', '20');
+			const searchPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			searchPath.setAttribute('d', 'M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z');
+			searchSvg.appendChild(searchPath);
+			searchBtn.appendChild(searchSvg);
+			rightDiv.appendChild(searchBtn);
 		}
 		if (this.options.showVoiceSearch) {
-			rightLinks.push(`
-        <button class="yt-navbar-icon-button" data-action="voice-search" aria-label="Voice Search">
-          <svg viewBox="0 0 24 24" width="20" height="20">
-            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-          </svg>
-        </button>
-      `);
+			const voiceBtn = document.createElement('button');
+			voiceBtn.className = 'yt-navbar-icon-button';
+			voiceBtn.setAttribute('data-action', 'voice-search');
+			voiceBtn.setAttribute('aria-label', 'Voice Search');
+
+			const voiceSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			voiceSvg.setAttribute('viewBox', '0 0 24 24');
+			voiceSvg.setAttribute('width', '20');
+			voiceSvg.setAttribute('height', '20');
+
+			const voicePath1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			voicePath1.setAttribute('d', 'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z');
+			voiceSvg.appendChild(voicePath1);
+
+			const voicePath2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			voicePath2.setAttribute('d', 'M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z');
+			voiceSvg.appendChild(voicePath2);
+
+			voiceBtn.appendChild(voiceSvg);
+			rightDiv.appendChild(voiceBtn);
 		}
 
-		return `
-      <nav class="yt-custom-navbar">
-	 	 ${homeButton}
-		<div class="yt-navbar-left">
-          ${leftLinks.join('')}
-        </div>
-        <div class="yt-navbar-right">
-          ${rightLinks.join('')}
-        </div>
-      </nav>
-    `;
+		navbar.appendChild(rightDiv);
+
+		return navbar;
 	}
 
 	/**
