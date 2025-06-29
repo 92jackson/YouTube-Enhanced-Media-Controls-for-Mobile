@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1] - 2024-12-19 - Security & Performance Update
+
+### Changed
+
+-   **DOM-Based Element Creation** - Refactored all HTML string generation to use secure DOM APIs
+-   **Enhanced Security** - Eliminated `innerHTML` usage to prevent XSS vulnerabilities
+-   **Firefox Compatibility** - Resolved Firefox security warnings for content scripts
+-   **Performance Improvements** - Direct DOM manipulation for better performance than HTML parsing
+
+### Technical Details
+
+-   Converted `_getHTML()` to `_createPlayerElement()` for main player structure
+-   Converted all button creation methods to DOM-based approach (`_createPreviousButton()`, `_createPlayButton()`, etc.)
+-   Converted `_getNavbarHTML()` to `_createNavbarElement()` for navigation bar
+-   Removed deprecated `_escapeHtml()` method (no longer needed with DOM APIs)
+-   Updated all SVG icon creation to use `document.createElementNS()`
+-   Updated JSDoc comments to reflect DOM-based implementation
+
 ## [1.0.0] - 2024-12-19 - Inital release
 
 ### Added
