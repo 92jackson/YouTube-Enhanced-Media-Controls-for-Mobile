@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Enhanced Player Settings</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+	:root {
+		--md-color-primary: #d32f2f;
+		--md-color-primary-dark: #b71c1c;
+		--md-color-on-primary: #ffffff;
+		--md-color-background: #f5f5f5;
+		--md-color-surface: #ffffff;
+		--md-color-on-surface: rgba(0, 0, 0, 0.87);
+		--md-color-on-surface-medium: rgba(0, 0, 0, 0.60);
+		--md-color-on-surface-disabled: rgba(0, 0, 0, 0.38);
+		--md-color-divider: rgba(0, 0, 0, 0.12);
+		--md-color-ripple: rgba(0, 0, 0, 0.1);
+
+		--md-switch-track-on-color: #f56c6c;
+		--md-switch-thumb-on-color: var(--md-color-primary);
+		--md-switch-track-off-color: #bdbdbd;
+		--md-switch-thumb-off-color: #fafafa;
+
+		--md-elevation-1: 0px 2px 1px -1px rgba(0,0,0,0.2), 0px 1px 1px 0px rgba(0,0,0,0.14), 0px 1px 3px 0px rgba(0,0,0,0.12);
+		--md-elevation-2: 0px 3px 1px -2px rgba(0,0,0,0.2), 0px 2px 2px 0px rgba(0,0,0,0.14), 0px 1px 5px 0px rgba(0,0,0,0.12);
+	}
+
+	*, *::before, *::after {
+		box-sizing: border-box;
+	}
+
+	body {
+		font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+		margin: 0;
+		background-color: var(--md-color-background);
+		color: var(--md-color-on-surface);
+		font-size: 16px;
+		line-height: 1.5;
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+	}
+
+	.options-page {
+		width: 100%;
+		max-width: 600px;
+		min-width: 400px;
+		margin: 0 auto;
+	}
+
+	.header {
+		background-color: var(--md-color-primary);
+		color: var(--md-color-on-primary);
+		padding: 16px 24px;
+		box-shadow: var(--md-elevation-2);
+	}
+
+	.header h1 {
+		font-size: 20px;
+		font-weight: 500;
+		margin: 0;
+		line-height: 1.2;
+	}
+
+	.main-content {
+		padding: 16px;
+	}
+
+	@media (min-width: 600px) {
+		.main-content {
+			padding: 24px;
+		}
+	}
+
+	.card {
+		background-color: var(--md-color-surface);
+		border-radius: 8px;
+		box-shadow: var(--md-elevation-1);
+		margin-bottom: 16px;
+		overflow: hidden;
+		transition: opacity 0.3s ease;
+	}
+
+	.card-header {
+		padding: 16px 24px;
+		border-bottom: 1px solid var(--md-color-divider);
+		display: flex;
+		align-items: center;
+		gap: 16px;
+	}
+
+	.card-header h2 {
+		font-size: 18px;
+		font-weight: 500;
+		margin: 0;
+		flex-grow: 1;
+	}
+	
+	.card-header .icon {
+		font-size: 24px;
+		color: var(--md-color-on-surface-medium);
+	}
+
+	.card-content {
+		padding: 24px;
+	}
+	.card-content > *:not(:last-child):not(fieldset) {
+		margin-bottom: 24px;
+	}
+	.card-content > fieldset {
+		margin-top: 24px;
+		padding-top: 24px;
+		border-top: 1px solid var(--md-color-divider);
+	}
+	.card-content > fieldset:first-of-type { /* If fieldset is first direct child after a non-fieldset element */
+		 margin-top: 24px;
+	}
+	.card-content > .setting-item + fieldset { /* If fieldset directly follows a setting-item */
+		 margin-top: 24px;
+	}
+
+
+	.setting-item {
+		position: relative;
+	}
+
+	/* --- Toggle Switch --- */
+	.toggle-item {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		min-height: 48px;
+	}
+
+	.toggle-label-group {
+		flex-grow: 1;
+		padding-right: 16px;
+		cursor: pointer;
+		user-select: none;
+	}
+
+	.toggle-label-main {
+		font-size: 16px;
+		line-height: 1.4;
+		color: var(--md-color-on-surface);
+		display: inline-flex; /* To align badge */
+		align-items: center; /* To align badge */
+	}
+
+	.toggle-label-description {
+		font-size: 14px;
+		color: var(--md-color-on-surface-medium);
+		line-height: 1.4;
+	}
+
+	.toggle-switch {
+		position: relative;
+		display: inline-block;
+		width: 36px;
+		height: 20px;
+		flex-shrink: 0;
+	}
+	.toggle-switch input {
+		opacity: 0;
+		width: 0;
+		height: 0;
+	}
+	.switch-slider {
+		position: absolute;
+		cursor: pointer;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background-color: var(--md-switch-track-off-color);
+		transition: .2s;
+		border-radius: 10px;
+	}
+	.switch-slider:before {
+		position: absolute;
+		content: "";
+		height: 16px;
+		width: 16px;
+		left: 2px;
+		bottom: 2px;
+		background-color: var(--md-switch-thumb-off-color);
+		transition: .2s;
+		border-radius: 50%;
+		box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+	}
+	input:checked + .switch-slider {
+		background-color: var(--md-switch-track-on-color);
+	}
+	input:checked + .switch-slider:before {
+		transform: translateX(16px);
+		background-color: var(--md-switch-thumb-on-color);
+	}
+	input:focus-visible + .switch-slider {
+		box-shadow: 0 0 0 2px var(--md-color-surface), 0 0 0 4px var(--md-color-primary);
+	}
+
+	/* Master Switch Emphasis */
+	.master-switch-item {
+		background-color: rgba(0,0,0,0.04);
+		padding: 16px 24px;
+		margin: -24px;
+	}
+	.master-switch-item .toggle-label-main {
+		font-weight: 500;
+	}
+
+	/* --- Select Input --- */
+	.select-item label {
+		font-size: 12px;
+		color: var(--md-color-on-surface-medium);
+		display: block;
+		margin-bottom: 4px;
+	}
+	
+	.select-wrapper {
+		position: relative;
+		background-color: #f0f0f0;
+		border-radius: 4px 4px 0 0;
+		border-bottom: 1px solid var(--md-color-on-surface-medium);
+		transition: border-bottom-color 0.2s ease;
+	}
+	.select-wrapper::after { /* Dropdown arrow */
+		content: '';
+		position: absolute;
+		top: 50%;
+		right: 12px;
+		width: 0;
+		height: 0;
+		border-left: 5px solid transparent;
+		border-right: 5px solid transparent;
+		border-top: 5px solid var(--md-color-on-surface-medium);
+		transform: translateY(-50%);
+		pointer-events: none;
+	}
+	.select-wrapper:focus-within {
+		border-bottom: 2px solid var(--md-color-primary);
+	}
+	.select-wrapper select {
+		-webkit-appearance: none;
+		-moz-appearance: none;
+		appearance: none;
+		width: 100%;
+		padding: 16px 36px 16px 12px;
+		border: none;
+		background: none;
+		font-size: 16px;
+		color: var(--md-color-on-surface);
+		cursor: pointer;
+	}
+	.select-wrapper select:focus {
+		outline: none;
+	}
+	.select-item .description {
+		font-size: 12px;
+		color: var(--md-color-on-surface-medium);
+		margin-top: 6px;
+		padding-left: 12px;
+	}
+
+	/* --- Slider --- */
+	.material-slider-wrapper {
+	  width: 100%;
+	  max-width: 500px;
+	  margin-bottom: 30px;
+	}
+
+	.material-slider {
+		appearance: none;
+		width: 100%;
+		height: 6px;
+		font-size: 16px;
+		background-color: var(--md-switch-track-off-color);
+		border-radius: 3px;
+		outline: none;
+		margin: 0;
+	}
+
+	.material-slider::-webkit-slider-thumb {
+	  appearance: none;
+	  width: 20px;
+	  height: 20px;
+	  background-color: var(--md-switch-thumb-on-color);
+	  border-radius: 50%;
+	  cursor: pointer;
+	  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+	}
+
+	.slider-labels {
+	  position: relative;
+	  height: 20px;
+	  margin-top: 10px;
+	}
+
+	.slider-labels span {
+	  position: absolute;
+	  font-size: 12px;
+	  color: #666;
+	  transform: translateX(-50%);
+	  white-space: nowrap;
+	}
+
+	.slider-labels span.active {
+	  color: #000;
+	  font-weight: bold;
+	}
+
+	.preview-text {
+		font-size: 14px;
+		transition: font-size 0.3s;
+		margin-top: 8px;
+		height: 40px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	/* --- Disabled States --- */
+	.disabled-group, fieldset[disabled] {
+		opacity: 0.6;
+		pointer-events: none;
+	}
+
+	fieldset {
+		border: none;
+		padding: 0;
+		padding-left: 24px;
+		margin: 0;
+	}
+	fieldset > *:not(:last-child) {
+		margin-bottom: 24px;
+	}
+
+	/* --- Snackbar/Toast --- */
+	#status-snackbar {
+		position: fixed;
+		bottom: 24px;
+		left: 50%;
+		transform: translate(-50%, 100px);
+		background-color: #323232;
+		color: #ffffff;
+		padding: 14px 24px;
+		border-radius: 4px;
+		box-shadow: var(--md-elevation-2);
+		font-size: 14px;
+		transition: transform 0.3s ease-in-out;
+		z-index: 1000;
+		opacity: 0;
+	}
+	#status-snackbar.show {
+		transform: translate(-50%, 0);
+		opacity: 1;
+	}
+
+	/* Fix Badge */
+	.badge {
+		display: inline-block;
+		padding: 0.2em 0.5em;
+		font-size: 0.75em;
+		font-weight: 700;
+		line-height: 1;
+		text-align: center;
+		white-space: nowrap;
+		vertical-align: middle;
+		border-radius: 0.25rem;
+		margin-left: 8px;
+	}
+	.fix-badge {
+		color: #fff;
+		background-color: #007bff;
+	}
+	.experimental-badge {
+		color: #004085;
+		background-color: #cce5ff;
+	}
+</style>
+</head>
+<body>
+
+<div class="options-page">
+<header class="header">
+	<h1>YouTube Enhanced Media Controls</h1>
+</header>
+
+<main class="main-content">
+	<!-- General Settings -->
+	<div class="card">
+		<div class="card-content">
+			<div class="setting-item master-switch-item">
+				<div class="toggle-item">
+					<div class="toggle-label-group" data-target-id="enableCustomPlayer">
+						<div class="toggle-label-main">Enable Custom Media Player</div>
+						<div class="toggle-label-description">Master switch for the enhanced interface.</div>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="enableCustomPlayer">
+						<span class="switch-slider"></span>
+					</label>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Player Appearance -->
+	<div class="card depends-on-custom-player">
+		<div class="card-header">
+			<span class="icon">🎨</span>
+			<h2>Player Appearance</h2>
+		</div>
+		<div class="card-content">
+			<div class="setting-item select-item">
+				<label for="defaultPlayerLayout">Custom Controls Size</label>
+				<div class="select-wrapper">
+					<select id="defaultPlayerLayout">
+						<option value="compact">Compact</option>
+						<option value="normal">Normal</option>
+						<option value="large">Large</option>
+					</select>
+				</div>
+			</div>
+			<div class="setting-item select-item">
+				<label for="customPlayerTheme">Theme</label>
+				<div class="select-wrapper">
+					<select id="customPlayerTheme">
+						<option value="system">System Default</option>
+						<option value="light">Light</option>
+						<option value="dark">Dark</option>
+					</select>
+				</div>
+			</div>
+			<div class="setting-item select-item">
+				<label for="customPlayerAccentColor">Accent Colour</label>
+				<div class="select-wrapper">
+					<select id="customPlayerAccentColor">
+						<optgroup label="Preset Colours">
+							<option value="red">Red (Default)</option>
+							<option value="pink">Pink</option>
+							<option value="purple">Purple</option>
+							<option value="indigo">Indigo</option>
+							<option value="blue">Blue</option>
+							<option value="teal">Teal</option>
+							<option value="cyan">Cyan</option>
+							<option value="green">Green</option>
+							<option value="lime">Lime</option>
+							<option value="yellow">Yellow</option>
+							<option value="orange">Orange</option>
+							<option value="brown">Brown</option>
+							<option value="grey">Grey</option>
+						</optgroup>
+					
+						<optgroup label="Adaptive">
+							<option value="adaptive">Extract from Thumbnail</option>
+							<option value="randomize">Random per Video</option>
+						</optgroup>
+					</select>					
+				</div>
+			</div>
+			<div class="setting-item select-item">
+				<label for="customPlayerFontSize">Text Size</label>
+				<div class="material-slider-wrapper">
+					<input type="range" id="customPlayerFontMultiplier" class="material-slider"
+						data-increments="0.75,0.8125,0.875,0.9375,1,1.0625,1.125,1.1875,1.25"
+						data-labels="0.75x,,0.875x,,Normal,,1.125x,,1.25x" min="0" max="8" step="1" value="4" />
+					<div class="slider-labels"></div>
+					<div class="preview-text">"This is a preview of the size."</div>
+				</div>
+			</div>
+
+			<div class="setting-item toggle-item">
+				<div class="toggle-label-group" data-target-id="showBottomControls">
+					<div class="toggle-label-main">Show Bottom Controls</div>
+					<div class="toggle-label-description">Toggle visibility of all main control buttons.</div>
+				</div>
+				<label class="toggle-switch">
+					<input type="checkbox" id="showBottomControls">
+					<span class="switch-slider"></span>
+				</label>
+			</div>
+
+			<fieldset id="bottom-controls-options-fieldset">
+				<div class="setting-item toggle-item">
+					<div class="toggle-label-group" data-target-id="showVoiceSearchButton">
+						<div class="toggle-label-main">Show Voice Search Button</div>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="showVoiceSearchButton">
+						<span class="switch-slider"></span>
+					</label>
+				</div>
+				<div class="setting-item toggle-item">
+					<div class="toggle-label-group" data-target-id="showPreviousButton">
+						<div class="toggle-label-main">Show 'Previous' Button</div>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="showPreviousButton">
+						<span class="switch-slider"></span>
+					</label>
+				</div>
+				<div class="setting-item toggle-item">
+					<div class="toggle-label-group" data-target-id="showSkipButton">
+						<div class="toggle-label-main">Show 'Next' Button</div>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="showSkipButton">
+						<span class="switch-slider"></span>
+					</label>
+				</div>
+			</fieldset>
+		</div>
+	</div>
+
+	<!-- Custom Navbar -->
+	<div class="card depends-on-custom-player">
+		<div class="card-header">
+			<span class="icon">🧭</span>
+			<h2>Custom Navbar</h2>
+		</div>
+		<div class="card-content">
+			<div class="setting-item toggle-item">
+				<div class="toggle-label-group" data-target-id="enableCustomNavbar">
+					<div class="toggle-label-main">Enable Custom Navbar</div>
+					<div class="toggle-label-description">Replaces YouTube's mobile navbar with a custom one that matches the player theme.</div>
+				</div>
+				<label class="toggle-switch">
+					<input type="checkbox" id="enableCustomNavbar">
+					<span class="switch-slider"></span>
+				</label>
+			</div>
+
+			<fieldset id="navbar-options-fieldset">
+				<div class="setting-item toggle-item">
+					<div class="toggle-label-group" data-target-id="navbarShowHomeButton">
+						<div class="toggle-label-main">Show YouTube Logo</div>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="navbarShowHomeButton">
+						<span class="switch-slider"></span>
+					</label>
+				</div>
+				<div class="setting-item toggle-item">
+					<div class="toggle-label-group" data-target-id="navbarShowMixes">
+						<div class="toggle-label-main">Show 'Mixes' Link <span class="badge experimental-badge">Experimental</span></div>
+						<div class="toggle-label-description">Depends on a 'Mixes' chip being available in the YouTube home top menu (these chips are dynamic and not available for all).</div>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="navbarShowMixes">
+						<span class="switch-slider"></span>
+					</label>
+				</div>
+				<div class="setting-item toggle-item">
+					<div class="toggle-label-group" data-target-id="navbarShowPlaylists">
+						<div class="toggle-label-main">Show 'Playlists' Link <span class="badge experimental-badge">Experimental</span></div>
+						<div class="toggle-label-description">Depends on a 'Playlists' chip being available in the YouTube home top menu (these chips are dynamic and not available for all).</div>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="navbarShowPlaylists">
+						<span class="switch-slider"></span>
+					</label>
+				</div>
+				<div class="setting-item toggle-item">
+					<div class="toggle-label-group" data-target-id="navbarShowLive">
+						<div class="toggle-label-main">Show 'Live' Link <span class="badge experimental-badge">Experimental</span></div>
+						<div class="toggle-label-description">Depends on a 'Live' chip being available in the YouTube home top menu (these chips are dynamic and not available for all).</div>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="navbarShowLive">
+						<span class="switch-slider"></span>
+					</label>
+				</div>
+				<div class="setting-item toggle-item">
+					<div class="toggle-label-group" data-target-id="navbarShowMusic">
+						<div class="toggle-label-main">Show 'Music' Link <span class="badge experimental-badge">Experimental</span></div>
+						<div class="toggle-label-description">Depends on a 'Music' chip being available in the YouTube home top menu (these chips are dynamic and not available for all).</div>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="navbarShowMusic">
+						<span class="switch-slider"></span>
+					</label>
+				</div>
+				<div class="setting-item toggle-item">
+					<div class="toggle-label-group" data-target-id="navbarShowTextSearch">
+						<div class="toggle-label-main">Show Text Search</div>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="navbarShowTextSearch">
+						<span class="switch-slider"></span>
+					</label>
+				</div>
+				<div class="setting-item toggle-item">
+					<div class="toggle-label-group" data-target-id="navbarShowVoiceSearch">
+						<div class="toggle-label-main">Show Voice Search</div>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="navbarShowVoiceSearch">
+						<span class="switch-slider"></span>
+					</label>
+				</div>
+			</fieldset>
+		</div>
+	</div>
+
+	<!-- Playlist Settings -->
+	<div class="card depends-on-custom-player">
+		<div class="card-header">
+			<span class="icon">🎶</span>
+			<h2>Playlist</h2>
+		</div>
+		<div class="card-content">
+			<div class="setting-item select-item">
+				<label for="customPlaylistMode">Default Playlist Visibility Mode</label>
+				<div class="select-wrapper">
+					<select id="customPlaylistMode">
+						<option value="below-video">Start Below Video</option>
+						<option value="closed">Start Fully Closed</option>
+						<option value="opened">Start Fully Open</option>
+						<option value="fixed-below-video">Fixed Below Video</option>
+						<option value="fixed-fully-open">Fixed Fully Open</option>
+						<option value="disabled">Disabled (Use YouTube's playlist)</option>
+					</select>
+				</div>
+			</div>
+			<div class="depends-on-playlist-enabled" id="return-to-default-mode-setting-container" style="margin-top: 24px;">
+				<div class="setting-item toggle-item" id="returnToDefaultToggleItemContainer">
+					<div class="toggle-label-group" data-target-id="returnToDefaultModeOnVideoSelect">
+						<div class="toggle-label-main">Return to Default Mode On Video Select</div>
+						<div class="toggle-label-description">Automatically revert to the default visibility mode after clicking on a video from the playlist.</div>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="returnToDefaultModeOnVideoSelect">
+						<span class="switch-slider"></span>
+					</label>
+				</div>
+			</div>
+			<fieldset class="depends-on-playlist-enabled" style="margin-top: 24px; padding-top:24px; border-top: 1px solid var(--md-color-divider);">
+				<div class="setting-item select-item">
+					<label for="playlistItemDensity">Item Density</label>
+					<div class="select-wrapper">
+						<select id="playlistItemDensity">
+							<option value="comfortable">Comfortable</option>
+							<option value="compact">Compact</option>
+						</select>
+					</div>
+				</div>
+				<div class="setting-item toggle-item">
+					<div class="toggle-label-group" data-target-id="allowMultilinePlaylistTitles">
+						<div class="toggle-label-main">Allow multi-line titles</div>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="allowMultilinePlaylistTitles">
+						<span class="switch-slider"></span>
+					</label>
+				</div>
+				<div class="setting-item toggle-item">
+					<div class="toggle-label-group" data-target-id="keepPlaylistFocused">
+						<div class="toggle-label-main">Keep current item focused</div>
+						<div class="toggle-label-description">Auto-scroll to the active video.</div>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="keepPlaylistFocused">
+						<span class="switch-slider"></span>
+					</label>
+				</div>
+			</fieldset>
+		</div>
+	</div>
+
+	<!-- Player Behavior -->
+	<div class="card depends-on-custom-player">
+		<div class="card-header">
+			<span class="icon">▶️</span>
+			<h2>Behavior</h2>
+		</div>
+		<div class="card-content">
+			<div class="setting-item select-item">
+				<label for="parsingPreference">Video Information Display</label>
+				<div class="select-wrapper">
+					<select id="parsingPreference">
+						<option value="original">Use Original Video Title & Channel Name</option>
+						<option value="parsed">Attempt to Parse Artist & Title (Music)</option>
+					</select>
+				</div>
+				<p class="description">
+					&bull; 'Use Original' always shows YouTube's default video title and channel name.<br>
+					&bull; 'Attempt to Parse' tries to extract the artist and track information from the video title (e.g. "Artist - Track")- reverts to original on fail
+					<i>(may cause undesired effects on non-music videos).</i>
+				</p>
+			</div>
+			<div class="setting-item toggle-item">
+				<div class="toggle-label-group" data-target-id="playlistRemoveSame">
+					<div class="toggle-label-main">Remove Items with Matching Titles</div>
+					<div class="toggle-label-description">Useful for preventing multiple of the same music videos in the playlist.
+					</div>
+				</div>
+				<label class="toggle-switch">
+					<input type="checkbox" id="playlistRemoveSame">
+					<span class="switch-slider"></span>
+				</label>
+			</div>
+			<fieldset id="playlist-remove-same-fieldset" style="margin-bottom: 24px;">
+				<div class="setting-item toggle-item">
+					<div class="toggle-label-group" data-target-id="allowDifferentVersions">
+						<div class="toggle-label-main">Allow Different Versions</div>
+						<div class="toggle-label-description">Useful for allowing different versions of the same music video (remixes for example).</div>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="allowDifferentVersions">
+						<span class="switch-slider"></span>
+					</label>
+				</div>
+			</fieldset>
+			<div class="setting-item select-item">
+				<label for="previousButtonBehavior">'Previous' Button Behavior</label>
+				<div class="select-wrapper">
+					<select id="previousButtonBehavior">
+						<option value="smart">Smart (Restart, then Previous)</option>
+						<option value="alwaysPrevious">Always Go to Previous</option>
+					</select>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Gesture Controls -->
+	<div class="card depends-on-custom-player">
+		<div class="card-header">
+			<span class="icon">🖐️</span>
+			<h2>Gesture Controls</h2>
+		</div>
+		<div class="card-content">
+			<div class="setting-item toggle-item">
+				<div class="toggle-label-group" data-target-id="enableGestures">
+					<div class="toggle-label-main">Enable Gesture Controls</div>
+					<div class="toggle-label-description">Use swipes to control playback.</div>
+				</div>
+				<label class="toggle-switch">
+					<input type="checkbox" id="enableGestures">
+					<span class="switch-slider"></span>
+				</label>
+			</div>
+			<fieldset id="gesture-controls-fieldset">
+				<div class="setting-item select-item">
+					<label for="gestureSingleSwipeLeftAction">Single Finger Swipe Left</label>
+					<div class="select-wrapper"><select id="gestureSingleSwipeLeftAction"><option value="unassigned">Unassigned</option><option value="restartCurrentVideo">Restart Current Video</option><option value="previousVideoOnly">Previous Video Only</option><option value="restartPreviousVideo">Restart then Previous (Smart)</option><option value="nextVideo">Next Video</option><option value="playPause">Play/Pause</option><option value="toggleVoiceSearch">Toggle Voice Search</option><option value="seekBackward10">Seek Backward (10s)</option><option value="seekForward10">Seek Forward (10s)</option><option value="togglePlaylist">Toggle Playlist Drawer</option></select></div>
+				</div>
+				<div class="setting-item select-item">
+					<label for="gestureSingleSwipeRightAction">Single Finger Swipe Right</label>
+					<div class="select-wrapper"><select id="gestureSingleSwipeRightAction"><option value="unassigned">Unassigned</option><option value="restartCurrentVideo">Restart Current Video</option><option value="previousVideoOnly">Previous Video Only</option><option value="restartPreviousVideo">Restart then Previous (Smart)</option><option value="nextVideo">Next Video</option><option value="playPause">Play/Pause</option><option value="toggleVoiceSearch">Toggle Voice Search</option><option value="seekBackward10">Seek Backward (10s)</option><option value="seekForward10">Seek Forward (10s)</option><option value="togglePlaylist">Toggle Playlist Drawer</option></select></div>
+				</div>
+				<div class="setting-item select-item">
+					<label for="gestureTwoFingerSwipeUpAction">Two Finger Swipe Up</label>
+					<div class="select-wrapper"><select id="gestureTwoFingerSwipeUpAction"><option value="unassigned">Unassigned</option><option value="restartCurrentVideo">Restart Current Video</option><option value="previousVideoOnly">Previous Video Only</option><option value="restartPreviousVideo">Restart then Previous (Smart)</option><option value="nextVideo">Next Video</option><option value="playPause">Play/Pause</option><option value="toggleVoiceSearch">Toggle Voice Search</option><option value="seekBackward10">Seek Backward (10s)</option><option value="seekForward10">Seek Forward (10s)</option><option value="togglePlaylist">Toggle Playlist Drawer</option></select></div>
+				</div>
+				<div class="setting-item select-item">
+					<label for="gestureTwoFingerSwipeDownAction">Two Finger Swipe Down</label>
+					<div class="select-wrapper"><select id="gestureTwoFingerSwipeDownAction"><option value="unassigned">Unassigned</option><option value="restartCurrentVideo">Restart Current Video</option><option value="previousVideoOnly">Previous Video Only</option><option value="restartPreviousVideo">Restart then Previous (Smart)</option><option value="nextVideo">Next Video</option><option value="playPause">Play/Pause</option><option value="toggleVoiceSearch">Toggle Voice Search</option><option value="seekBackward10">Seek Backward (10s)</option><option value="seekForward10">Seek Forward (10s)</option><option value="togglePlaylist">Toggle Playlist Drawer</option></select></div>
+				</div>
+				<div class="setting-item select-item">
+					<label for="gestureTwoFingerSwipeLeftAction">Two Finger Swipe Left</label>
+					<div class="select-wrapper"><select id="gestureTwoFingerSwipeLeftAction"><option value="unassigned">Unassigned</option><option value="restartCurrentVideo">Restart Current Video</option><option value="previousVideoOnly">Previous Video Only</option><option value="restartPreviousVideo">Restart then Previous (Smart)</option><option value="nextVideo">Next Video</option><option value="playPause">Play/Pause</option><option value="toggleVoiceSearch">Toggle Voice Search</option><option value="seekBackward10">Seek Backward (10s)</option><option value="seekForward10">Seek Forward (10s)</option><option value="togglePlaylist">Toggle Playlist Drawer</option></select></div>
+				</div>
+				<div class="setting-item select-item">
+					<label for="gestureTwoFingerSwipeRightAction">Two Finger Swipe Right</label>
+					<div class="select-wrapper"><select id="gestureTwoFingerSwipeRightAction"><option value="unassigned">Unassigned</option><option value="restartCurrentVideo">Restart Current Video</option><option value="previousVideoOnly">Previous Video Only</option><option value="restartPreviousVideo">Restart then Previous (Smart)</option><option value="nextVideo">Next Video</option><option value="playPause">Play/Pause</option><option value="toggleVoiceSearch">Toggle Voice Search</option><option value="seekBackward10">Seek Backward (10s)</option><option value="seekForward10">Seek Forward (10s)</option><option value="togglePlaylist">Toggle Playlist Drawer</option></select></div>
+				</div>
+				<div class="setting-item select-item">
+					<label for="gestureTwoFingerPressAction">Two Finger Tap</label>
+					<div class="select-wrapper"><select id="gestureTwoFingerPressAction"><option value="unassigned">Unassigned</option><option value="restartCurrentVideo">Restart Current Video</option><option value="previousVideoOnly">Previous Video Only</option><option value="restartPreviousVideo">Restart then Previous (Smart)</option><option value="nextVideo">Next Video</option><option value="playPause">Play/Pause</option><option value="toggleVoiceSearch">Toggle Voice Search</option><option value="seekBackward10">Seek Backward (10s)</option><option value="seekForward10">Seek Forward (10s)</option><option value="togglePlaylist">Toggle Playlist Drawer</option></select></div>
+				</div>
+				<div class="setting-item toggle-item">
+					<div class="toggle-label-group" data-target-id="showGestureFeedback">
+						<div class="toggle-label-main">Show Gesture Feedback</div>
+						<div class="toggle-label-description">Display an icon overlay on gesture.</div>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="showGestureFeedback">
+						<span class="switch-slider"></span>
+					</label>
+				</div>
+			</fieldset>
+		</div>
+	</div>
+
+	<!-- YouTube Page Settings -->
+	<div class="card">
+		<div class="card-header">
+			<span class="icon">📄</span>
+			<h2>YouTube Behaviors</h2>
+		</div>
+		<div class="card-content">
+			<div class="setting-item select-item">
+				<label for="autoPlayPreference">Autoplay</label>
+				<div class="select-wrapper">
+					<select id="autoPlayPreference">
+						<option value="default">Default (YouTube's behavior)</option>
+						<option value="attemptUnmuted">Attempt Unmuted Autoplay</option>
+					</select>
+				</div>
+				<p class="description">&bull; 'Default' no change to inital page load.<br>&bull; 'Attempt Unmuted Autoplay' first unmutes the video and then closes the large play splash icon over the video, this primes the video to play (however, your browser may then automatically pause video).</p>
+			</div>
+			<div class="setting-item toggle-item">
+				<div class="toggle-label-group" data-target-id="autoClickContinueWatching">
+					<div class="toggle-label-main">Always keep watching</div>
+					<div class="toggle-label-description">Auto-dismiss the native "Continue Watching?" and "Ready to shop?" dialogs.</div>
+				</div>
+				<label class="toggle-switch">
+					<input type="checkbox" id="autoClickContinueWatching">
+					<span class="switch-slider"></span>
+				</label>
+			</div>
+			<div class="setting-item toggle-item">
+				<div class="toggle-label-group" data-target-id="fixNativePlaylistScroll">
+					<div class="toggle-label-main">Auto-scroll native playlist <span class="badge fix-badge">Fix</span></div>
+					<div class="toggle-label-description">A fix to correctly auto-scroll the native playlist area to the playing video.</div>
+				</div>
+				<label class="toggle-switch">
+					<input type="checkbox" id="fixNativePlaylistScroll">
+					<span class="switch-slider"></span>
+				</label>
+			</div>
+			<div class="setting-item toggle-item">
+				<div class="toggle-label-group" data-target-id="allowBackgroundPlay">
+					<div class="toggle-label-main">Allow background playback</div>
+					<div class="toggle-label-description">Use YouTube while on another tab or app, or while your screen is off.</div>
+				</div>
+				<label class="toggle-switch">
+					<input type="checkbox" id="allowBackgroundPlay">
+					<span class="switch-slider"></span>
+				</label>
+			</div>
+			<div class="setting-item toggle-item">
+				<div class="toggle-label-group" data-target-id="enableMediaSessionHandlers">
+					<div class="toggle-label-main">Media key playlist navigation <span class="badge fix-badge">Fix</span></div>
+					<div class="toggle-label-description">Prevents Android notification and Bluetooth media keys from skipping outside the current playlist to suggested videos.</div>
+				</div>
+				<label class="toggle-switch">
+					<input type="checkbox" id="enableMediaSessionHandlers">
+					<span class="switch-slider"></span>
+				</label>
+			</div>
+		</div>
+	</div>
+
+	<!-- Developer Settings -->
+	<div class="card">
+		<div class="card-header">
+			<span class="icon">🐞</span>
+			<h2>Developer</h2>
+		</div>
+		<div class="card-content">
+			<div class="setting-item toggle-item">
+				<div class="toggle-label-group" data-target-id="enableDebugLogging">
+					<div class="toggle-label-main">Enable Debug Logging</div>
+					<div class="toggle-label-description">Show detailed diagnostic messages in the browser console. Useful for troubleshooting.</div>
+				</div>
+				<label class="toggle-switch">
+					<input type="checkbox" id="enableDebugLogging">
+					<span class="switch-slider"></span>
+				</label>
+			</div>
+		</div>
+	</div>
+</main>
+</div>
+
+<div id="status-snackbar">Settings saved!</div>
+
+<script src="options.js"></script>
+</body>
+</html>

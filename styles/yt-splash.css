@@ -1,0 +1,39 @@
+/* Prevent scroll on splash */
+html.yt-pageload,
+html.yt-pageload body {
+	overflow: hidden !important;
+	pointer-events: none !important;
+}
+
+#splash-screen {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background-color: #ffffff;
+	z-index: 999999;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: opacity 2s ease;
+	pointer-events: none;
+}
+
+#splash-screen img {
+	max-width: 150px;
+	max-height: 150px;
+	animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+	0% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.1);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
