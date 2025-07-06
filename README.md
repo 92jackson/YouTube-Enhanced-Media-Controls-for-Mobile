@@ -1,10 +1,12 @@
 # YouTube Enhanced Media Controls (for Mobile)
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Firefox](https://img.shields.io/badge/Firefox-Compatible-FF7139.svg?logo=firefoxbrowser&logoColor=white)
 ![Kiwi Browser](https://img.shields.io/badge/Kiwi%20Browser-Compatible-00C851.svg)
 ![Edge](https://img.shields.io/badge/Edge-Coming%20Soon-FFA500.svg?logo=microsoftedge&logoColor=white)
+
+![Screenshot](https://addons.mozilla.org/user-media/previews/full/325/325301.png?modified=1751767591)
 
 A mobile browser extension that enhances the YouTube mobile experience (m.youtube.com) with improved media controls, custom player interface, gesture support, and accessibility features.
 
@@ -49,13 +51,16 @@ This extension was originally developed to provide a more user friendly interfac
 
 ## 📦 Installation
 
-### From Source
+### Firefox
 
-1. Clone or download this repository
-2. **For Firefox**: Navigate to `about:debugging`, click "This Firefox", then "Load Temporary Add-on"
-3. **For Kiwi Browser**: Navigate to `chrome://extensions/`, enable "Developer mode", then "Load unpacked"
-4. Select the extension directory
-5. The extension will be installed and ready to use on YouTube mobile (`m.youtube.com`)
+Install the extension from the [Firefox Browser ADD-ONS](https://addons.mozilla.org/en-GB/firefox/addon/yt-enhanced-media-controls/) store.
+
+### Kiwi Browser
+
+1. Download the project's .zip file.
+2. Open Kiwi Browser and navigate to `kiwi://extensions`.
+3. Enable "Developer mode".
+4. Click "+ (from .zip/.crx/.user.js)" and select the downloaded `.zip` file.
 
 ### Browser Compatibility
 
