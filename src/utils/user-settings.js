@@ -37,8 +37,8 @@ window.userSettings = {
 	showGestureFeedback: true,
 	enableDebugLogging: false,
 	enableCustomNavbar: true,
-	navbarShowMixes: true,
-	navbarShowPlaylists: true,
+	navbarShowMixes: false,
+	navbarShowPlaylists: false,
 	navbarShowLive: false,
 	navbarShowMusic: false,
 	navbarShowTextSearch: true,
@@ -47,6 +47,9 @@ window.userSettings = {
 	playlistRemoveSame: false,
 	allowDifferentVersions: false,
 	enableMediaSessionHandlers: true,
+	alwaysHideDesktopBanner: false,
+	spoofUserAgent: false,
+	autoSkipAds: false,
 };
 
 /**
@@ -79,4 +82,49 @@ window.loadUserSettings = async function () {
 	}
 
 	logger.warn('Settings', 'Storage API not available, using default settings', true);
+};
+
+/**
+ * Saves a specific user setting to storage and updates the local userSettings object.
+ * @param {string} key - The setting key to save
+ * @param {any} value - The value to save
+ * @returns {Promise<boolean>} - Returns true if successful, false otherwise
+ */
+window.saveUserSetting = async function (key, value) {
+	const storageLocal = window.storageApi?.local;
+	logger.log('Settings', `Saving user setting: ${key} = ${value}`);
+
+	if (!storageLocal) {
+		logger.warn('Settings', 'Storage API not available, cannot save setting', true);
+		return false;
+	}
+
+	try {
+		// Update local settings object
+		window.userSettings[key] = value;
+
+		// Save to storage
+		const settingToSave = { [key]: value };
+
+		// Check for promise-based vs callback-based API
+		if (storageLocal.set.length === 1) {
+			await storageLocal.set(settingToSave);
+		} else {
+			await new Promise((resolve, reject) => {
+				storageLocal.set(settingToSave, () => {
+					if (chrome.runtime.lastError) {
+						reject(chrome.runtime.lastError);
+					} else {
+						resolve();
+					}
+				});
+			});
+		}
+
+		logger.log('Settings', `Successfully saved setting: ${key}`);
+		return true;
+	} catch (err) {
+		logger.error('Settings', `Failed to save setting ${key}:`, err);
+		return false;
+	}
 };

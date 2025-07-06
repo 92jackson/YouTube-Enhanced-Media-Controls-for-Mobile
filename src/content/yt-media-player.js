@@ -161,6 +161,20 @@ class YTMediaPlayer {
 	}
 
 	/**
+	 * Toggle ad display mode and update the title accordingly
+	 */
+	setAdState(isAd) {
+		this.isAdPlaying = !!isAd;
+		if (this.playerWrapper) {
+			if (this.isAdPlaying) {
+				this.playerWrapper.classList.add('yt-ad-showing');
+			} else {
+				this.playerWrapper.classList.remove('yt-ad-showing');
+			}
+		}
+	}
+
+	/**
 	 * Main initialization method
 	 */
 	_initialize() {
@@ -229,6 +243,7 @@ class YTMediaPlayer {
 		// Add playlist if not disabled
 		if (this.options.customPlaylistMode !== DrawerMode.DISABLED) {
 			const playlistElement = this._createPlaylistElement();
+			this.playlistWrapper = playlistElement.querySelector('.yt-playlist-wrapper');
 			wrapper.appendChild(playlistElement);
 		}
 
@@ -270,7 +285,14 @@ class YTMediaPlayer {
 		videoTitle.className = 'yt-video-title';
 		const titleText = this.options.nowPlayingVideoDetails.title || '';
 		const authorText = this.options.nowPlayingVideoDetails.author || '';
-		videoTitle.textContent = titleText;
+		const adIndicator = document.createElement('span');
+		adIndicator.className = 'yt-ad-indicator';
+		adIndicator.textContent = 'AD. Up next:';
+		videoTitle.appendChild(adIndicator);
+		const videoTitleText = document.createElement('span');
+		videoTitleText.className = 'yt-video-title-text';
+		videoTitleText.textContent = titleText;
+		videoTitle.appendChild(videoTitleText);
 		const authorCompact = document.createElement('span');
 		authorCompact.className = 'yt-video-author-compact';
 		authorCompact.textContent = authorText;
@@ -426,6 +448,46 @@ class YTMediaPlayer {
 		playlistWrapper.className = 'yt-playlist-wrapper';
 		playerDrawer.appendChild(playlistWrapper);
 
+		// Create playlist spinner
+		const playlistSpinner = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		playlistSpinner.setAttribute('class', 'yt-playlist-spinner');
+		playlistSpinner.setAttribute('viewBox', '0 0 24 24');
+		const bufferingCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+		bufferingCircle.setAttribute('cx', '12');
+		bufferingCircle.setAttribute('cy', '12');
+		bufferingCircle.setAttribute('r', '10');
+		bufferingCircle.setAttribute('fill', 'none');
+		bufferingCircle.setAttribute('stroke', 'currentColor');
+		bufferingCircle.setAttribute('stroke-width', '2');
+		bufferingCircle.setAttribute('stroke-linecap', 'round');
+		bufferingCircle.setAttribute('stroke-dasharray', '31.416');
+		bufferingCircle.setAttribute('stroke-dashoffset', '31.416');
+
+		// Create animations
+		const dashArrayAnim = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+		dashArrayAnim.setAttribute('attributeName', 'stroke-dasharray');
+		dashArrayAnim.setAttribute('dur', '2s');
+		dashArrayAnim.setAttribute('values', '0 31.416;15.708 15.708;0 31.416');
+		dashArrayAnim.setAttribute('repeatCount', 'indefinite');
+		bufferingCircle.appendChild(dashArrayAnim);
+
+		const dashOffsetAnim = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+		dashOffsetAnim.setAttribute('attributeName', 'stroke-dashoffset');
+		dashOffsetAnim.setAttribute('dur', '2s');
+		dashOffsetAnim.setAttribute('values', '0;-15.708;-31.416');
+		dashOffsetAnim.setAttribute('repeatCount', 'indefinite');
+		bufferingCircle.appendChild(dashOffsetAnim);
+
+		playlistSpinner.appendChild(bufferingCircle);
+		playerDrawer.appendChild(playlistSpinner);
+
+		const spinner = document.createElement('div');
+		spinner.className = 'yt-playlist-spinner';
+		const spinnerInner = document.createElement('div');
+		spinnerInner.className = 'yt-spinner';
+		spinner.appendChild(spinnerInner);
+		playerDrawer.appendChild(spinner);
+
 		fragment.appendChild(playerDrawer);
 
 		return fragment;
@@ -452,7 +514,10 @@ class YTMediaPlayer {
 		restartSvg.setAttribute('class', 'icon restart');
 		restartSvg.setAttribute('viewBox', '0 0 24 24');
 		const restartPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-		restartPath.setAttribute('d', 'M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6s-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8S16.42 4 12 4z');
+		restartPath.setAttribute(
+			'd',
+			'M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6s-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8S16.42 4 12 4z'
+		);
 		restartSvg.appendChild(restartPath);
 		button.appendChild(restartSvg);
 
@@ -549,12 +614,18 @@ class YTMediaPlayer {
 
 		// Create first path (microphone)
 		const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-		path1.setAttribute('d', 'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z');
+		path1.setAttribute(
+			'd',
+			'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z'
+		);
 		group.appendChild(path1);
 
 		// Create second path (stand)
 		const path2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-		path2.setAttribute('d', 'M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z');
+		path2.setAttribute(
+			'd',
+			'M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z'
+		);
 		group.appendChild(path2);
 
 		voiceSvg.appendChild(group);
@@ -590,7 +661,7 @@ class YTMediaPlayer {
 
 		// Video details
 		this.thumbnailElement = this.playerWrapper.querySelector('.yt-thumbnail');
-		this.videoTitleElement = this.playerWrapper.querySelector('.yt-video-title');
+		this.videoTitleElement = this.playerWrapper.querySelector('.yt-video-title-text');
 		this.videoAuthorElement = this.playerWrapper.querySelector('.yt-video-author');
 		this.videoAuthorCompactElement = this.playerWrapper.querySelector(
 			'.yt-video-author-compact'
@@ -1133,7 +1204,7 @@ class YTMediaPlayer {
 	 * Update playlist visibility state
 	 */
 	_updatePlaylistVisibility() {
-		const hasItems = !!(this.options.currentPlaylist?.items?.length > 0);
+		const hasItems = !!this.options.currentPlaylist?.items;
 		const isEnabled = this.options.customPlaylistMode !== DrawerMode.DISABLED;
 
 		this.hasPlaylist = hasItems && isEnabled;
@@ -1605,15 +1676,20 @@ class YTMediaPlayer {
 	 */
 	_createGestureIconSVG(actionName) {
 		const iconPaths = {
-			restartCurrentVideo: 'M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6s-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8S16.42 4 12 4z',
+			restartCurrentVideo:
+				'M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6s-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8S16.42 4 12 4z',
 			restartPreviousVideo: 'M6 6h2v12H6zm3.5 6l8.5 6V6z',
 			previousVideoOnly: 'M6 6h2v12H6zm3.5 6l8.5 6V6z',
 			nextVideo: 'M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z',
 			playPause: this.playButton?.classList.contains('paused')
 				? 'M8 5v14l11-7z'
 				: 'M6 19h4V5H6v14zm8-14v14h4V5h-4z',
-			toggleVoiceSearch: ['M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z', 'M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z'],
-			togglePlaylist: 'M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zm0-10v2h14V7H7z',
+			toggleVoiceSearch: [
+				'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z',
+				'M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z',
+			],
+			togglePlaylist:
+				'M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zm0-10v2h14V7H7z',
 		};
 
 		const pathData = iconPaths[actionName];
@@ -1629,7 +1705,7 @@ class YTMediaPlayer {
 		if (Array.isArray(pathData)) {
 			// For icons with multiple paths (like toggleVoiceSearch)
 			const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-			pathData.forEach(d => {
+			pathData.forEach((d) => {
 				const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 				path.setAttribute('d', d);
 				g.appendChild(path);
@@ -2066,8 +2142,6 @@ class YTMediaPlayer {
 	 * PLAYLIST METHODS
 	 */
 
-
-
 	_createPlaylistItem(item, isActive) {
 		const thumb =
 			item.thumbnailUrl ||
@@ -2322,19 +2396,38 @@ class YTMediaPlayer {
 	/**
 	 * Playlist management
 	 */
-	updatePlaylist(newItems = []) {
+	updatePlaylist(newItems = null) {
+		logger.log('Playlist', 'Updating playlist', newItems);
+		this.options.currentPlaylist.items = newItems;
+
+		if (
+			!this.playlistWrapper ||
+			this.options.customPlaylistMode === DrawerMode.DISABLED ||
+			newItems === null
+		) {
+			this.hasPlaylist = false;
+			this.playerWrapper.classList.remove('yt-playlist-loading');
+			this._updatePlaylistVisibility();
+			this._updateDrawerVisualState();
+			return;
+		}
+
+		if (newItems.length === 0) {
+			while (this.playlistWrapper.firstChild) {
+				this.playlistWrapper.removeChild(this.playlistWrapper.firstChild);
+			}
+			this.playerWrapper.classList.add('yt-playlist-loading');
+			this.hasPlaylist = true;
+			this._updatePlaylistVisibility();
+			this._updateDrawerVisualState();
+			return;
+		}
+
+		this.playerWrapper.classList.remove('yt-playlist-loading');
+
 		// Process items for duplicate handling
 		if (this.options.playlistRemoveSame) {
 			newItems = this._processDuplicateItems(newItems);
-		}
-
-		this.options.currentPlaylist.items = newItems;
-		logger.log('Playlist', 'Updating playlist', newItems);
-
-		if (!this.playlistWrapper || this.options.customPlaylistMode === DrawerMode.DISABLED) {
-			this.hasPlaylist = false;
-			this._updatePlaylistVisibility();
-			return;
 		}
 
 		// Efficient DOM diffing

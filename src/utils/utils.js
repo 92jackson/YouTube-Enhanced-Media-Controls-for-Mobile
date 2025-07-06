@@ -48,7 +48,7 @@ window.logger = (() => {
 	const format = (source, level) => {
 		const sourceColor = getColorForSource(source);
 		const bgStyle = levelStyles[level] ?? `color: ${sourceColor};`;
-		const label = `[YTMP] [${logCaller()}${source}]${level ? ` [${level}]` : ''}`;
+		const label = `[YTEMC] [${logCaller()}${source}]${level ? ` [${level}]` : ''}`;
 		const style = `${bgStyle} font-weight: bold; padding: 2px 4px; border-radius: 2px;`;
 		return [`%c${label}`, style];
 	};
@@ -875,6 +875,11 @@ class ColorUtils {
  */
 const PageUtils = {
 	isVideoWatchPage: () => window.location.pathname === '/watch',
+	isPlaylistPage: () => {
+		if (!PageUtils.isVideoWatchPage()) return false;
+		const urlParams = new URLSearchParams(window.location.search);
+		return urlParams.has('list');
+	},
 	getCurrentVideoIdFromUrl: () => {
 		if (!PageUtils.isVideoWatchPage()) return null;
 		const urlParams = new URLSearchParams(window.location.search);
@@ -885,5 +890,28 @@ const PageUtils = {
 			.replace(/([?&])(?!v=|list=)[^&=]+=[^&]*&?/g, '$1') // Remove all query params except v= and list=
 			.replace(/[?&]$/, '') // Remove trailing & or ?
 			.replace(/#.*$/, ''); // Remove fragment/hash
+	},
+};
+
+/**
+ * Device detection utilities
+ */
+const DeviceUtils = {
+	/**
+	 * Detects if the current browser is running on a mobile device
+	 * @returns {boolean} True if mobile device, false otherwise
+	 */
+	isMobile: () => {
+		const userAgent = navigator.userAgent.toLowerCase();
+		const mobileKeywords = ['android', 'mobile', 'opera mini'];
+
+		// Check user agent for mobile keywords
+		const hasMobileKeyword = mobileKeywords.some((keyword) => userAgent.includes(keyword));
+
+		// Check for touch capability and screen size
+		const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+		const hasSmallScreen = window.screen.width <= 768 || window.innerWidth <= 768;
+
+		return hasMobileKeyword || (isTouchDevice && hasSmallScreen);
 	},
 };

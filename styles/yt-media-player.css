@@ -105,8 +105,8 @@ body.yt-theme-light {
 	--yt-player-button-failed: #f5f5f5;
 	--yt-player-button-failed-hover: #e8e8e8;
 	--yt-player-button-failed-active: #ddd;
-	--yt-player-button-buffering: #f0f0f0;
-	--yt-player-button-buffering-hover: #e8e8e8;
+	--yt-player-button-buffering: #1c1c1c;
+	--yt-player-button-buffering-hover: #333333;
 	--yt-player-shadow-light: rgba(0, 0, 0, 0.1);
 	--yt-player-shadow-medium: rgba(0, 0, 0, 0.15);
 	--yt-player-shadow-heavy: rgba(0, 0, 0, 0.05);
@@ -148,8 +148,8 @@ body.yt-theme-light {
 		--yt-player-button-failed: #f5f5f5;
 		--yt-player-button-failed-hover: #e8e8e8;
 		--yt-player-button-failed-active: #ddd;
-		--yt-player-button-buffering: #f0f0f0;
-		--yt-player-button-buffering-hover: #e8e8e8;
+		--yt-player-button-buffering: #1c1c1c;
+		--yt-player-button-buffering-hover: #333333;
 		--yt-player-shadow-light: rgba(0, 0, 0, 0.1);
 		--yt-player-shadow-medium: rgba(0, 0, 0, 0.15);
 		--yt-player-shadow-heavy: rgba(0, 0, 0, 0.05);
@@ -422,6 +422,28 @@ body.yt-theme-light {
 	overflow: hidden;
 	padding: 0;
 	opacity: 1;
+	position: relative;
+}
+
+.yt-playlist-loading .yt-playlist-wrapper {
+	opacity: 0;
+}
+
+.yt-playlist-spinner {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 50px;
+	height: 50px;
+	transform: translate(-50%, -50%);
+	opacity: 0;
+	transition: opacity 1s ease;
+	pointer-events: none;
+	color: var(--yt-player-playlist-text-primary);
+}
+
+.yt-playlist-loading .yt-playlist-spinner {
+	opacity: 1;
 }
 
 .yt-playlist-wrapper {
@@ -432,6 +454,8 @@ body.yt-theme-light {
 	background-color: var(--yt-player-playlist-bg);
 	box-shadow: inset 0 -2px 8px var(--yt-player-shadow-medium),
 		inset 0 2px 8px var(--yt-player-shadow-medium);
+	opacity: 1;
+	transition: opacity 0.3s ease;
 }
 
 .yt-playlist-item {
@@ -659,6 +683,33 @@ body.yt-theme-light {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	text-shadow: var(--yt-player-text-shadow);
+	position: relative;
+}
+
+.yt-player-wrapper.yt-ad-showing .yt-video-title {
+	padding-left: 60px;
+}
+
+.yt-video-title .yt-ad-indicator {
+	display: none;
+	padding: 2px 5px;
+	font-size: 60%;
+	line-height: 1;
+	text-align: center;
+	white-space: nowrap;
+	vertical-align: middle;
+	border-radius: 4px;
+	color: #ffffff;
+	background-color: #ff0000a6;
+	margin-right: 8px;
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
+	left: 0;
+}
+
+.yt-player-wrapper.yt-ad-showing .yt-video-title .yt-ad-indicator {
+	display: inline-block;
 }
 
 .yt-video-author {

@@ -2,7 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.0.1] - 2024-12-19 - Security & Performance Update
+## [1.0.2] - 2025-07-06 - Desktop Banner & User Agent Spoofing
+
+### Added
+
+-   **Desktop Banner** - Added informational banner on desktop YouTube to promote mobile version
+-   **User Agent Spoofing** - Optional mobile user agent spoofing for desktop users
+-   **Auto-skip Ads** - Added setting in Player Behavior section, allowing automatic skipping of ads when enabled
+-   **Ad Detection** - Added logic to detect ads and update player state accordingly
+-   **Video Element Listener Fix** - Fixed issue where the video element would change as ads play, causing listeners to refer to a non-existent element
+
+### Changed
+
+-   **Video Title Markup Refactor** - Refactored markup for cleaner DOM structure and easier UI updates
+-   **Improved Playlist Management** - Enhanced playlist handling, including better detection and synchronization
+
+## [1.0.1] - 2025-06-29 - Security & Performance Update
 
 ### Changed
 
@@ -11,16 +26,7 @@ All notable changes to this project will be documented in this file.
 -   **Firefox Compatibility** - Resolved Firefox security warnings for content scripts
 -   **Performance Improvements** - Direct DOM manipulation for better performance than HTML parsing
 
-### Technical Details
-
--   Converted `_getHTML()` to `_createPlayerElement()` for main player structure
--   Converted all button creation methods to DOM-based approach (`_createPreviousButton()`, `_createPlayButton()`, etc.)
--   Converted `_getNavbarHTML()` to `_createNavbarElement()` for navigation bar
--   Removed deprecated `_escapeHtml()` method (no longer needed with DOM APIs)
--   Updated all SVG icon creation to use `document.createElementNS()`
--   Updated JSDoc comments to reflect DOM-based implementation
-
-## [1.0.0] - 2024-12-19 - Inital release
+## [1.0.0] - 2025-06-29 - Inital release
 
 ### Added
 

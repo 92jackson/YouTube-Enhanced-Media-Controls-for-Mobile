@@ -31,8 +31,8 @@ const defaultSettings = {
 	allowBackgroundPlay: false,
 	enableDebugLogging: false,
 	enableCustomNavbar: true,
-	navbarShowMixes: true,
-	navbarShowPlaylists: true,
+	navbarShowMixes: false,
+	navbarShowPlaylists: false,
 	navbarShowLive: false,
 	navbarShowMusic: false,
 	navbarShowTextSearch: true,
@@ -41,6 +41,7 @@ const defaultSettings = {
 	playlistRemoveSame: false,
 	allowDifferentVersions: false,
 	enableMediaSessionHandlers: true,
+	autoSkipAds: false,
 };
 
 let statusTimeout = null;

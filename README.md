@@ -45,6 +45,7 @@ This extension was originally developed to provide a more user friendly interfac
 -   **Background Play Support**: Continue playback when switching tabs or minimizing browser
 -   **Continue Watching Popup Handling**: Automatic dismissal of YouTube's continue watching overlays
 -   **Media Key Playlist Navigation Fix**: Prevents Android notification and Bluetooth media keys from skipping outside the current playlist to suggested videos
+-   **Auto Ad Skip**: Skip YouTube ads automatically as they play
 
 ## 📦 Installation
 

@@ -16,7 +16,7 @@
 		"default_title": "YouTube Enhanced Media Controls (for Mobile) Settings"
 	},
 	"background": {
-		"scripts": ["src/background/background.js"]
+		"service_worker": "src/background/background.js"
 	},
 	"declarative_net_request": {
 		"rule_resources": [
@@ -64,10 +64,5 @@
 			"resources": ["src/options/options.html"],
 			"matches": ["*://m.youtube.com/*", "*://www.youtube.com/*", "*://youtube.com/*"]
 		}
-	],
-	"browser_specific_settings": {
-		"gecko": {
-			"id": "youtubemobilemediacontrols@jetrel.net"
-		}
-	}
+	]
 }

@@ -4,6 +4,7 @@ const CSS_SELECTORS = {
 	// Video and player elements
 	videoElement: '#player-container-id video',
 	playerContainer: '#player-container-id',
+	moviePlayer: '#movie_player',
 	playPauseButton: 'button.player-control-play-pause-icon',
 	previousButton: 'button[aria-label="Previous video"]',
 	nextButton: 'button[aria-label="Next video"]',
@@ -13,6 +14,7 @@ const CSS_SELECTORS = {
 	// Playlist elements
 	playlistPanel: 'ytm-engagement-panel',
 	playlistContentWrapper: 'ytm-engagement-panel .engagement-panel-content-wrapper',
+	playlistSpinner: 'ytm-section-list-renderer .spinner',
 	playlistItems: 'ytm-playlist-panel-video-renderer',
 	playlistItemLink: 'a[href*="/watch"]',
 	playlistTitle: [
@@ -25,6 +27,7 @@ const CSS_SELECTORS = {
 	playlistCloseButton: 'ytm-button-renderer.icon-close button',
 	playlistEntryPointButton:
 		'ytm-playlist-panel-entry-point button[aria-label="Show playlist videos"]',
+	playlistSpinner: 'ytm-section-list-renderer .spinner',
 
 	// Video metadata elements
 	metadataSection: 'ytm-slim-video-metadata-section-renderer',
@@ -120,6 +123,17 @@ let isManagingFeatures = false;
 let gettingLateVideoDetails = false;
 
 // --- Utility Classes & Helper Functions ---
+
+/**
+ * Checks if an ad is currently playing by inspecting #movie_player classes
+ * @returns {boolean}
+ */
+function isAdPlaying() {
+	const player = DOMUtils.getElement(CSS_SELECTORS.moviePlayer);
+	return (
+		player?.classList.contains('ad-showing') || player?.classList.contains('ad-interrupting')
+	);
+}
 
 /**
  * Centralized DOM helper functions for common element operations
@@ -867,7 +881,7 @@ async function _handleSmartPrevious() {
 	const videoElement = DOMHelper.findVideoElement();
 	if (videoElement) {
 		if (videoElement.currentTime > 5) {
-			videoElement.currentTime = 0.5; // Restart from 0.5s - not 0s to avoid SponsorBlock breaking feature
+			videoElement.currentTime = 1; // Restart from 1s - not 0s to avoid SponsorBlock breaking feature
 			if (ytPlayerInstance && ytPlayerInstance.isPlayerVisible) {
 				ytPlayerInstance.setCurrentTime(
 					videoElement.currentTime,
@@ -891,8 +905,14 @@ async function _handleSmartPrevious() {
  */
 async function native_handleSkip() {
 	await handlePreemptiveYouTubeButtons();
-	DOMUtils.clickElement(CSS_SELECTORS.nextButton);
-	logger.log('NativePlayer', 'Next video button clicked');
+	if (isAdPlaying()) {
+		const video = DOMHelper.findVideoElement();
+		video.currentTime = video.duration;
+		logger.log('NativePlayer', 'Ad skipped');
+	} else {
+		DOMUtils.clickElement(CSS_SELECTORS.nextButton);
+		logger.log('NativePlayer', 'Next video button clicked');
+	}
 }
 
 /**
@@ -1288,6 +1308,19 @@ function handleSearchSuggestionsChanges() {
 	}
 }
 
+/**
+ * Handles ads based on user settings
+ */
+async function handleAds() {
+	if (ytPlayerInstance) {
+		if (window.userSettings.autoSkipAds && isAdPlaying()) {
+			await native_handleSkip();
+		} else {
+			ytPlayerInstance.setAdState(isAdPlaying());
+		}
+	}
+}
+
 // --- Enhanced Observer Setup ---
 
 /** @type {Element|null} Stores the video element being observed for events. */
@@ -1309,8 +1342,6 @@ async function setupCustomPlayerPageObservers() {
 	}
 	observedVideoElement = videoElement;
 	if (observedVideoElement._customListeners) return;
-
-	logger.log('Observers', 'Setting up observers for custom player.');
 
 	// Video element event listeners
 	const eventHandlers = {
@@ -1360,6 +1391,8 @@ async function setupCustomPlayerPageObservers() {
 			logger.log('Observers', "Video 'loadeddata' event fired.");
 			if (!ytPlayerInstance || !ytPlayerInstance.isPlayerVisible) return;
 
+			handleAds();
+
 			let state = window.PlayState.PAUSED;
 			if (!videoElement.paused && !videoElement.seeking) {
 				state =
@@ -1374,7 +1407,7 @@ async function setupCustomPlayerPageObservers() {
 				newTotalTime = videoElement.duration;
 			}
 
-			await handleLateVideoDetails();
+			//await handleLateVideoDetails();
 		},
 	};
 
@@ -1390,47 +1423,6 @@ async function setupCustomPlayerPageObservers() {
 	});
 
 	videoElement._customListeners = eventHandlers;
-
-	// Playlist observer - wait for native playlist container
-	if (
-		window.userSettings.enableCustomPlayer &&
-		window.userSettings.customPlaylistMode !== 'disabled'
-	) {
-		const playlistContainer = await DOMHelper.findPlaylistContainerAsync(5000);
-		if (playlistContainer) {
-			let playlistUpdateDebounceTimer = null;
-			observerManager.create(
-				'playlist',
-				playlistContainer,
-				() => {
-					clearTimeout(playlistUpdateDebounceTimer);
-					playlistUpdateDebounceTimer = setTimeout(() => {
-						if (!ytPlayerInstance || !ytPlayerInstance.isPlayerVisible) return;
-
-						logger.log('Observers', 'Debounced playlist update triggered.');
-						const data = getPlaylistItemsFromPage();
-						ytPlayerInstance.updatePlaylist(data.items);
-						ytPlayerInstance.setHandleContent({
-							title: data.playlistTitle || 'Up Next',
-							itemCount: data.items.length,
-						});
-					}, 150);
-				},
-				{
-					childList: true,
-					subtree: true,
-					attributes: true,
-					attributeFilter: ['class', 'selected'],
-					attributeOldValue: true,
-				},
-				'Observers'
-			);
-		} else {
-			logger.warn('Observers', 'Playlist container not found, playlist updates may not work');
-		}
-	} else {
-		observerManager.disconnect('playlist');
-	}
 }
 
 /**
@@ -1464,6 +1456,84 @@ function cleanupAllCustomPlayerObservers() {
 	observerManager.disconnect('voiceDialog');
 	observerManager.disconnect('title');
 	logger.log('Observers', 'Custom player observers cleaned up.');
+}
+
+/**
+ * Handles changes to the native playlist panel
+ */
+let stuckPlaylistTimeout = null;
+function handleStuckPlaylist(playlistContainer, itemsFound = false) {
+	const spinner = playlistContainer.querySelector(CSS_SELECTORS.playlistSpinner);
+
+	if (spinner && !stuckPlaylistTimeout && !itemsFound) {
+		logger.log('Observers', 'Playlist spinner detected.');
+		stuckPlaylistTimeout = setTimeout(() => {
+			logger.warn('Observers', 'Playlist seems stuck, attempting to refresh.');
+			const closeButton = DOMUtils.getElement(CSS_SELECTORS.playlistCloseButton);
+			if (closeButton) {
+				DOMUtils.clickElement(closeButton);
+				setTimeout(() => {
+					const entryPoint = DOMUtils.getElement(CSS_SELECTORS.playlistEntryPointButton);
+					if (entryPoint) {
+						DOMUtils.clickElement(entryPoint);
+					}
+				}, 500);
+			}
+			stuckPlaylistTimeout = null;
+		}, 3000);
+	} else if (stuckPlaylistTimeout) {
+		clearTimeout(stuckPlaylistTimeout);
+	}
+}
+
+function handleNativePlaylistChanges() {
+	const playlistContainer = DOMUtils.getElement(CSS_SELECTORS.playlistPanel);
+
+	if (playlistContainer && !observerManager.get('playlist')) {
+		if (
+			window.userSettings.enableCustomPlayer &&
+			window.userSettings.customPlaylistMode !== 'disabled'
+		) {
+			let playlistUpdateDebounceTimer = null;
+			observerManager.create(
+				'playlist',
+				playlistContainer,
+				() => {
+					handleStuckPlaylist(playlistContainer);
+					clearTimeout(playlistUpdateDebounceTimer);
+
+					playlistUpdateDebounceTimer = setTimeout(() => {
+						if (!ytPlayerInstance || !ytPlayerInstance.isPlayerVisible) return;
+
+						logger.log('Observers', 'Debounced playlist update triggered.');
+						const data = getPlaylistItemsFromPage();
+						if (data.items.length > 0) {
+							handleStuckPlaylist(playlistContainer, true);
+						}
+						ytPlayerInstance.updatePlaylist(data.items);
+						ytPlayerInstance.setHandleContent({
+							title: data.playlistTitle || 'Mix',
+							itemCount: data.items.length,
+						});
+					}, 150);
+				},
+				{
+					childList: true,
+					subtree: true,
+					attributes: true,
+					attributeFilter: ['class', 'selected'],
+					attributeOldValue: true,
+				},
+				'Observers'
+			);
+		}
+	} else if (!playlistContainer && observerManager.get('playlist')) {
+		if (ytPlayerInstance && ytPlayerInstance.hasPlaylist) {
+			logger.log('Manager', 'Native playlist panel removed, clearing custom playlist');
+			ytPlayerInstance.updatePlaylist(null);
+			observerManager.disconnect('playlist');
+		}
+	}
 }
 
 // --- Standalone Features ---
@@ -1642,15 +1712,11 @@ async function manageCustomPlayerLifecycle() {
 					videoId: newVideoId,
 				};
 
-				const playlistData = getPlaylistItemsFromPage();
-
 				currentVideoId = newVideoId;
 
 				ytPlayerInstance = new window.YTMediaPlayer({
 					playerContainerSelector: CSS_SELECTORS.playerContainer,
 					nowPlayingVideoDetails: initialDetailsWithMarker,
-					currentPlaylist: playlistData,
-					currentHandleTitle: playlistData.playlistTitle || 'Up Next',
 					callbacks: {
 						onPlayPauseClick: customPlayer_onPlayPauseClick,
 						onPreviousClick: customPlayer_onPreviousClick,
@@ -1667,12 +1733,10 @@ async function manageCustomPlayerLifecycle() {
 					},
 				});
 
+				ytPlayerInstance.updatePlaylist(PageUtils.isPlaylistPage() ? [] : null);
+
 				document.body.appendChild(ytPlayerInstance.playerWrapper);
 				document.body.classList.add('yt-custom-controls-drawn');
-				ytPlayerInstance.setHandleContent({
-					title: playlistData.playlistTitle || 'Up Next',
-					itemCount: playlistData.items.length,
-				});
 				await setupCustomPlayerPageObservers();
 				setAdaptiveColors(initialDetailsWithMarker.thumbnailUrl);
 			} else {
@@ -1762,6 +1826,8 @@ async function manageCustomPlayerLifecycle() {
 			if (ytPlayerInstance && ytPlayerInstance.isPlayerVisible) {
 				ytPlayerInstance.showPlayer();
 			}
+
+			handleAds();
 		} catch (error) {
 			logger.error('Lifecycle', 'Video element not found, timeout.', error);
 		}
@@ -2014,10 +2080,11 @@ async function manageFeatures() {
 	// Manage standalone features
 	await featureManager.manageAll();
 
-	const isOnVideoPage = PageUtils.isVideoWatchPage();
-
 	// Handle autoplay
-	if (isOnVideoPage && window.userSettings.autoPlayPreference === 'attemptUnmuted') {
+	if (
+		PageUtils.isVideoWatchPage() &&
+		window.userSettings.autoPlayPreference === 'attemptUnmuted'
+	) {
 		await attemptStandaloneAutoPlay();
 	}
 
@@ -2070,21 +2137,9 @@ function initializeEventListenersAndObservers() {
 				const isOnVideoPage = PageUtils.isVideoWatchPage();
 				const playerStateNow = PlayerStateManager.getNativePlayerState();
 
-				if (
-					ytPlayerInstance &&
-					ytPlayerInstance.hasPlaylist &&
-					!DOMUtils.getElement(CSS_SELECTORS.playlistPanel)
-				) {
-					logger.log(
-						'Manager',
-						'Native playlist panel removed, clearing custom playlist'
-					);
-					ytPlayerInstance.updatePlaylist([]);
-					observerManager.disconnect('playlist');
-				}
-
 				if (!isManagingFeatures && isOnVideoPage) {
-					if (!ytPlayerInstance && DOMHelper.findVideoElement()) {
+					const currentVideoElement = DOMHelper.findVideoElement();
+					if (!ytPlayerInstance && currentVideoElement) {
 						logger.log(
 							'Manager',
 							'[Observer]: Native video element appeared. Triggering feature management.'
@@ -2096,9 +2151,18 @@ function initializeEventListenersAndObservers() {
 							'[Observer]: Custom player was disconnected from DOM. Triggering feature management for cleanup.'
 						);
 						await manageFeatures();
+					} else if (
+						currentVideoElement &&
+						currentVideoElement !== observedVideoElement
+					) {
+						logger.log(
+							'Manager',
+							'[Observer]: Video element reference changed. Reattaching custom player observers.'
+						);
+						await setupCustomPlayerPageObservers();
 					}
 
-					await handleLateVideoDetails();
+					//await handleLateVideoDetails();
 				}
 
 				lastNativePlayerState = playerStateNow;
@@ -2106,6 +2170,7 @@ function initializeEventListenersAndObservers() {
 
 			handleVoiceSearchDialogChanges();
 			handleSearchSuggestionsChanges();
+			handleNativePlaylistChanges();
 		},
 		{ childList: true, subtree: true },
 		'Manager'
@@ -2345,19 +2410,4 @@ async function main() {
 		);
 	}
 }
-
-// Load settings and initialize features
-/*(async () => {
-	await window.loadUserSettings();
-	logger.log('Main', 'User settings loaded and applied.');
-
-	// Apply initial accent color after settings are loaded
-	if (window.userSettings.customPlayerAccentColor) {
-		applyTheme();
-	}
-
-	// Initial feature management after settings are loaded
-	await featureManager.manageAll();
-})();*/
-
 main();

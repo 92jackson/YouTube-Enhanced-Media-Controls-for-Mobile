@@ -1,0 +1,122 @@
+/* ───────── Banner shell ───────── */
+
+#ytemc-desktop-banner {
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	z-index: 9999;
+
+	background: #ffffff;
+	border-top: 4px solid #cc0000;
+	box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+	font-family: system-ui, sans-serif;
+	color: #222;
+
+	padding: 40px 16px 24px;
+	text-align: center;
+
+	transform: translateY(100%);
+}
+
+#ytemc-desktop-banner.ytemc-banner-visible {
+	animation: ytemc-slide-up 0.5s ease-out forwards;
+}
+
+@keyframes ytemc-slide-up {
+	to {
+		transform: translateY(0);
+	}
+}
+
+/* ───────── Top-right controls ───────── */
+
+.ytemc-banner-controls {
+	position: absolute;
+	top: 12px;
+	right: 12px;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font-size: 14px;
+}
+
+#ytemc-close-banner.ytemc-banner-close {
+	background: transparent;
+	border: none;
+	font-size: 30px;
+	line-height: 1;
+	cursor: pointer;
+	color: #666;
+	padding: 4px;
+	margin-top: 4px;
+}
+
+#ytemc-close-banner.ytemc-banner-close:hover {
+	color: #000;
+}
+
+/* ───────── Main content ───────── */
+
+.ytemc-banner-content {
+	display: flex;
+	flex-direction: row;
+	justify-content: center;
+	align-items: center;
+	gap: 10px;
+}
+
+.ytemc-banner-logo {
+	width: 60px;
+	height: 60px;
+	margin-right: 20px;
+}
+
+.ytemc-banner-text {
+	font-size: 15px;
+	line-height: 1.5;
+	color: #333;
+}
+
+/* ───────── Actions row ───────── */
+
+.ytemc-banner-mobile-actions {
+	margin-top: 16px;
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	gap: 16px;
+	flex-wrap: wrap;
+}
+
+.ytemc-banner-checkbox-container {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+}
+
+.ytemc-banner-link {
+	background-color: #cc0000;
+	color: #fff;
+	font-weight: 600;
+	text-decoration: none;
+	padding: 10px 18px;
+	border-radius: 6px;
+	font-size: 15px;
+	transition: background-color 0.2s ease;
+	white-space: nowrap;
+}
+
+.ytemc-banner-link:hover {
+	background-color: #b30000;
+}
+
+/* ───────── Responsive fallback ───────── */
+
+@media (max-width: 420px) {
+	.ytemc-banner-mobile-actions {
+		flex-direction: column;
+	}
+}
