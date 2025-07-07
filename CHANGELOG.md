@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.3] - 2025-07-07 - Ad Skipping & Gesture Fix
+
+### Added
+
+-   **Added GitHub Link** - Added a link to the project's GitHub repository on the options.html
+-   **Auto reload for Stuck Playlist** - Added a option to automatically fix the native playlist if it becomes stuck
+
+### Changed
+
+-   **Improved Ad Skipping** - Refined ad skipping logic for better reliability
+-   **Fixed 'Restart Current' Gesture** - Corrected an issue where the 'Restart Current' gesture was not working as expected
+-   **Refinded Handling of Unresponsive Native Playlist**
+
 ## [1.0.2] - 2025-07-06 - Desktop Banner & User Agent Spoofing
 
 ### Added
