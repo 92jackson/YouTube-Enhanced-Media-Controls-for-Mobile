@@ -1,14 +1,6 @@
 // Desktop YouTube Banner - Informs users about mobile-only functionality
 
 (async function () {
-	// Check if we're on the main YouTube site (not mobile)
-	if (
-		window.location.hostname !== 'www.youtube.com' &&
-		window.location.hostname !== 'youtube.com'
-	) {
-		return;
-	}
-
 	// Prevent multiple banner injections
 	if (document.getElementById('ytemc-desktop-banner')) {
 		return;
@@ -48,7 +40,7 @@
 		const mainText = document.createTextNode(' is designed exclusively for m.youtube.com');
 		const lineBreak = document.createElement('br');
 		const subText = document.createTextNode(
-			'and it is optimised for Android devices in portrait orientation.'
+			'and is optimised for Android devices held vertically.'
 		);
 
 		textDiv.appendChild(strongText);
@@ -76,8 +68,11 @@
 
 			const checkboxLabel = document.createElement('label');
 			checkboxLabel.htmlFor = 'ytemc-spoof-checkbox';
-			checkboxLabel.textContent = 'Appear to YouTube as a mobile device';
-			checkboxLabel.title = 'Spoofs UserAgent - Prevents redirects to desktop site.';
+			checkboxLabel.appendChild(
+				document.createTextNode('Prevent YouTube from sending you back here')
+			);
+			checkboxLabel.title =
+				'Keeps you on the mobile site by making your device appear as a mobile.';
 
 			checkboxContainer.appendChild(spoofCheckbox);
 			checkboxContainer.appendChild(checkboxLabel);

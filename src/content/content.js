@@ -10,6 +10,7 @@ const CSS_SELECTORS = {
 	nextButton: 'button[aria-label="Next video"]',
 	largePlayButton: 'button.ytp-large-play-button',
 	unmuteButton: 'button.ytp-unmute',
+	adSkipButton: 'button.ytp-ad-skip-button-modern',
 
 	// Playlist elements
 	playlistPanel: 'ytm-engagement-panel',
@@ -128,12 +129,6 @@ let gettingLateVideoDetails = false;
  * Checks if an ad is currently playing by inspecting #movie_player classes
  * @returns {boolean}
  */
-function isAdPlaying() {
-	const player = DOMUtils.getElement(CSS_SELECTORS.moviePlayer);
-	return (
-		player?.classList.contains('ad-showing') || player?.classList.contains('ad-interrupting')
-	);
-}
 
 /**
  * Centralized DOM helper functions for common element operations
@@ -153,129 +148,36 @@ class DOMHelper {
 	}
 
 	/**
+	 * Checks if an ad is currently playing by inspecting #movie_player classes
+	 * @returns {boolean}
+	 */
+	static isAdPlaying() {
+		const player = DOMUtils.getElement(CSS_SELECTORS.moviePlayer);
+		return (
+			player?.classList.contains('ad-showing') ||
+			player?.classList.contains('ad-interrupting')
+		);
+	}
+
+	/**
 	 * Finds playlist container with retry logic
 	 * @param {number} [timeout] - How long to wait
 	 * @returns {Promise<Element|null>}
 	 */
 	static async findPlaylistContainerAsync(timeout = 3000) {
-		const immediate = DOMUtils.getElement(CSS_SELECTORS.playlistPanel);
-		if (immediate) {
-			logger.log(
-				'DOMHelper',
-				'Playlist panel found immediately, checking if items are loaded'
-			);
+		const playlistPanel = DOMUtils.waitForElement(
+			CSS_SELECTORS.playlistPanel,
+			document,
+			timeout
+		);
 
-			// Check if playlist items have actually loaded
-			const contentWrapper = immediate.querySelector(CSS_SELECTORS.playlistContentWrapper);
-			if (contentWrapper) {
-				const playlistItems = contentWrapper.querySelectorAll(CSS_SELECTORS.playlistItems);
-				logger.log('DOMHelper', `Found ${playlistItems.length} playlist items`);
-
-				if (playlistItems.length > 1) {
-					logger.log('DOMHelper', 'Playlist items already loaded, returning container');
-					return immediate;
-				}
-			}
-
-			logger.log('DOMHelper', 'Playlist panel found but items not loaded, waiting for items');
-
-			// Wait for playlist items to load with timeout
-			try {
-				await new Promise((resolve, reject) => {
-					const checkInterval = setInterval(() => {
-						const wrapper = immediate.querySelector(
-							CSS_SELECTORS.playlistContentWrapper
-						);
-						if (wrapper) {
-							const items = wrapper.querySelectorAll(CSS_SELECTORS.playlistItems);
-							if (items.length > 1) {
-								logger.log(
-									'DOMHelper',
-									`Playlist items loaded: ${items.length} items found`
-								);
-								clearInterval(checkInterval);
-								resolve();
-							}
-						}
-					}, 100);
-
-					setTimeout(() => {
-						clearInterval(checkInterval);
-						reject(new Error('Timeout waiting for playlist items'));
-					}, 500); // Half second timeout
-				});
-
-				return immediate;
-			} catch {
-				logger.log(
-					'DOMHelper',
-					'Playlist items failed to load, attempting to refresh playlist'
-				);
-
-				// Close playlist panel
-				const closeButton = immediate.querySelector(CSS_SELECTORS.playlistCloseButton);
-				if (closeButton) {
-					logger.log('DOMHelper', 'Clicking close button to refresh playlist');
-					closeButton.click();
-
-					// Short delay
-					await new Promise((resolve) => setTimeout(resolve, 200));
-
-					// Reopen playlist panel
-					const entryPointButton = document.querySelector(
-						CSS_SELECTORS.playlistEntryPointButton
-					);
-					if (entryPointButton) {
-						logger.log('DOMHelper', 'Clicking entry point button to reopen playlist');
-						entryPointButton.click();
-
-						// Short delay then return the container
-						await new Promise((resolve) => setTimeout(resolve, 200));
-						return immediate;
-					} else {
-						logger.warn(
-							'DOMHelper',
-							'Entry point button not found for reopening playlist'
-						);
-					}
-				} else {
-					logger.warn('DOMHelper', 'Close button not found in playlist panel');
-				}
-
-				return immediate;
-			}
+		if (playlistPanel) {
+			logger.log('DOMHelper', 'Playlist panel found');
+			handleStuckPlaylist(playlistPanel);
+			return playlistPanel;
 		}
 
-		try {
-			return await DOMUtils.waitForElement(CSS_SELECTORS.playlistPanel, document, timeout);
-		} catch {
-			logger.warn('DOMHelper', 'Playlist container not found after waiting');
-			return null;
-		}
-	}
-
-	/**
-	 * Finds title container with retry logic
-	 * @param {number} [timeout] - How long to wait
-	 * @returns {Promise<Element|null>}
-	 */
-	static async findTitleContainerAsync(timeout = 2000) {
-		const selectors = CSS_SELECTORS.titleContainer;
-
-		for (const selector of selectors) {
-			const immediate = DOMUtils.getElement(selector);
-			if (immediate) return immediate;
-		}
-
-		for (const selector of selectors) {
-			try {
-				return await DOMUtils.waitForElement(selector, document, timeout);
-			} catch {
-				// Try next selector
-			}
-		}
-
-		logger.warn('DOMHelper', 'Title container not found after waiting');
+		logger.log('DOMHelper', 'Playlist panel not found');
 		return null;
 	}
 
@@ -875,21 +777,24 @@ async function _handleStandardPrevious() {
 	logger.log('NativePlayer', '[Standard] Previous video button clicked');
 }
 
+async function _handleRestartCurrent() {
+	const videoElement = DOMHelper.findVideoElement();
+	if (videoElement) {
+		videoElement.currentTime = 1; // Restart from 1s - not 0s to avoid SponsorBlock breaking feature
+		if (ytPlayerInstance && ytPlayerInstance.isPlayerVisible) {
+			ytPlayerInstance.setCurrentTime(videoElement.currentTime, videoElement.duration, true);
+		}
+		logger.log('NativePlayer', '[Restart] Video restarted');
+	}
+}
+
 async function _handleSmartPrevious() {
 	await handlePreemptiveYouTubeButtons();
 
 	const videoElement = DOMHelper.findVideoElement();
 	if (videoElement) {
 		if (videoElement.currentTime > 5) {
-			videoElement.currentTime = 1; // Restart from 1s - not 0s to avoid SponsorBlock breaking feature
-			if (ytPlayerInstance && ytPlayerInstance.isPlayerVisible) {
-				ytPlayerInstance.setCurrentTime(
-					videoElement.currentTime,
-					videoElement.duration,
-					true
-				);
-			}
-			logger.log('NativePlayer', '[Smart] Video restarted');
+			_handleRestartCurrent();
 		} else {
 			DOMUtils.clickElement(CSS_SELECTORS.previousButton);
 			logger.log('NativePlayer', '[Smart] Previous video button clicked');
@@ -903,12 +808,22 @@ async function _handleSmartPrevious() {
 /**
  * Enhanced skip handling
  */
+let skipAdTimeout;
 async function native_handleSkip() {
+	clearTimeout(skipAdTimeout);
 	await handlePreemptiveYouTubeButtons();
-	if (isAdPlaying()) {
+	if (DOMHelper.isAdPlaying()) {
 		const video = DOMHelper.findVideoElement();
 		video.currentTime = video.duration;
-		logger.log('NativePlayer', 'Ad skipped');
+
+		// Check for 'Skip Ad' button after short delay and click it
+		skipAdTimeout = setTimeout(() => {
+			const adSkipButton = DOMUtils.getElement(CSS_SELECTORS.adSkipButton);
+			if (adSkipButton) {
+				DOMUtils.clickElement(adSkipButton);
+				logger.log('NativePlayer', 'Ad skipped');
+			} else logger.log('NativePlayer', 'Ad fast-forwarded');
+		}, 500);
 	} else {
 		DOMUtils.clickElement(CSS_SELECTORS.nextButton);
 		logger.log('NativePlayer', 'Next video button clicked');
@@ -1054,7 +969,7 @@ function customPlayer_onGestureTogglePlaylist() {
  * Handles gesture-based restart of current video in the custom player
  */
 function customPlayer_onGestureRestartCurrent() {
-	_handleSmartPrevious();
+	_handleRestartCurrent();
 }
 
 /**
@@ -1069,6 +984,14 @@ async function customPlayer_onGesturePreviousOnly() {
  */
 async function customPlayer_onGestureSmartPrevious() {
 	_handleSmartPrevious();
+}
+
+function customPlayer_onReloadPlaylistClick() {
+	logger.log('Event Handlers', 'Reload Playlist clicked');
+	const playlistPanel = DOMUtils.getElement(CSS_SELECTORS.playlistPanel);
+	if (playlistPanel) {
+		handleStuckPlaylist(playlistPanel, false, true);
+	}
 }
 
 // --- Enhanced Voice Search Handling ---
@@ -1313,10 +1236,10 @@ function handleSearchSuggestionsChanges() {
  */
 async function handleAds() {
 	if (ytPlayerInstance) {
-		if (window.userSettings.autoSkipAds && isAdPlaying()) {
+		if (window.userSettings.autoSkipAds && DOMHelper.isAdPlaying()) {
 			await native_handleSkip();
 		} else {
-			ytPlayerInstance.setAdState(isAdPlaying());
+			ytPlayerInstance.setAdState(DOMHelper.isAdPlaying());
 		}
 	}
 }
@@ -1462,25 +1385,32 @@ function cleanupAllCustomPlayerObservers() {
  * Handles changes to the native playlist panel
  */
 let stuckPlaylistTimeout = null;
-function handleStuckPlaylist(playlistContainer, itemsFound = false) {
+function handleStuckPlaylist(playlistContainer, itemsFound = false, forceReload = false) {
+	if (!window.userSettings.autoReloadStuckPlaylist && !forceReload) return;
+
 	const spinner = playlistContainer.querySelector(CSS_SELECTORS.playlistSpinner);
 
-	if (spinner && !stuckPlaylistTimeout && !itemsFound) {
+	if ((spinner && !stuckPlaylistTimeout && !itemsFound) || forceReload) {
 		logger.log('Observers', 'Playlist spinner detected.');
-		stuckPlaylistTimeout = setTimeout(() => {
-			logger.warn('Observers', 'Playlist seems stuck, attempting to refresh.');
-			const closeButton = DOMUtils.getElement(CSS_SELECTORS.playlistCloseButton);
-			if (closeButton) {
-				DOMUtils.clickElement(closeButton);
-				setTimeout(() => {
-					const entryPoint = DOMUtils.getElement(CSS_SELECTORS.playlistEntryPointButton);
-					if (entryPoint) {
-						DOMUtils.clickElement(entryPoint);
-					}
-				}, 500);
-			}
-			stuckPlaylistTimeout = null;
-		}, 3000);
+		stuckPlaylistTimeout = setTimeout(
+			() => {
+				logger.warn('Observers', 'Playlist seems stuck, attempting to refresh.');
+				const closeButton = DOMUtils.getElement(CSS_SELECTORS.playlistCloseButton);
+				if (closeButton) {
+					DOMUtils.clickElement(closeButton);
+					setTimeout(() => {
+						const entryPoint = DOMUtils.getElement(
+							CSS_SELECTORS.playlistEntryPointButton
+						);
+						if (entryPoint) {
+							DOMUtils.clickElement(entryPoint);
+						}
+					}, 500);
+				}
+				stuckPlaylistTimeout = null;
+			},
+			forceReload ? 100 : 3000
+		);
 	} else if (stuckPlaylistTimeout) {
 		clearTimeout(stuckPlaylistTimeout);
 	}
@@ -1730,6 +1660,7 @@ async function manageCustomPlayerLifecycle() {
 						onGestureRestartCurrent: customPlayer_onGestureRestartCurrent,
 						onGesturePreviousOnly: customPlayer_onGesturePreviousOnly,
 						onGestureSmartPrevious: customPlayer_onGestureSmartPrevious,
+						onReloadPlaylistClick: customPlayer_onReloadPlaylistClick,
 					},
 				});
 

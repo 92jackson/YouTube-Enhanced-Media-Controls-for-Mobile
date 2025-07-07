@@ -17,6 +17,7 @@ window.userSettings = {
 	autoPlayPreference: 'attemptUnmuted',
 	previousButtonBehavior: 'smart',
 	fixNativePlaylistScroll: false,
+	autoReloadStuckPlaylist: true,
 	allowBackgroundPlay: false,
 	customPlayerTheme: 'system',
 	customPlayerAccentColor: 'red',

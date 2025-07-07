@@ -97,6 +97,12 @@
 	font-size: 12px;
 }
 
+.ytemc-banner-checkbox-container label {
+	max-width: 150px;
+	word-wrap: break-word;
+	text-align: left;
+}
+
 .ytemc-banner-link {
 	background-color: #cc0000;
 	color: #fff;

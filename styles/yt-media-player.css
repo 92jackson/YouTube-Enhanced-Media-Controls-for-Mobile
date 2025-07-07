@@ -430,16 +430,39 @@ body.yt-theme-light {
 }
 
 .yt-playlist-spinner {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
 	position: absolute;
 	top: 50%;
 	left: 50%;
-	width: 50px;
-	height: 50px;
 	transform: translate(-50%, -50%);
 	opacity: 0;
 	transition: opacity 1s ease;
 	pointer-events: none;
 	color: var(--yt-player-playlist-text-primary);
+}
+
+.yt-playlist-spinner .yt-spinner {
+	width: 50px;
+	height: 50px;
+}
+
+.yt-playlist-reload-container {
+	opacity: 0;
+	transition: opacity 0.5s ease-in-out;
+}
+
+.yt-playlist-reload-container button {
+	padding: 20px;
+	text-decoration: underline;
+}
+
+.yt-playlist-reload-container {
+	opacity: 1;
+	transition-delay: 4s;
+	pointer-events: all;
 }
 
 .yt-playlist-loading .yt-playlist-spinner {

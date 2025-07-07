@@ -42,6 +42,7 @@ const defaultSettings = {
 	allowDifferentVersions: false,
 	enableMediaSessionHandlers: true,
 	autoSkipAds: false,
+	autoReloadStuckPlaylist: true,
 };
 
 let statusTimeout = null;

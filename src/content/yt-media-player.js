@@ -96,6 +96,7 @@ class YTMediaPlayer {
 				onGestureRestartCurrent: () => {},
 				onGesturePreviousOnly: () => {},
 				onGestureSmartPrevious: () => {},
+				onReloadPlaylistClick: () => {},
 			},
 			...options,
 		};
@@ -450,7 +451,7 @@ class YTMediaPlayer {
 
 		// Create playlist spinner
 		const playlistSpinner = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-		playlistSpinner.setAttribute('class', 'yt-playlist-spinner');
+		playlistSpinner.setAttribute('class', 'yt-spinner');
 		playlistSpinner.setAttribute('viewBox', '0 0 24 24');
 		const bufferingCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
 		bufferingCircle.setAttribute('cx', '12');
@@ -479,14 +480,19 @@ class YTMediaPlayer {
 		bufferingCircle.appendChild(dashOffsetAnim);
 
 		playlistSpinner.appendChild(bufferingCircle);
-		playerDrawer.appendChild(playlistSpinner);
 
-		const spinner = document.createElement('div');
-		spinner.className = 'yt-playlist-spinner';
-		const spinnerInner = document.createElement('div');
-		spinnerInner.className = 'yt-spinner';
-		spinner.appendChild(spinnerInner);
-		playerDrawer.appendChild(spinner);
+		const spinnerContainer = document.createElement('div');
+		spinnerContainer.className = 'yt-playlist-spinner';
+		spinnerContainer.appendChild(playlistSpinner);
+
+		const reloadContainer = document.createElement('div');
+		reloadContainer.className = 'yt-playlist-reload-container';
+		const reloadLink = document.createElement('button');
+		reloadLink.textContent = 'Reload playlist';
+		reloadContainer.appendChild(reloadLink);
+		spinnerContainer.appendChild(reloadContainer);
+
+		playerDrawer.appendChild(spinnerContainer);
 
 		fragment.appendChild(playerDrawer);
 
@@ -1996,6 +2002,14 @@ class YTMediaPlayer {
 
 			this.playlistWrapper.addEventListener('scroll', this._handlePlaylistScroll_bound, {
 				passive: true,
+			});
+		}
+
+		const reloadLink = this.playerWrapper.querySelector('.yt-playlist-reload-container button');
+		if (reloadLink) {
+			reloadLink.addEventListener('click', (e) => {
+				e.preventDefault();
+				this.options.callbacks.onReloadPlaylistClick();
 			});
 		}
 
