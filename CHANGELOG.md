@@ -2,11 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.4] - 2025-07-13
+
+### Added
+
+-   **Play Next Feature** - Context menu option to pick which video in the playlist to play next
+-   **Repeat Play Feature** - Context menu option to play the video on repeat, optional button for the main controls also added
+-   **Blacklist** - Added a context menu option to blacklist videos from showing and playing in playlists
+-   **Remove from Playlist** - Added a context menu option to remove the current video from the current playlist
+-   **Gesture Sensitivity** - Added a setting to adjust the sensitivity of the gestures
+-   **Smart Previous Threshold** - Added a setting to adjust the threshold for the smart previous feature
+
+### Changed
+
+-   **Improved Next/Previous Video Handling**
+-   **Improved Ad Handling**
+-   **Refinded Handling of Unresponsive Native Playlist**
+
 ## [1.0.3] - 2025-07-07 - Ad Skipping & Gesture Fix
 
 ### Added
 
--   **Added GitHub Link** - Added a link to the project's GitHub repository on the options.html
+-   **GitHub Link** - Added a link to the project's GitHub repository on the options.html
 -   **Auto reload for Stuck Playlist** - Added a option to automatically fix the native playlist if it becomes stuck
 
 ### Changed

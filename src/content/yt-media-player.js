@@ -48,6 +48,7 @@ class YTMediaPlayer {
 			customPlayerAccentColor: window.userSettings.customPlayerAccentColor,
 			showPreviousButton: window.userSettings.showPreviousButton,
 			showSkipButton: window.userSettings.showSkipButton,
+			showRepeatButton: window.userSettings.showRepeatButton,
 			customPlayerFontMultiplier: window.userSettings.customPlayerFontMultiplier,
 			playlistItemDensity: window.userSettings.playlistItemDensity,
 			allowMultilinePlaylistTitles: window.userSettings.allowMultilinePlaylistTitles,
@@ -67,6 +68,7 @@ class YTMediaPlayer {
 			gestureTwoFingerSwipeRightAction: window.userSettings.gestureTwoFingerSwipeRightAction,
 			gestureTwoFingerPressAction: window.userSettings.gestureTwoFingerPressAction,
 			showGestureFeedback: window.userSettings.showGestureFeedback,
+			gestureSensitivity: window.userSettings.gestureSensitivity,
 
 			// Data & Initial State
 			nowPlayingVideoDetails: {
@@ -137,6 +139,7 @@ class YTMediaPlayer {
 		// Gesture state
 		this.touchStartInfo = { x: 0, y: 0, time: 0, target: null, fingerCount: 0 };
 		this.isSwipeGestureActive = false;
+		this.longPressTimer = null;
 
 		// Auto-scroll state
 		this.autoScrollFocusTimer = null;
@@ -144,11 +147,10 @@ class YTMediaPlayer {
 
 		// Configuration constants
 		this.MIN_MEANINGFUL_SNAP_DIFFERENCE = 40;
-		this.SWIPE_DISTANCE_THRESHOLD = 60;
-		this.TAP_DISTANCE_THRESHOLD = 60;
-		this.SWIPE_TIME_THRESHOLD = 500;
-		this.SWIPE_VERTICAL_THRESHOLD_RATIO = 0.7;
 		this.playlistScrollDebounceDelay = 2500;
+		
+		// Initialize gesture thresholds based on sensitivity
+		this._updateGestureThresholds();
 
 		// Timers
 		this.gestureFeedbackTimeout = null;
@@ -176,12 +178,54 @@ class YTMediaPlayer {
 	}
 
 	/**
+	 * Update gesture threshold values based on sensitivity setting
+	 */
+	_updateGestureThresholds() {
+		const sensitivity = this.options.gestureSensitivity || 'normal';
+		
+		// Base threshold values (normal sensitivity)
+		const baseSwipeDistance = 60;
+		const baseTapDistance = 60;
+		const baseSwipeTime = 500;
+		const baseVerticalRatio = 0.7;
+		
+		// Sensitivity multipliers
+		const multipliers = {
+			low: { distance: 1.5, time: 0.8, ratio: 0.8 },    // Require more distance, less time, stricter ratio
+			normal: { distance: 1.0, time: 1.0, ratio: 1.0 }, // Default values
+			high: { distance: 0.7, time: 1.2, ratio: 1.2 }    // Require less distance, more time, looser ratio
+		};
+		
+		const multiplier = multipliers[sensitivity] || multipliers.normal;
+		
+		this.SWIPE_DISTANCE_THRESHOLD = Math.round(baseSwipeDistance * multiplier.distance);
+		this.TAP_DISTANCE_THRESHOLD = Math.round(baseTapDistance * multiplier.distance);
+		this.SWIPE_TIME_THRESHOLD = Math.round(baseSwipeTime * multiplier.time);
+		this.SWIPE_VERTICAL_THRESHOLD_RATIO = baseVerticalRatio * multiplier.ratio;
+	}
+
+	/**
+	 * Main initialization method
+	 */
+	async _restoreAllFromMix() {
+		const playlistId = this.options.currentPlaylist.listId;
+		if (!playlistId || !window.userSettings.removedFromMix[playlistId]) return;
+
+		delete window.userSettings.removedFromMix[playlistId];
+		await window.saveUserSetting('removedFromMix', window.userSettings.removedFromMix);
+
+		// Un-hide all items and update the playlist
+		this.updatePlaylist(this.options.currentPlaylist.items);
+	}
+
+	/**
 	 * Main initialization method
 	 */
 	_initialize() {
 		logger.log('Core', 'YTMediaPlayer initialization started.', true);
 
 		this._bindMethods();
+		this._hideContextMenu_bound = this._hideContextMenu.bind(this);
 		this._injectHTML();
 		this._cacheDOMElements();
 		this._applyAppearanceSettings();
@@ -334,6 +378,12 @@ class YTMediaPlayer {
 		const mainControls = document.createElement('div');
 		mainControls.className = 'yt-main-controls';
 
+		// Create left section
+		const leftSection = document.createElement('div');
+		leftSection.className = 'yt-left-section';
+		leftSection.appendChild(this._createRepeatButton());
+		mainControls.appendChild(leftSection);
+
 		// Create button group
 		const buttonGroup = document.createElement('div');
 		buttonGroup.className = 'yt-button-group';
@@ -398,6 +448,11 @@ class YTMediaPlayer {
 
 		const itemCount = this.options.currentPlaylist?.items?.length || 0;
 		const subheaderText = itemCount === 1 ? '1 item' : `${itemCount} items`;
+
+		// Create restore all button
+		const restoreAllButton = document.createElement('button');
+		restoreAllButton.className = 'yt-playlist-restore-all-button yt-button-text';
+		restoreAllButton.textContent = 'Restore all';
 		let headerText = this.options.currentHandleTitle;
 
 		if (this.options.customPlaylistMode === DrawerMode.CLOSED) {
@@ -431,11 +486,17 @@ class YTMediaPlayer {
 		header.textContent = headerText || '';
 		headerContent.appendChild(header);
 
+		// Create subheader container
+		const subheaderContainer = document.createElement('div');
+		subheaderContainer.className = 'yt-playlist-subheader-container';
+
 		// Create subheader
 		const subheader = document.createElement('p');
 		subheader.className = 'yt-drawer-subheader';
 		subheader.textContent = subheaderText || '';
-		headerContent.appendChild(subheader);
+		subheaderContainer.appendChild(subheader);
+		subheaderContainer.appendChild(restoreAllButton);
+		headerContent.appendChild(subheaderContainer);
 
 		dragHandle.appendChild(headerContent);
 		fragment.appendChild(dragHandle);
@@ -640,6 +701,37 @@ class YTMediaPlayer {
 		return button;
 	}
 
+	_createRepeatButton() {
+		const button = document.createElement('button');
+		button.className = 'yt-repeat-button off';
+
+		// Create repeat off icon SVG
+		const repeatOffSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		repeatOffSvg.setAttribute('class', 'icon repeat-off');
+		repeatOffSvg.setAttribute('viewBox', '0 0 24 24');
+		const repeatOffPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		repeatOffPath.setAttribute(
+			'd',
+			'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z'
+		);
+		repeatOffSvg.appendChild(repeatOffPath);
+		button.appendChild(repeatOffSvg);
+
+		// Create repeat on icon SVG
+		const repeatOnSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		repeatOnSvg.setAttribute('class', 'icon repeat-on');
+		repeatOnSvg.setAttribute('viewBox', '0 0 24 24');
+		const repeatOnPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		repeatOnPath.setAttribute(
+			'd',
+			'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z'
+		);
+		repeatOnSvg.appendChild(repeatOnPath);
+		button.appendChild(repeatOnSvg);
+
+		return button;
+	}
+
 	/**
 	 * Cache DOM elements
 	 */
@@ -691,6 +783,7 @@ class YTMediaPlayer {
 		this.voiceButton = this.options.showVoiceButton
 			? this.playerWrapper.querySelector('.yt-voice-search-button')
 			: null;
+		this.repeatButton = this.playerWrapper.querySelector('.yt-repeat-button');
 
 		// Gesture feedback
 		this.gestureFeedbackOverlay = this.playerWrapper.querySelector(
@@ -711,6 +804,21 @@ class YTMediaPlayer {
 		if (this.options.allowMultilinePlaylistTitles) {
 			this.playerWrapper.classList.add('playlist-multiline-titles');
 		}
+
+		// Button visibility
+		if (!this.options.showPreviousButton) {
+			this.playerWrapper.classList.add('hide-prev-button');
+		}
+		if (!this.options.showSkipButton) {
+			this.playerWrapper.classList.add('hide-skip-button');
+		}
+
+		// Repeat button visibility
+		if (this.options.showRepeatButton === 'disabled') {
+			this.playerWrapper.classList.add('hide-repeat-button');
+		} else if (this.options.showRepeatButton === 'show-when-active') {
+			this.playerWrapper.classList.add('hide-repeat-button-when-inactive');
+		}
 	}
 
 	/**
@@ -724,6 +832,9 @@ class YTMediaPlayer {
 			this.options.nowPlayingVideoDetails.currentTime,
 			this.options.nowPlayingVideoDetails.totalTime
 		);
+
+		// Set initial repeat button state
+		this.setRepeatButtonState(false);
 
 		// Update playlist
 		this.updatePlaylist(this.options.currentPlaylist.items);
@@ -1484,9 +1595,52 @@ class YTMediaPlayer {
 	}
 
 	/**
+	 * Check if target is an interactive UI element that should not trigger gestures
+	 */
+	_isInteractiveElement(target) {
+		// Check for buttons and interactive elements
+		if (target.tagName === 'BUTTON' || target.closest('button')) {
+			return true;
+		}
+
+		// Check for specific interactive classes
+		const interactiveSelectors = [
+			'.yt-playlist-restore-all-button',
+			'.yt-player-control-button',
+			'.yt-seekbar-handle',
+			'.yt-seekbar-background',
+			'.yt-drawer-close-button',
+			'[data-action]',
+		];
+
+		for (const selector of interactiveSelectors) {
+			if (target.matches && target.matches(selector)) {
+				return true;
+			}
+			if (target.closest && target.closest(selector)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * GESTURE HANDLERS
 	 */
 	_handleTouchStart(event) {
+		// Block all gesture processing when context menu is open
+		if (this.contextMenu && this.contextMenu.style.display === 'block') {
+			this.isSwipeGestureActive = false;
+			return;
+		}
+
+		// Don't process gestures on interactive UI elements
+		if (this._isInteractiveElement(event.target)) {
+			this.isSwipeGestureActive = false;
+			return;
+		}
+
 		this.touchStartInfo = {
 			x: event.touches[0].clientX,
 			y: event.touches[0].clientY,
@@ -1498,6 +1652,11 @@ class YTMediaPlayer {
 	}
 
 	_handleTouchMove(event) {
+		// Block all gesture processing when context menu is open
+		if (this.contextMenu && this.contextMenu.style.display === 'block') {
+			return;
+		}
+
 		if (!this.isSwipeGestureActive) return;
 
 		const touch = event.touches[0];
@@ -1520,6 +1679,12 @@ class YTMediaPlayer {
 	}
 
 	_handleTouchEnd(event) {
+		// Block all gesture processing when context menu is open
+		if (this.contextMenu && this.contextMenu.style.display === 'block') {
+			this.isSwipeGestureActive = false;
+			return;
+		}
+
 		if (!this.isSwipeGestureActive) {
 			this.isSwipeGestureActive = false;
 			return;
@@ -1582,6 +1747,15 @@ class YTMediaPlayer {
 		}
 
 		if (action && action !== 'unassigned') {
+			// Clear any active playlist item long press timer when gesture is detected
+			if (this.longPressTimer) {
+				clearTimeout(this.longPressTimer);
+				this.longPressTimer = null;
+			}
+			if (this.playlistItemTouchStart) {
+				this.playlistItemTouchStart = null;
+			}
+
 			this._triggerGestureAction(action);
 		}
 	}
@@ -1909,6 +2083,25 @@ class YTMediaPlayer {
 	 * EVENT LISTENER SETUP
 	 */
 	_setupEventListeners() {
+		// Restore all button listener
+		const restoreBtn = this.playerWrapper.querySelector('.yt-playlist-restore-all-button');
+		if (restoreBtn) {
+			restoreBtn.addEventListener('click', (e) => {
+				e.stopPropagation();
+				this._restoreAllFromMix();
+			});
+
+			// Add touch support for better mobile interaction
+			restoreBtn.addEventListener(
+				'touchend',
+				(e) => {
+					e.preventDefault();
+					e.stopPropagation();
+					this._restoreAllFromMix();
+				},
+				{ passive: false }
+			);
+		}
 		if (!this.playButton) {
 			logger.error('Events', 'Cannot setup event listeners, elements not found.', true);
 			return;
@@ -1981,6 +2174,20 @@ class YTMediaPlayer {
 			});
 		}
 
+		if (this.repeatButton) {
+			this.repeatButton.addEventListener('click', () => {
+				if (!this.isPlayerVisible) return;
+
+				const isCurrentlyOn = this.repeatButton.classList.contains('on');
+				const newState = isCurrentlyOn ? 'off' : 'on';
+
+				this.repeatButton.classList.remove('on', 'off');
+				this.repeatButton.classList.add(newState);
+
+				this.options.callbacks.onRepeatClick?.(newState === 'on');
+			});
+		}
+
 		// Playlist interactions
 		if (this.playlistWrapper) {
 			// Use event delegation for playlist items
@@ -1993,10 +2200,7 @@ class YTMediaPlayer {
 					const itemData = this.options.currentPlaylist.items?.find(
 						(item) => String(item.id) === String(itemId)
 					);
-					this.options.callbacks.onPlaylistItemClick?.(
-						itemId,
-						itemData || { id: itemId }
-					);
+					this.options.callbacks.onPlaylistItemClick?.(itemId, true);
 				}
 			});
 
@@ -2139,7 +2343,7 @@ class YTMediaPlayer {
 			}
 		} else {
 			// Smart mode
-			const restartThreshold = 5;
+			const restartThreshold = window.userSettings.smartPreviousThreshold || 5;
 			const shouldShowRestart = this.trackTime > restartThreshold;
 
 			if (shouldShowRestart && !this.prevButton.classList.contains('restart')) {
@@ -2157,6 +2361,8 @@ class YTMediaPlayer {
 	 */
 
 	_createPlaylistItem(item, isActive) {
+		const longPressDuration = 750; // ms
+
 		const thumb =
 			item.thumbnailUrl ||
 			(typeof browser !== 'undefined' ? browser : chrome).runtime.getURL(
@@ -2169,6 +2375,44 @@ class YTMediaPlayer {
 		if (item.id) {
 			container.setAttribute('data-item-id', item.id);
 		}
+
+		// Long press and context menu handling
+		container.addEventListener('contextmenu', (e) => {
+			e.preventDefault();
+			this._showContextMenu(e.clientX, e.clientY, item.id);
+		});
+
+		container.addEventListener('touchstart', (e) => {
+			this.playlistItemTouchStart = {
+				x: e.touches[0].clientX,
+				y: e.touches[0].clientY,
+				time: Date.now(),
+			};
+			this.longPressTimer = setTimeout(() => {
+				// Only show context menu if no significant movement occurred
+				if (this.playlistItemTouchStart) {
+					this._showContextMenu(e.touches[0].clientX, e.touches[0].clientY, item.id);
+				}
+			}, longPressDuration);
+		});
+
+		container.addEventListener('touchend', () => {
+			clearTimeout(this.longPressTimer);
+			this.playlistItemTouchStart = null;
+		});
+
+		container.addEventListener('touchmove', (e) => {
+			if (this.playlistItemTouchStart) {
+				const deltaX = Math.abs(e.touches[0].clientX - this.playlistItemTouchStart.x);
+				const deltaY = Math.abs(e.touches[0].clientY - this.playlistItemTouchStart.y);
+
+				// Cancel long press if movement exceeds threshold (gesture detected)
+				if (deltaX > 15 || deltaY > 15) {
+					clearTimeout(this.longPressTimer);
+					this.playlistItemTouchStart = null;
+				}
+			}
+		});
 
 		// Create thumbnail
 		const thumbnail = document.createElement('div');
@@ -2204,7 +2448,429 @@ class YTMediaPlayer {
 		duration.textContent = item.duration || '0:00';
 		container.appendChild(duration);
 
+		// Create play-next indicator icon (hidden by default)
+		const playNextIcon = document.createElement('div');
+		playNextIcon.className = 'play-next-indicator';
+
+		// Create SVG play icon
+		const playSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		playSvg.setAttribute('viewBox', '0 0 24 24');
+		playSvg.setAttribute('width', '12');
+		playSvg.setAttribute('height', '12');
+		playSvg.style.fill = 'currentColor';
+
+		const playPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		playPath.setAttribute('d', 'M8 5v14l11-7z');
+		playSvg.appendChild(playPath);
+		playNextIcon.appendChild(playSvg);
+
+		container.appendChild(playNextIcon);
+
+		// Create repeat-current indicator icon (hidden by default)
+		const repeatIcon = document.createElement('div');
+		repeatIcon.className = 'repeat-current-indicator';
+
+		// Create SVG repeat icon
+		const repeatSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		repeatSvg.setAttribute('viewBox', '0 0 24 24');
+		repeatSvg.setAttribute('width', '12');
+		repeatSvg.setAttribute('height', '12');
+		repeatSvg.style.fill = 'currentColor';
+
+		const repeatPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		repeatPath.setAttribute(
+			'd',
+			'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z'
+		);
+		repeatSvg.appendChild(repeatPath);
+		repeatIcon.appendChild(repeatSvg);
+
+		container.appendChild(repeatIcon);
+
 		return container;
+	}
+
+	_createContextMenu() {
+		// Create modal overlay
+		const overlay = document.createElement('div');
+		overlay.className = 'yt-context-menu-overlay';
+		overlay.addEventListener('click', (e) => {
+			if (e.target === overlay) {
+				this._hideContextMenu();
+			}
+		});
+
+		// Create modal container
+		const modal = document.createElement('div');
+		modal.className = 'yt-context-menu-modal';
+		modal.addEventListener('click', (e) => e.stopPropagation());
+
+		// Create header
+		const header = document.createElement('div');
+		header.className = 'yt-context-menu-header';
+
+		// Thumbnail
+		const thumbnail = document.createElement('div');
+		thumbnail.className = 'yt-context-menu-thumbnail';
+		header.appendChild(thumbnail);
+
+		// Video info container
+		const videoInfo = document.createElement('div');
+		videoInfo.className = 'yt-context-menu-video-info';
+
+		// Title
+		const title = document.createElement('div');
+		title.className = 'yt-context-menu-title';
+		videoInfo.appendChild(title);
+
+		// Author
+		const author = document.createElement('div');
+		author.className = 'yt-context-menu-author';
+		videoInfo.appendChild(author);
+
+		header.appendChild(videoInfo);
+		modal.appendChild(header);
+
+		// Create content area
+		const content = document.createElement('div');
+		content.className = 'yt-context-menu-content';
+
+		// Play Next option
+		const playNextOption = document.createElement('div');
+		playNextOption.className = 'yt-context-menu-option';
+
+		const playNextIcon = document.createElement('div');
+		playNextIcon.className = 'yt-context-menu-option-icon';
+		const playNextSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		playNextSvg.setAttribute('viewBox', '0 0 24 24');
+		const playNextPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		playNextPath.setAttribute('d', 'M8 5v14l11-7z');
+		playNextSvg.appendChild(playNextPath);
+		playNextIcon.appendChild(playNextSvg);
+
+		const playNextText = document.createElement('div');
+		playNextText.className = 'yt-context-menu-option-text';
+		playNextText.textContent = 'Play next';
+
+		playNextOption.appendChild(playNextIcon);
+		playNextOption.appendChild(playNextText);
+		playNextOption.addEventListener('click', () => {
+			this._setPlayNext(this.contextMenuVideoId);
+			this._hideContextMenu();
+		});
+		content.appendChild(playNextOption);
+
+		// Repeat Current Video option
+		const repeatOption = document.createElement('div');
+		repeatOption.className = 'yt-context-menu-option separator';
+
+		const repeatIcon = document.createElement('div');
+		repeatIcon.className = 'yt-context-menu-option-icon';
+		const repeatSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		repeatSvg.setAttribute('viewBox', '0 0 24 24');
+		const repeatPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		repeatPath.setAttribute(
+			'd',
+			'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z'
+		);
+		repeatSvg.appendChild(repeatPath);
+		repeatIcon.appendChild(repeatSvg);
+
+		const repeatText = document.createElement('div');
+		repeatText.className = 'yt-context-menu-option-text';
+		repeatText.textContent = 'Play this on repeat';
+
+		repeatOption.appendChild(repeatIcon);
+		repeatOption.appendChild(repeatText);
+		repeatOption.addEventListener('click', () => {
+			this._setRepeatCurrent(this.contextMenuVideoId);
+			this._hideContextMenu();
+		});
+		content.appendChild(repeatOption);
+
+		// Remove from mix option
+		const removeOption = document.createElement('div');
+		removeOption.className = 'yt-context-menu-option';
+
+		const removeIcon = document.createElement('div');
+		removeIcon.className = 'yt-context-menu-option-icon';
+		const removeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		removeSvg.setAttribute('viewBox', '0 0 24 24');
+		const removePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		removePath.setAttribute(
+			'd',
+			'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'
+		);
+		removeSvg.appendChild(removePath);
+		removeIcon.appendChild(removeSvg);
+
+		const removeText = document.createElement('div');
+		removeText.className = 'yt-context-menu-option-text';
+		removeText.textContent = 'Remove from this mix';
+
+		removeOption.appendChild(removeIcon);
+		removeOption.appendChild(removeText);
+		removeOption.addEventListener('click', () => {
+			this._removeFromMix(this.contextMenuVideoId);
+			this._hideContextMenu();
+		});
+		content.appendChild(removeOption);
+
+		// Blacklist option
+		const blacklistOption = document.createElement('div');
+		blacklistOption.className = 'yt-context-menu-option';
+
+		const blacklistIcon = document.createElement('div');
+		blacklistIcon.className = 'yt-context-menu-option-icon';
+		const blacklistSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		blacklistSvg.setAttribute('viewBox', '0 0 24 24');
+		const blacklistPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		blacklistPath.setAttribute(
+			'd',
+			'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z'
+		);
+		blacklistSvg.appendChild(blacklistPath);
+		blacklistIcon.appendChild(blacklistSvg);
+
+		const blacklistText = document.createElement('div');
+		blacklistText.className = 'yt-context-menu-option-text';
+		blacklistText.textContent = 'Blacklist this video';
+
+		blacklistOption.appendChild(blacklistIcon);
+		blacklistOption.appendChild(blacklistText);
+		blacklistOption.addEventListener('click', () => {
+			this._blacklistVideo(this.contextMenuVideoId);
+			this._hideContextMenu();
+		});
+		content.appendChild(blacklistOption);
+
+		modal.appendChild(content);
+		overlay.appendChild(modal);
+
+		return overlay;
+	}
+
+	_showContextMenu(x, y, videoId) {
+		// First hide any existing context menu to clean up previous state
+		if (this.contextMenu && this.contextMenu.style.display === 'block') {
+			this._hideContextMenu();
+		}
+
+		if (!this.contextMenu) {
+			this.contextMenu = this._createContextMenu();
+			document.body.appendChild(this.contextMenu);
+		}
+
+		this.contextMenuVideoId = videoId;
+
+		// Find video data from playlist
+		const videoData = this.options.currentPlaylist?.items?.find((item) => item.id === videoId);
+		if (videoData) {
+			// Update header with video info
+			const thumbnail = this.contextMenu.querySelector('.yt-context-menu-thumbnail');
+			const title = this.contextMenu.querySelector('.yt-context-menu-title');
+			const author = this.contextMenu.querySelector('.yt-context-menu-author');
+
+			// Set thumbnail using the utility function
+			const thumbnailUrl =
+				MediaUtils.getStandardThumbnailUrl(videoId) || videoData.thumbnailUrl;
+			if (thumbnailUrl) {
+				thumbnail.style.backgroundImage = `url('${thumbnailUrl}')`;
+			}
+
+			// Set title and author
+			title.textContent = videoData.title || 'Unknown Title';
+			author.textContent = videoData.artist || 'Unknown Artist';
+		}
+
+		// Show modal
+		this.contextMenu.style.display = 'flex';
+		setTimeout(() => {
+			this.contextMenu.classList.add('visible');
+		}, 10);
+
+		// Add context menu active class to the playlist item
+		const playlistItem = this.playlistWrapper?.querySelector(`[data-item-id="${videoId}"]`);
+		if (playlistItem) {
+			playlistItem.classList.add('context-menu-active');
+		}
+
+		// Add click listener to close menu when clicking outside
+		document.addEventListener('click', this._hideContextMenu_bound, true);
+	}
+
+	_hideContextMenu(event) {
+		// If called from an event and the click is outside the context menu, prevent it
+		if (event && this.contextMenu && !this.contextMenu.contains(event.target)) {
+			event.preventDefault();
+			event.stopPropagation();
+		}
+
+		// Remove context menu active class from the playlist item
+		if (this.contextMenuVideoId) {
+			const playlistItem = this.playlistWrapper?.querySelector(
+				`[data-item-id="${this.contextMenuVideoId}"]`
+			);
+			if (playlistItem) {
+				playlistItem.classList.remove('context-menu-active');
+			}
+		}
+
+		if (this.contextMenu) {
+			// Animate out
+			this.contextMenu.classList.remove('visible');
+			setTimeout(() => {
+				this.contextMenu.style.display = 'none';
+			}, 200);
+		}
+		document.removeEventListener('click', this._hideContextMenu_bound, true);
+	}
+
+	async _removeFromMix(videoId) {
+		const listId = this.options.currentPlaylist.listId;
+		if (!listId) {
+			logger.error('Playlist', 'Cannot remove from mix, no listId is set.');
+			return;
+		}
+
+		const settings = window.userSettings;
+		if (!settings.removedFromMix) {
+			settings.removedFromMix = {};
+		}
+		if (!settings.removedFromMix[listId]) {
+			settings.removedFromMix[listId] = [];
+		}
+
+		if (!settings.removedFromMix[listId].includes(videoId)) {
+			settings.removedFromMix[listId].push(videoId);
+			await window.saveUserSetting('removedFromMix', settings.removedFromMix);
+		}
+
+		this.updatePlaylist(this.options.currentPlaylist.items);
+
+		if (this.options.callbacks.onPlaylistItemRemoved) {
+			this.options.callbacks.onPlaylistItemRemoved(videoId);
+		}
+	}
+
+	async _blacklistVideo(videoId) {
+		// Find the video title from current playlist items
+		let videoTitle = 'Unknown Title';
+		if (this.options.currentPlaylist?.items) {
+			const item = this.options.currentPlaylist.items.find((item) => item.id === videoId);
+			if (item && item.title) {
+				videoTitle = item.title;
+			}
+		}
+
+		// Show confirmation dialog
+		const confirmed = confirm(
+			`Are you sure you want to blacklist "${videoTitle}"?\n\nThis will hide and prevent it from playing in all playlists.`
+		);
+
+		if (!confirmed) {
+			return; // User cancelled, don't proceed with blacklisting
+		}
+
+		// Handle both old format (array of strings) and new format (array of objects)
+		const currentBlacklist = window.userSettings.videoBlacklist || [];
+		let newBlacklist;
+
+		// Check if we're dealing with old format (strings) or new format (objects)
+		if (currentBlacklist.length === 0 || typeof currentBlacklist[0] === 'string') {
+			// Convert old format to new format and add new item
+			newBlacklist = currentBlacklist
+				.filter((item) => typeof item === 'string' && item !== videoId) // Remove duplicates from old format
+				.map((id) => ({ id, title: 'Blacklisted Video' })); // Convert old entries
+			newBlacklist.push({ id: videoId, title: videoTitle });
+		} else {
+			// Already new format, just add if not exists
+			newBlacklist = currentBlacklist.filter((item) => item.id !== videoId);
+			newBlacklist.push({ id: videoId, title: videoTitle });
+		}
+
+		await window.saveUserSetting('videoBlacklist', newBlacklist);
+		this.updatePlaylist(this.options.currentPlaylist.items);
+
+		if (this.options.callbacks.onPlaylistItemRemoved) {
+			this.options.callbacks.onPlaylistItemRemoved(videoId);
+		}
+	}
+
+	/**
+	 * Set a video as "Play Next"
+	 */
+	_setPlayNext(videoId, repeats = false) {
+		// Remove previous "next up" indicator
+		this._clearPlayNextIndicator();
+
+		// Set the new next video ID
+		this.nextUpVideoId = videoId;
+
+		// Add visual indicator to the selected item
+		this._addPlayNextIndicator(videoId, repeats);
+
+		// Trigger callback to content.js
+		if (this.options.callbacks.onPlayNextSet) {
+			this.options.callbacks.onPlayNextSet(videoId, repeats);
+		}
+	}
+
+	/**
+	 * Clear the "Play Next" indicator from all playlist items
+	 */
+	_clearPlayNextIndicator() {
+		if (!this.playlistWrapper) return;
+
+		const previousPlayNextItem = this.playlistWrapper.querySelector(
+			'.yt-playlist-item.play-next'
+		);
+		if (previousPlayNextItem) {
+			previousPlayNextItem.classList.remove('play-next');
+		}
+
+		const previousRepeatItem = this.playlistWrapper.querySelector(
+			'.yt-playlist-item.repeat-current'
+		);
+		if (previousRepeatItem) {
+			previousRepeatItem.classList.remove('repeat-current');
+		}
+	}
+
+	/**
+	 * Add "Play Next" indicator to a specific playlist item
+	 */
+	_addPlayNextIndicator(videoId, isRepeat = false) {
+		if (!this.playlistWrapper) return;
+
+		const playlistItem = this.playlistWrapper.querySelector(`[data-item-id="${videoId}"]`);
+		if (playlistItem) {
+			if (isRepeat) {
+				playlistItem.classList.add('repeat-current');
+			} else {
+				playlistItem.classList.add('play-next');
+			}
+		}
+	}
+
+	/**
+	 * Clear the next up video when it has been played
+	 */
+	clearPlayNext() {
+		this._clearPlayNextIndicator();
+		this.nextUpVideoId = null;
+		// Update repeat button visual state
+		this.setRepeatButtonState(false);
+	}
+
+	/**
+	 * Set a video as "Repeat Current"
+	 */
+	_setRepeatCurrent(videoId) {
+		// Use the same logic as play next but with repeats=true
+		this._setPlayNext(videoId, true);
+		// Update repeat button visual state
+		this.setRepeatButtonState(true);
 	}
 
 	/**
@@ -2326,6 +2992,18 @@ class YTMediaPlayer {
 		this.prevButton.classList.add(state);
 	}
 
+	setRepeatButtonState(isEnabled) {
+		if (!this.repeatButton) return;
+
+		this.repeatButton.classList.remove('on', 'off');
+		this.repeatButton.classList.add(isEnabled ? 'on' : 'off');
+
+		// Update player wrapper class for 'show when active' functionality
+		if (this.playerWrapper) {
+			this.playerWrapper.classList.toggle('repeat-active', isEnabled);
+		}
+	}
+
 	/**
 	 * Time control
 	 */
@@ -2366,42 +3044,65 @@ class YTMediaPlayer {
 	}
 
 	/**
-	 * Process items for duplicate handling based on user settings
+	 * Process hidden items for blacklist, removed-from-mix, and duplicates
 	 */
-	_processDuplicateItems(items) {
-		if (!this.options.playlistRemoveSame) {
-			return items;
-		}
+	_processHiddenItems(items, listId) {
+		const blacklist = window.userSettings.videoBlacklist || [];
+		const removed =
+			(listId &&
+				window.userSettings.removedFromMix &&
+				window.userSettings.removedFromMix[listId]) ||
+			[];
 
-		const processedItems = [];
 		const seenItems = new Set();
+		const processedItems = [];
 
 		items.forEach((item) => {
-			let duplicateKey;
+			const videoId = item.id;
 
-			if (!this.options.allowDifferentVersions) {
-				// Only check title (ignore author), strip modifiers inside brackets
-				duplicateKey = (item.title || '')
-					.replace(/\([^\)]*\)/g, '')
-					.toLowerCase()
-					.replace(/[^a-z0-9 ]+/g, '') // Strip special characters
-					.trim();
-			} else {
-				// Check if exact same version
-				const author = (item.artist || item.author || '').toLowerCase().trim();
-				const feat = (item.featuring || item.featuring || '').toLowerCase().trim();
-				const title = (item.title || '').toLowerCase().trim();
-				duplicateKey = `${author}|${feat}|${title}`.replace(/[^a-z0-9| ]+/g, '').trim();
+			// Always start fresh
+			let hidden = false;
+
+			// Apply blacklist / removed-from-mix
+			// Handle both old format (array of strings) and new format (array of objects)
+			const isBlacklisted = blacklist.some((item) => {
+				if (typeof item === 'string') {
+					return item === videoId;
+				} else if (typeof item === 'object' && item.id) {
+					return item.id === videoId;
+				}
+				return false;
+			});
+
+			if (isBlacklisted || removed.includes(videoId)) {
+				hidden = true;
 			}
 
-			if (seenItems.has(duplicateKey)) {
-				// Mark as hidden but keep in the array
-				processedItems.push({ ...item, hidden: true });
-			} else {
-				// First occurrence, keep visible
-				seenItems.add(duplicateKey);
-				processedItems.push({ ...item, hidden: false });
+			// Handle duplicates (if enabled)
+			if (this.options.playlistRemoveSame) {
+				let duplicateKey;
+
+				if (!this.options.allowDifferentVersions) {
+					duplicateKey = (item.title || '')
+						.replace(/\([^\)]*\)/g, '')
+						.toLowerCase()
+						.replace(/[^a-z0-9 ]+/g, '')
+						.trim();
+				} else {
+					const author = (item.artist || item.author || '').toLowerCase().trim();
+					const feat = (item.featuring || '').toLowerCase().trim();
+					const title = (item.title || '').toLowerCase().trim();
+					duplicateKey = `${author}|${feat}|${title}`.replace(/[^a-z0-9| ]+/g, '').trim();
+				}
+
+				if (seenItems.has(duplicateKey)) {
+					hidden = true;
+				} else {
+					seenItems.add(duplicateKey);
+				}
 			}
+
+			processedItems.push({ ...item, hidden });
 		});
 
 		return processedItems;
@@ -2410,9 +3111,17 @@ class YTMediaPlayer {
 	/**
 	 * Playlist management
 	 */
-	updatePlaylist(newItems = null) {
-		logger.log('Playlist', 'Updating playlist', newItems);
-		this.options.currentPlaylist.items = newItems;
+	updatePlaylist(newItems = null, listId = null, title = null) {
+		if (listId) {
+			this.options.currentPlaylist.listId = listId;
+		} else {
+			listId = this.options.currentPlaylist.listId;
+		}
+		logger.log('Playlist', 'Updating playlist', { newItems, listId, title });
+
+		// Show/hide restore all button
+		const hasRemovedItems = listId && window.userSettings.removedFromMix[listId]?.length > 0;
+		this.playerWrapper.classList.toggle('yt-mix-items-removed', hasRemovedItems);
 
 		if (
 			!this.playlistWrapper ||
@@ -2423,6 +3132,7 @@ class YTMediaPlayer {
 			this.playerWrapper.classList.remove('yt-playlist-loading');
 			this._updatePlaylistVisibility();
 			this._updateDrawerVisualState();
+			this.options.currentPlaylist.items = null;
 			return;
 		}
 
@@ -2434,15 +3144,16 @@ class YTMediaPlayer {
 			this.hasPlaylist = true;
 			this._updatePlaylistVisibility();
 			this._updateDrawerVisualState();
+			this.options.currentPlaylist.items = [];
 			return;
 		}
 
 		this.playerWrapper.classList.remove('yt-playlist-loading');
 
-		// Process items for duplicate handling
-		if (this.options.playlistRemoveSame) {
-			newItems = this._processDuplicateItems(newItems);
-		}
+		// Process items for hiding (blacklist, removed-from-mix, duplicates)
+		newItems = this._processHiddenItems(newItems, listId);
+
+		this.options.currentPlaylist.items = newItems;
 
 		// Efficient DOM diffing
 		const existingItems = Array.from(this.playlistWrapper.children);
@@ -2521,6 +3232,24 @@ class YTMediaPlayer {
 
 			this._scrollActiveItemIntoView(activeElement, 'auto');
 		}
+
+		// Update header content
+		if (this.hasPlaylist) {
+			// Cache the title if provided
+			if (title) {
+				this.options.currentPlaylist.title = title;
+			}
+
+			// Use cached title if available
+			const currentTitle = this.options.currentPlaylist.title;
+			if (currentTitle) {
+				// Count visible items (non-hidden)
+				const visibleItemCount = newItems
+					? newItems.filter((item) => !item.hidden).length
+					: 0;
+				this.setHandleContent({ title: currentTitle, itemCount: visibleItemCount });
+			}
+		}
 	}
 
 	setActivePlaylistItem(itemId) {
@@ -2577,6 +3306,32 @@ class YTMediaPlayer {
 			activeItemId: this.options.currentPlaylist?.activeItemId || null,
 		};
 	}
+	/**
+	 * Get the adjacent visible video relative to the given video ID
+	 * @param {string} videoId - The video ID to start from
+	 * @param {string} direction - The direction to check ('forward' or 'backward')
+	 * @returns {Object|null} - The adjacent visible video item or null if not found
+	 */
+	getAdjacentVideo(videoId, direction) {
+		const playlistData = this.getCachedPlaylistData();
+		if (!playlistData.items.length) return null;
+
+		const currentIndex = playlistData.items.findIndex((item) => item.id === videoId);
+		if (currentIndex === -1) return null;
+
+		if (direction === 'forward') {
+			return playlistData.items.slice(currentIndex + 1).find((item) => !item.hidden) || null;
+		} else if (direction === 'backward') {
+			return (
+				playlistData.items
+					.slice(0, currentIndex)
+					.reverse()
+					.find((item) => !item.hidden) || null
+			);
+		}
+
+		return null;
+	}
 
 	/**
 	 * Check if a video ID is hidden and return navigation instruction
@@ -2585,51 +3340,57 @@ class YTMediaPlayer {
 	 */
 	checkHiddenItemNavigation(targetVideoId) {
 		const playlistData = this.getCachedPlaylistData();
-		if (!playlistData.items.length) return null;
+		if (!playlistData.items.length) {
+			return null;
+		}
 
 		const targetItem = playlistData.items.find((item) => item.id === targetVideoId);
-		if (!targetItem || !targetItem.hidden) return null;
+		logger.log('checkHiddenItemNavigation', `Target item:`, targetItem);
+		if (!targetItem || !targetItem.hidden) {
+			logger.log(
+				'checkHiddenItemNavigation',
+				'Target item not found or not hidden. No action needed.'
+			);
+			return null;
+		}
 
 		const currentVideoId = this.options.nowPlayingVideoDetails?.videoId;
-		if (!currentVideoId) return null;
+		logger.log('checkHiddenItemNavigation', `Current videoId: ${currentVideoId}`);
+		if (!currentVideoId) {
+			logger.log('checkHiddenItemNavigation', 'Current videoId not found.');
+			return null;
+		}
 
 		const currentIndex = playlistData.items.findIndex((item) => item.id === currentVideoId);
 		const targetIndex = playlistData.items.findIndex((item) => item.id === targetVideoId);
+		logger.log(
+			'checkHiddenItemNavigation',
+			`Current index: ${currentIndex}, Target index: ${targetIndex}`
+		);
 
-		if (currentIndex === -1 || targetIndex === -1) return null;
-
-		const isMovingForward = currentIndex < targetIndex;
-
-		if (isMovingForward) {
-			// Moving forward, find next visible item
-			const nextVisibleItem = playlistData.items
-				.slice(targetIndex + 1)
-				.find((item) => !item.hidden);
-			if (nextVisibleItem) {
-				return {
-					action: 'navigate',
-					direction: 'forward',
-					videoId: nextVisibleItem.id,
-				};
-			}
-		} else {
-			// Moving backward, find previous visible item
-			const prevVisibleItem = playlistData.items
-				.slice(0, targetIndex)
-				.reverse()
-				.find((item) => !item.hidden);
-			if (prevVisibleItem) {
-				return {
-					action: 'navigate',
-					direction: 'backward',
-					videoId: prevVisibleItem.id,
-				};
-			}
+		if (currentIndex === -1 || targetIndex === -1) {
+			logger.log('checkHiddenItemNavigation', 'Could not find current or target index.');
+			return null;
 		}
 
-		return {
-			action: null,
-		};
+		const isMovingForward = currentIndex < targetIndex;
+		const direction = isMovingForward ? 'forward' : 'backward';
+		logger.log('checkHiddenItemNavigation', `Navigation direction: ${direction}`);
+
+		const adjacent = this.getAdjacentVideo(targetVideoId, direction);
+		logger.log('checkHiddenItemNavigation', `Adjacent video:`, adjacent);
+		if (adjacent) {
+			const result = {
+				action: 'navigate',
+				direction,
+				videoId: adjacent.id,
+			};
+			logger.log('checkHiddenItemNavigation', 'Returning navigation action:', result);
+			return result;
+		}
+
+		logger.log('checkHiddenItemNavigation', 'No adjacent video found. Returning no action.');
+		return { action: null };
 	}
 
 	/**
@@ -2669,6 +3430,23 @@ class YTMediaPlayer {
 			if (this.playerWrapper) {
 				this.playerWrapper.classList.toggle('hide-skip-button', !visible);
 			}
+		} else if (buttonName === 'Repeat') {
+			this.options.showRepeatButton = visible;
+			if (this.playerWrapper) {
+				// Remove all repeat button visibility classes
+				this.playerWrapper.classList.remove(
+					'hide-repeat-button',
+					'hide-repeat-button-when-inactive'
+				);
+
+				// Apply appropriate class based on the setting
+				if (visible === 'disabled') {
+					this.playerWrapper.classList.add('hide-repeat-button');
+				} else if (visible === 'show-when-active') {
+					this.playerWrapper.classList.add('hide-repeat-button-when-inactive');
+				}
+				// 'always-show' doesn't need any additional classes
+			}
 		}
 	}
 
@@ -2697,6 +3475,11 @@ class YTMediaPlayer {
 
 	setShowGestureFeedback(enabled) {
 		this.options.showGestureFeedback = enabled;
+	}
+
+	setGestureSensitivity(sensitivity) {
+		this.options.gestureSensitivity = sensitivity;
+		this._updateGestureThresholds();
 	}
 
 	setKeepPlaylistFocused(enabled) {

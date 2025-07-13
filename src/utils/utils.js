@@ -885,6 +885,11 @@ const PageUtils = {
 		const urlParams = new URLSearchParams(window.location.search);
 		return urlParams.get('v');
 	},
+	getCurrentPlaylistIdFromUrl: () => {
+		if (!PageUtils.isPlaylistPage()) return null;
+		const urlParams = new URLSearchParams(window.location.search);
+		return urlParams.get('list');
+	},
 	getCurrentUrl: () => {
 		return window.location.href
 			.replace(/([?&])(?!v=|list=)[^&=]+=[^&]*&?/g, '$1') // Remove all query params except v= and list=

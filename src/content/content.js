@@ -99,6 +99,10 @@ let currentVideoId = null;
 /** @type {string|null} Tracks the state of the last recorded player state */
 let lastNativePlayerState = null;
 
+/** @type {string|null} Stores the video ID that should be played next via "Play Next" context menu */
+let nextUpVideoId = null;
+let repeatIndefinitely = false;
+
 /** @type {boolean} Flags if the user has manually interacted with the playlist drawer in the current session. */
 let hasUserManuallyToggledDrawerThisSession = false;
 /** @type {number|null} Stores the target height of the drawer set by manual user interaction for the current session. */
@@ -106,6 +110,7 @@ let manualDrawerTargetHeightThisSession = null;
 
 /** @type {boolean} Flag to differentiate if a pause event was initiated by the custom player controls. */
 let customControlsInitiatedPause = false;
+
 /** @type {string|null} Stores the ID of the last item scrolled to in the native playlist to prevent redundant scrolls. */
 let lastScrolledItemId = null;
 
@@ -122,6 +127,9 @@ let initialAutoplayDoneForCurrentVideo = false;
 let isManagingFeatures = false;
 /** @type {boolean} Flags if the current video is being fetched late from the page metadata. */
 let gettingLateVideoDetails = false;
+
+/** @type {Element|null} Stores the video element being observed for events. */
+let observedVideoElement = null;
 
 // --- Utility Classes & Helper Functions ---
 
@@ -577,7 +585,7 @@ async function getVideoDetailsFromPage() {
 	logger.log('Parser', `getVideoDetailsFromPage found raw title: "${rawTitle}"`);
 
 	let displayTitle = rawTitle;
-	let displayAuthor = DOMUtils.getText(CSS_SELECTORS.videoAuthor) || 'Unknown Artist';
+	let displayAuthor = DOMUtils.getText(CSS_SELECTORS.videoAuthor) || 'Unknown Author';
 
 	// Apply parsing preference if enabled
 	if (
@@ -674,7 +682,7 @@ function getPlaylistItemsFromPage() {
 
 	return {
 		items: playlistItems,
-		playlistTitle: playlistTitle || 'Playlist',
+		playlistTitle: playlistTitle || 'Mix',
 	};
 }
 
@@ -773,8 +781,10 @@ function native_handlePrevious() {
 async function _handleStandardPrevious() {
 	await handlePreemptiveYouTubeButtons();
 
-	DOMUtils.clickElement(CSS_SELECTORS.previousButton);
-	logger.log('NativePlayer', '[Standard] Previous video button clicked');
+	if (!handlePreviousWhenAdPlayingInPlaylist()) {
+		DOMUtils.clickElement(CSS_SELECTORS.previousButton);
+		logger.log('NativePlayer', '[Standard] Previous video button clicked');
+	}
 }
 
 async function _handleRestartCurrent() {
@@ -788,45 +798,170 @@ async function _handleRestartCurrent() {
 	}
 }
 
+/**
+ * Navigates to a specific video using YouTube's SPA routing without page reload
+ * @param {string} videoId - The video ID to navigate to
+ */
+function _navigateToVideo(videoId) {
+	if (!videoId) {
+		logger.warn('Navigation', 'Cannot navigate: videoId is null or undefined');
+		return;
+	}
+
+	// Construct the watch URL
+	const watchUrl = `/watch?v=${videoId}`;
+
+	// Preserve playlist parameter if currently on a playlist page
+	const currentPlaylistId = PageUtils.getCurrentPlaylistIdFromUrl();
+	const finalUrl = currentPlaylistId ? `${watchUrl}&list=${currentPlaylistId}` : watchUrl;
+
+	logger.log('Navigation', `Navigating to video ${videoId} via SPA routing: ${finalUrl}`);
+
+	// Use YouTube's SPA routing pattern
+	window.history.pushState({}, '', finalUrl);
+	window.dispatchEvent(new PopStateEvent('popstate'));
+}
+
 async function _handleSmartPrevious() {
 	await handlePreemptiveYouTubeButtons();
-
-	const videoElement = DOMHelper.findVideoElement();
-	if (videoElement) {
-		if (videoElement.currentTime > 5) {
-			_handleRestartCurrent();
+	logger.log('NativePlayer', '[Smart] Checking previous video button');
+	if (!handlePreviousWhenAdPlayingInPlaylist()) {
+		const videoElement = DOMHelper.findVideoElement();
+		if (videoElement) {
+			const threshold = window.userSettings.smartPreviousThreshold || 5;
+			if (videoElement.currentTime > threshold) {
+				_handleRestartCurrent();
+			} else {
+				DOMUtils.clickElement(CSS_SELECTORS.previousButton);
+				logger.log('NativePlayer', '[Smart] Previous video button clicked');
+			}
 		} else {
 			DOMUtils.clickElement(CSS_SELECTORS.previousButton);
 			logger.log('NativePlayer', '[Smart] Previous video button clicked');
 		}
-	} else {
-		DOMUtils.clickElement(CSS_SELECTORS.previousButton);
-		logger.log('NativePlayer', '[Smart] Previous video button clicked');
 	}
 }
 
 /**
- * Enhanced skip handling
+ * Handles previous button behavior when an ad is playing in the playlist
+ * @returns {boolean} - Whether the previous video was successfully called in the playlist
+ */
+function handlePreviousWhenAdPlayingInPlaylist() {
+	if (DOMHelper.isAdPlaying()) {
+		// Attempt to skip to previous video in playlist
+		if (PageUtils.isPlaylistPage()) {
+			const previousVideo = ytPlayerInstance.getAdjacentVideo(
+				PageUtils.getCurrentVideoIdFromUrl(),
+				'backward'
+			);
+			if (previousVideo) {
+				customPlayer_onPlaylistItemClick(previousVideo.id);
+				logger.log('NativePlayer', 'Ad playing, going to previous video in playlist');
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+/**
+ * Observes for the ad skip button and clicks it when it appears
  */
 let skipAdTimeout;
-async function native_handleSkip() {
-	clearTimeout(skipAdTimeout);
+let adSkipObserver = null;
+function observeAndClickSkipButton() {
+	adSkipObserver = new MutationObserver((mutations, obs) => {
+		const adSkipButton = DOMUtils.getElement(CSS_SELECTORS.adSkipButton);
+		if (adSkipButton) {
+			obs.disconnect(); // Stop observing mutations once the button is found
+
+			const clickInterval = setInterval(() => {
+				const adSkipButton = DOMUtils.getElement(CSS_SELECTORS.adSkipButton);
+				if (adSkipButton) {
+					DOMUtils.clickElement(adSkipButton);
+					logger.log('NativePlayer', 'Attempting to press ad skip button');
+				} else {
+					logger.log('NativePlayer', 'Ad skip button successfully pressed');
+					clearInterval(clickInterval);
+				}
+			}, 100);
+
+			// Clear the interval after the main timeout
+			setTimeout(() => {
+				clearInterval(clickInterval);
+			}, 4900); // Slightly less than the main timeout
+		}
+	});
+
+	const playerContainer = DOMUtils.getElement(CSS_SELECTORS.playerContainer);
+	if (playerContainer) {
+		adSkipObserver.observe(playerContainer, { childList: true, subtree: true });
+	}
+
+	// Fallback timeout to prevent the observer from running indefinitely
+	skipAdTimeout = setTimeout(() => {
+		adSkipObserver.disconnect();
+	}, 5000);
+}
+
+/**
+ * Handles the end of an ad by skipping to the next video
+ */
+async function handleEndOfAd() {
+	logger.log(
+		'NativePlayer',
+		'Ad already seeked to end, skipping to next video in playlist (if available)'
+	);
+
+	if (PageUtils.isPlaylistPage()) {
+		const nextVideo = ytPlayerInstance.getAdjacentVideo(
+			PageUtils.getCurrentVideoIdFromUrl(),
+			'forward'
+		);
+		if (nextVideo) {
+			customPlayer_onPlaylistItemClick(nextVideo.id);
+			logger.log('NativePlayer', 'Skipping to next video in playlist');
+			return;
+		}
+	}
+}
+
+/**
+ * Enhanced skip handling, first checks if an ad is playing, if it is, it seeks
+ * it to the end, if not, it clicks the native skip button
+ * @param {boolean} [resquestByAdSkip=false] - Whether the skip was requested by ad skip feature
+ */
+async function native_handleSkip(resquestByAdSkip = false) {
+	handlePreemptiveAdMuting(true);
+
+	// Disconnect any existing observer
+	if (adSkipObserver) {
+		adSkipObserver.disconnect();
+		clearTimeout(skipAdTimeout);
+	}
+
+	// If we're repeating, clear the repeat when skipping to next video
+	if (!resquestByAdSkip) {
+		clearRepeatMode();
+	}
+
 	await handlePreemptiveYouTubeButtons();
 	if (DOMHelper.isAdPlaying()) {
 		const video = DOMHelper.findVideoElement();
-		video.currentTime = video.duration;
-
-		// Check for 'Skip Ad' button after short delay and click it
-		skipAdTimeout = setTimeout(() => {
-			const adSkipButton = DOMUtils.getElement(CSS_SELECTORS.adSkipButton);
-			if (adSkipButton) {
-				DOMUtils.clickElement(adSkipButton);
-				logger.log('NativePlayer', 'Ad skipped');
-			} else logger.log('NativePlayer', 'Ad fast-forwarded');
-		}, 500);
+		if (!resquestByAdSkip && window.userSettings.autoSkipAds) {
+			handleEndOfAd();
+		} else {
+			video.currentTime = video.duration;
+			logger.log('NativePlayer', 'Ad seeked to end');
+			observeAndClickSkipButton();
+		}
 	} else {
-		DOMUtils.clickElement(CSS_SELECTORS.nextButton);
-		logger.log('NativePlayer', 'Next video button clicked');
+		// Check if there's a "Play Next" video set and play it
+		if (!playNextVideo()) {
+			// If no "Play Next" video was set, use default skip behavior
+			DOMUtils.clickElement(CSS_SELECTORS.nextButton);
+			logger.log('NativePlayer', 'Next video button clicked');
+		}
 	}
 }
 
@@ -860,7 +995,6 @@ function native_handleSeek(seconds) {
 		}
 	}
 }
-
 // --- Custom Player Callback Functions ---
 
 /**
@@ -901,6 +1035,27 @@ function customPlayer_onSkipClick() {
 }
 
 /**
+ * Handles repeat button clicks in the custom player
+ * @param {boolean} isEnabled - Whether repeat mode is enabled
+ */
+function customPlayer_onRepeatClick(isEnabled) {
+	logger.log('RepeatButton', `Repeat mode ${isEnabled ? 'enabled' : 'disabled'}`);
+
+	if (isEnabled) {
+		// Enable repeat mode for current video
+		if (currentVideoId && ytPlayerInstance) {
+			repeatIndefinitely = true;
+			nextUpVideoId = currentVideoId;
+			ytPlayerInstance._setRepeatCurrent(currentVideoId);
+			logger.log('RepeatButton', `Set repeat for current video: ${currentVideoId}`);
+		}
+	} else {
+		// Disable repeat mode
+		clearRepeatMode();
+	}
+}
+
+/**
  * Handles seekbar updates in the custom player
  * @param {number} newTimePercentage - The new time as a percentage
  * @param {number} newTimeSeconds - The new time in seconds
@@ -914,29 +1069,28 @@ function customPlayer_onSeekbarUpdate(newTimePercentage, newTimeSeconds, isFinal
  * Handles playlist item clicks in the custom player
  * @param {string} itemId - The ID of the playlist item to play
  */
-function customPlayer_onPlaylistItemClick(itemId) {
+function customPlayer_onPlaylistItemClick(itemId, manualClick = false) {
+	// If we're repeating and the requested video is different, clear the repeat
+	if (repeatIndefinitely && nextUpVideoId && itemId !== nextUpVideoId) {
+		clearRepeatMode();
+	}
+
 	const playlistItemEl = DOMUtils.getElement(
 		`${CSS_SELECTORS.playlistItems} a[href*="v=${itemId}"]`
 	);
 	if (playlistItemEl) {
+		logger.log('PlaylistClick', 'Clicking playlist item', playlistItemEl);
+		handlePreemptiveAdMuting(true);
 		playlistItemEl.click();
 	} else {
 		// Fallback navigation
-		const params = new URLSearchParams(window.location.search);
-		const listId = params.get('list');
-		let newUrl = `/watch?v=${itemId}`;
-		if (listId) {
-			newUrl += `&list=${listId}`;
-			const playlist = getPlaylistItemsFromPage();
-			const itemIndex = playlist.items.findIndex((item) => item.id === itemId);
-			if (itemIndex !== -1) newUrl += `&index=${itemIndex + 1}`;
-		}
-		window.location.href = newUrl;
+		_navigateToVideo(itemId);
 	}
 
 	if (
 		userSettings.returnToDefaultModeOnVideoSelect &&
-		!userSettings.customPlaylistMode.startsWith('fixed-')
+		!userSettings.customPlaylistMode.startsWith('fixed-') &&
+		manualClick
 	) {
 		logger.log(
 			'Drawer',
@@ -992,6 +1146,88 @@ function customPlayer_onReloadPlaylistClick() {
 	if (playlistPanel) {
 		handleStuckPlaylist(playlistPanel, false, true);
 	}
+}
+
+function customPlayer_onPlaylistItemRemoved(removedVideoId) {
+	logger.log(
+		'Callbacks',
+		`Playlist item removed: ${removedVideoId}, Current video: ${currentVideoId}`
+	);
+	if (removedVideoId === currentVideoId) {
+		logger.log('Callbacks', 'Current video was removed, playing next.');
+		const nextVideo = ytPlayerInstance.getAdjacentVideo(removedVideoId, 'forward');
+		if (nextVideo) {
+			customPlayer_onPlaylistItemClick(nextVideo.id);
+		} else {
+			logger.log('Callbacks', 'No next video found in playlist.');
+		}
+	}
+}
+
+function customPlayer_onPlayNextSet(videoId, repeats = false) {
+	logger.log('Callbacks', `Play Next set to video: ${videoId}, repeats: ${repeats}`);
+	nextUpVideoId = videoId;
+	repeatIndefinitely = repeats;
+
+	if (repeats && currentVideoId !== videoId) playNextVideo();
+}
+
+/**
+ * Clears the repeat mode state and visual indicators
+ */
+function clearRepeatMode() {
+	if (repeatIndefinitely) {
+		logger.log('RepeatMode', 'Clearing repeat mode');
+		repeatIndefinitely = false;
+		nextUpVideoId = null;
+		if (ytPlayerInstance) {
+			ytPlayerInstance.clearPlayNext();
+		}
+	}
+}
+
+/**
+ * Play the next video that was set via "Play Next" context menu
+ */
+function playNextVideo() {
+	if (!nextUpVideoId) {
+		logger.log('PlayNext', 'No next video set, using default next video logic.');
+		return false;
+	}
+
+	if (repeatIndefinitely && nextUpVideoId === currentVideoId) {
+		logger.log('PlayNext', 'Repeating current video');
+		_handleRestartCurrent();
+
+		// Backup method: If page navigates away, force navigation back to current video
+		setTimeout(() => {
+			const currentUrlVideoId = PageUtils.getCurrentVideoIdFromUrl();
+			if (currentUrlVideoId !== currentVideoId && repeatIndefinitely) {
+				logger.log(
+					'PlayNext',
+					`Page navigated away during repeat (${currentUrlVideoId} !== ${currentVideoId}), forcing navigation back`
+				);
+				_navigateToVideo(currentVideoId);
+			}
+		}, 1000); // Check after 1 second
+
+		return true;
+	}
+
+	if (PageUtils.isPlaylistPage()) {
+		logger.log('PlayNext', `Playing next video: ${nextUpVideoId}`);
+		customPlayer_onPlaylistItemClick(nextUpVideoId);
+	}
+
+	// Clear the next up video and indicator only if not repeating indefinitely
+	if (!repeatIndefinitely) {
+		if (ytPlayerInstance) {
+			ytPlayerInstance.clearPlayNext();
+		}
+		nextUpVideoId = null;
+	}
+
+	return true;
 }
 
 // --- Enhanced Voice Search Handling ---
@@ -1234,21 +1470,33 @@ function handleSearchSuggestionsChanges() {
 /**
  * Handles ads based on user settings
  */
-async function handleAds() {
-	if (ytPlayerInstance) {
-		if (window.userSettings.autoSkipAds && DOMHelper.isAdPlaying()) {
-			await native_handleSkip();
-		} else {
-			ytPlayerInstance.setAdState(DOMHelper.isAdPlaying());
-		}
+async function handleAdSkipAndReporting(forcePreemptiveMute = false) {
+	if (window.userSettings.autoSkipAds && DOMHelper.isAdPlaying()) {
+		handlePreemptiveAdMuting(forcePreemptiveMute);
+		await native_handleSkip(true);
+	} else if (ytPlayerInstance) {
+		ytPlayerInstance.setAdState(DOMHelper.isAdPlaying());
+	}
+}
+
+let mutedAdPreventionActive = false;
+function handlePreemptiveAdMuting(forcePreemptiveMute = false) {
+	if (!window.userSettings.autoSkipAds) return;
+
+	const isAd = DOMHelper.isAdPlaying();
+	if (!mutedAdPreventionActive && (isAd || forcePreemptiveMute)) {
+		observedVideoElement.muted = true;
+		mutedAdPreventionActive = true;
+		if (forcePreemptiveMute) logger.log('AdMuting', 'Preemptively muting for potential ad');
+		else logger.log('AdMuting', 'Ad detected, muted');
+	} else if (!isAd && mutedAdPreventionActive) {
+		observedVideoElement.muted = false;
+		mutedAdPreventionActive = false;
+		logger.log('AdMuting', 'Unmuted following ended ad/video confirmed not ad');
 	}
 }
 
 // --- Enhanced Observer Setup ---
-
-/** @type {Element|null} Stores the video element being observed for events. */
-let observedVideoElement = null;
-
 /**
  * Sets up observers for the custom player page events
  */
@@ -1266,6 +1514,8 @@ async function setupCustomPlayerPageObservers() {
 	observedVideoElement = videoElement;
 	if (observedVideoElement._customListeners) return;
 
+	handleAdSkipAndReporting(true);
+
 	// Video element event listeners
 	const eventHandlers = {
 		onTimeUpdate: () => {
@@ -1278,11 +1528,18 @@ async function setupCustomPlayerPageObservers() {
 			) {
 				PlayerStateManager.syncCustomPlayerState();
 			}
+
+			// Video about to end, handle repeat play
+			if (videoElement.currentTime >= videoElement.duration - 1 && repeatIndefinitely) {
+				playNextVideo();
+			}
 		},
 		onPlay: () => {
 			if (ytPlayerInstance && ytPlayerInstance.isPlayerVisible) {
 				ytPlayerInstance.setPlayState(window.PlayState.PLAYING);
 			}
+
+			handlePreemptiveAdMuting();
 		},
 		onPause: () => {
 			if (ytPlayerInstance && ytPlayerInstance.isPlayerVisible) {
@@ -1309,12 +1566,20 @@ async function setupCustomPlayerPageObservers() {
 			if (ytPlayerInstance && ytPlayerInstance.isPlayerVisible) {
 				ytPlayerInstance.setPlayState(window.PlayState.PAUSED);
 			}
+
+			// Check if there's a "Play Next" video set (including repeat) and play it
+			//if (!playNextVideo()) {
+			// If no "Play Next" video was set, use default behavior
+			handlePreemptiveAdMuting(true);
+			//}
+
+			if (!PageUtils.isPlaylistPage()) playNextVideo();
 		},
 		onLoadedData: async () => {
 			logger.log('Observers', "Video 'loadeddata' event fired.");
 			if (!ytPlayerInstance || !ytPlayerInstance.isPlayerVisible) return;
 
-			handleAds();
+			handleAdSkipAndReporting();
 
 			let state = window.PlayState.PAUSED;
 			if (!videoElement.paused && !videoElement.seeking) {
@@ -1324,13 +1589,6 @@ async function setupCustomPlayerPageObservers() {
 						: window.PlayState.BUFFERING;
 			}
 			ytPlayerInstance.setPlayState(state);
-
-			let newTotalTime = 0;
-			if (!isNaN(videoElement.duration) && videoElement.duration > 0) {
-				newTotalTime = videoElement.duration;
-			}
-
-			//await handleLateVideoDetails();
 		},
 	};
 
@@ -1418,6 +1676,27 @@ function handleStuckPlaylist(playlistContainer, itemsFound = false, forceReload 
 
 function handleNativePlaylistChanges() {
 	const playlistContainer = DOMUtils.getElement(CSS_SELECTORS.playlistPanel);
+	const playlistEntryPoint = DOMUtils.getElement(CSS_SELECTORS.playlistEntryPointButton);
+	const isOnPlaylistPage = PageUtils.isPlaylistPage();
+
+	// Check if playlist is minimized (entry point exists but panel doesn't)
+	if (!playlistContainer && playlistEntryPoint && isOnPlaylistPage) {
+		logger.log('Observers', 'Playlist is minimized, reopening automatically');
+
+		// Clean up existing observer since the element will be recreated
+		if (observerManager.get('playlist')) {
+			logger.log('Observers', 'Disconnecting existing playlist observer before reopening');
+			observerManager.disconnect('playlist');
+		}
+
+		DOMUtils.clickElement(playlistEntryPoint);
+
+		// Wait for panel to appear, then re-run this function
+		setTimeout(() => {
+			handleNativePlaylistChanges();
+		}, 300);
+		return;
+	}
 
 	if (playlistContainer && !observerManager.get('playlist')) {
 		if (
@@ -1437,14 +1716,14 @@ function handleNativePlaylistChanges() {
 
 						logger.log('Observers', 'Debounced playlist update triggered.');
 						const data = getPlaylistItemsFromPage();
-						if (data.items.length > 0) {
+						if (data.items.length === 0) {
 							handleStuckPlaylist(playlistContainer, true);
 						}
-						ytPlayerInstance.updatePlaylist(data.items);
-						ytPlayerInstance.setHandleContent({
-							title: data.playlistTitle || 'Mix',
-							itemCount: data.items.length,
-						});
+						ytPlayerInstance.updatePlaylist(
+							data.items,
+							PageUtils.getCurrentPlaylistIdFromUrl(),
+							data.playlistTitle || 'Mix'
+						);
 					}, 150);
 				},
 				{
@@ -1458,10 +1737,13 @@ function handleNativePlaylistChanges() {
 			);
 		}
 	} else if (!playlistContainer && observerManager.get('playlist')) {
-		if (ytPlayerInstance && ytPlayerInstance.hasPlaylist) {
-			logger.log('Manager', 'Native playlist panel removed, clearing custom playlist');
-			ytPlayerInstance.updatePlaylist(null);
-			observerManager.disconnect('playlist');
+		// Only clear if we're not on a playlist page or entry point doesn't exist
+		if (!isOnPlaylistPage || !playlistEntryPoint) {
+			if (ytPlayerInstance && ytPlayerInstance.hasPlaylist) {
+				logger.log('Manager', 'Native playlist panel removed, clearing custom playlist');
+				ytPlayerInstance.updatePlaylist(PageUtils.isPlaylistPage() ? [] : null);
+				observerManager.disconnect('playlist');
+			}
 		}
 	}
 }
@@ -1651,6 +1933,7 @@ async function manageCustomPlayerLifecycle() {
 						onPlayPauseClick: customPlayer_onPlayPauseClick,
 						onPreviousClick: customPlayer_onPreviousClick,
 						onSkipClick: customPlayer_onSkipClick,
+						onRepeatClick: customPlayer_onRepeatClick,
 						onSeekbarUpdate: customPlayer_onSeekbarUpdate,
 						onPlaylistItemClick: customPlayer_onPlaylistItemClick,
 						onVoiceSearchClick: customPlayer_onVoiceSearchClick,
@@ -1661,10 +1944,15 @@ async function manageCustomPlayerLifecycle() {
 						onGesturePreviousOnly: customPlayer_onGesturePreviousOnly,
 						onGestureSmartPrevious: customPlayer_onGestureSmartPrevious,
 						onReloadPlaylistClick: customPlayer_onReloadPlaylistClick,
+						onPlaylistItemRemoved: customPlayer_onPlaylistItemRemoved,
+						onPlayNextSet: customPlayer_onPlayNextSet,
 					},
 				});
 
-				ytPlayerInstance.updatePlaylist(PageUtils.isPlaylistPage() ? [] : null);
+				ytPlayerInstance.updatePlaylist(
+					PageUtils.isPlaylistPage() ? [] : null,
+					PageUtils.getCurrentPlaylistIdFromUrl()
+				);
 
 				document.body.appendChild(ytPlayerInstance.playerWrapper);
 				document.body.classList.add('yt-custom-controls-drawn');
@@ -1680,9 +1968,10 @@ async function manageCustomPlayerLifecycle() {
 					initialAutoplayDoneForCurrentVideo = false;
 
 					let detailsFromCache = null;
-					let cachedTotalSeconds = 0;
 					if (
+						PageUtils.isPlaylistPage() &&
 						ytPlayerInstance &&
+						ytPlayerInstance.options.currentPlaylist.items &&
 						ytPlayerInstance.options.currentPlaylist.items.length > 0
 					) {
 						detailsFromCache = ytPlayerInstance.setActivePlaylistItem(newVideoId);
@@ -1758,7 +2047,7 @@ async function manageCustomPlayerLifecycle() {
 				ytPlayerInstance.showPlayer();
 			}
 
-			handleAds();
+			handleAdSkipAndReporting();
 		} catch (error) {
 			logger.error('Lifecycle', 'Video element not found, timeout.', error);
 		}
@@ -2050,12 +2339,38 @@ function initializeEventListenersAndObservers() {
 					ytNavbarInstance._handleNavigation();
 				}
 
+				// Check if we have a custom "Play Next" video queued and should navigate to it
+				// This prevents race conditions with YouTube's native navigation
+				if (nextUpVideoId && PageUtils.isVideoWatchPage()) {
+					const currentVideoId = PageUtils.getCurrentVideoIdFromUrl();
+					// Only trigger if we're not already on the next video
+					if (currentVideoId !== nextUpVideoId) {
+						logger.log(
+							'Manager',
+							`URL changed detected, checking for custom next video. Current: ${currentVideoId}, Next queued: ${nextUpVideoId}`
+						);
+						// Use a small delay to ensure YouTube's navigation is complete
+						if (playNextVideo()) {
+							logger.log(
+								'Manager',
+								'Custom next video navigation triggered from URL change'
+							);
+							return;
+						}
+					}
+				}
+
 				// Check if new video should be skipped based on if it's hidden in playlist
 				let newVideoId = PageUtils.getCurrentVideoIdFromUrl();
 				if (ytPlayerInstance && newVideoId) {
 					const navigationResult = ytPlayerInstance.checkHiddenItemNavigation(newVideoId);
 					if (navigationResult) {
 						if (navigationResult.action === 'navigate') {
+							logger.log(
+								'Manager',
+								'New video is hidden in playlist, navigating to next video.',
+								navigationResult
+							);
 							customPlayer_onPlaylistItemClick(navigationResult.videoId);
 							return;
 						}
@@ -2093,7 +2408,7 @@ function initializeEventListenersAndObservers() {
 						await setupCustomPlayerPageObservers();
 					}
 
-					//await handleLateVideoDetails();
+					await handleLateVideoDetails();
 				}
 
 				lastNativePlayerState = playerStateNow;
@@ -2143,6 +2458,7 @@ function initializeEventListenersAndObservers() {
 								'customPlaylistMode',
 								'showVoiceSearchButton',
 								'enableCustomNavbar',
+								'showRepeatButton',
 							];
 							if (rebuildSettings.includes(key)) {
 								playerRebuildNeeded = true;
@@ -2188,9 +2504,11 @@ function initializeEventListenersAndObservers() {
 									keepPlaylistFocused: () =>
 										ytPlayerInstance.setKeepPlaylistFocused(newValue),
 									showGestureFeedback: () =>
-										ytPlayerInstance.setShowGestureFeedback(newValue),
-									enableGestures: () =>
-										ytPlayerInstance.setGesturesEnabled(newValue),
+									ytPlayerInstance.setShowGestureFeedback(newValue),
+								enableGestures: () =>
+									ytPlayerInstance.setGesturesEnabled(newValue),
+								gestureSensitivity: () =>
+									ytPlayerInstance.setGestureSensitivity(newValue),
 									enableDebugLogging: () => {
 										if (ytPlayerInstance && ytPlayerInstance.options) {
 											ytPlayerInstance.options.enableDebugLogging = newValue;
@@ -2203,12 +2521,25 @@ function initializeEventListenersAndObservers() {
 									playlistRemoveSame: () => {
 										ytPlayerInstance.options.playlistRemoveSame = newValue;
 										const data = getPlaylistItemsFromPage();
-										ytPlayerInstance.updatePlaylist(data.items);
+										ytPlayerInstance.updatePlaylist(
+											data.items,
+											PageUtils.getCurrentPlaylistIdFromUrl()
+										);
 									},
 									allowDifferentVersions: () => {
 										ytPlayerInstance.options.allowDifferentVersions = newValue;
 										const data = getPlaylistItemsFromPage();
-										ytPlayerInstance.updatePlaylist(data.items);
+										ytPlayerInstance.updatePlaylist(
+											data.items,
+											PageUtils.getCurrentPlaylistIdFromUrl()
+										);
+									},
+									videoBlacklist: () => {
+										const data = getPlaylistItemsFromPage();
+										ytPlayerInstance.updatePlaylist(
+											data.items,
+											PageUtils.getCurrentPlaylistIdFromUrl()
+										);
 									},
 								};
 
@@ -2234,15 +2565,16 @@ function initializeEventListenersAndObservers() {
 								}
 
 								// Handle gesture settings
-								const gestureSettings = [
-									'gestureSingleSwipeLeftAction',
-									'gestureSingleSwipeRightAction',
-									'gestureTwoFingerSwipeUpAction',
-									'gestureTwoFingerSwipeDownAction',
-									'gestureTwoFingerSwipeLeftAction',
-									'gestureTwoFingerSwipeRightAction',
-									'gestureTwoFingerPressAction',
-								];
+							const gestureSettings = [
+								'gestureSingleSwipeLeftAction',
+								'gestureSingleSwipeRightAction',
+								'gestureTwoFingerSwipeUpAction',
+								'gestureTwoFingerSwipeDownAction',
+								'gestureTwoFingerSwipeLeftAction',
+								'gestureTwoFingerSwipeRightAction',
+								'gestureTwoFingerPressAction',
+								'gestureSensitivity',
+							];
 								if (
 									gestureSettings.includes(key) &&
 									ytPlayerInstance &&

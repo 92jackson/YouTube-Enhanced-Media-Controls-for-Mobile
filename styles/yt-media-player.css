@@ -35,6 +35,9 @@ body {
 	--yt-player-handle-text-primary: #f0f0f0;
 	--yt-player-handle-text-secondary: #b0b0b0;
 	--yt-player-handle-cue-bg: #606060;
+	--yt-player-restore-button-bg: #4f4f4f;
+	--yt-player-restore-button-hover-bg: #606060;
+	--yt-player-restore-button-text: #f0f0f0;
 	--yt-player-handle-closed-bg: #333333;
 
 	/* Playlist Colors */
@@ -89,6 +92,12 @@ body.yt-theme-light {
 	--yt-player-handle-text-primary: #111111;
 	--yt-player-handle-text-secondary: #666666;
 	--yt-player-handle-cue-bg: #cccccc;
+	--yt-player-restore-button-bg: #e0e0e0;
+	--yt-player-restore-button-hover-bg: #d0d0d0;
+	--yt-player-restore-button-text: #111111;
+	--yt-player-restore-button-bg: #e0e0e0;
+	--yt-player-restore-button-hover-bg: #d0d0d0;
+	--yt-player-restore-button-text: #111111;
 	--yt-player-handle-closed-bg: #f5f5f5;
 	--yt-player-playlist-bg: #ffffff;
 	--yt-player-playlist-text-primary: #1e2022;
@@ -315,13 +324,39 @@ body.yt-theme-light {
 .yt-drawer-header-content {
 	display: flex;
 	flex-direction: column;
-	align-items: flex-start;
+	align-items: start;
 	justify-content: center;
-	width: 100%;
+	text-align: center;
+	flex-grow: 1;
 	overflow: hidden;
-	transition: opacity 0.3s ease-out;
-	padding-right: 40px;
-	height: 100%;
+	width: 100%;
+}
+
+.yt-playlist-subheader-container {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.yt-playlist-restore-all-button {
+	background-color: var(--yt-player-restore-button-bg);
+	color: var(--yt-player-restore-button-text);
+	border: none;
+	border-radius: 4px;
+	padding: 2px 5px;
+	margin-left: 10px;
+	font-size: 12px;
+	cursor: pointer;
+	transition: background-color 0.2s;
+	display: none;
+}
+
+.yt-player-wrapper.yt-mix-items-removed .yt-playlist-restore-all-button {
+	display: inline-block;
+}
+
+.yt-player-wrapper.drawer-closed .yt-playlist-restore-all-button {
+	display: none !important;
 }
 
 .yt-drawer-header {
@@ -333,6 +368,7 @@ body.yt-theme-light {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	width: 100%;
+	text-align: left;
 }
 
 .yt-drawer-subheader {
@@ -444,6 +480,11 @@ body.yt-theme-light {
 	color: var(--yt-player-playlist-text-primary);
 }
 
+.yt-playlist-loading .yt-playlist-spinner {
+	opacity: 1;
+	pointer-events: all;
+}
+
 .yt-playlist-spinner .yt-spinner {
 	width: 50px;
 	height: 50px;
@@ -454,19 +495,14 @@ body.yt-theme-light {
 	transition: opacity 0.5s ease-in-out;
 }
 
+.yt-playlist-loading .yt-playlist-reload-container {
+	opacity: 1;
+	transition-delay: 6s;
+}
+
 .yt-playlist-reload-container button {
 	padding: 20px;
 	text-decoration: underline;
-}
-
-.yt-playlist-reload-container {
-	opacity: 1;
-	transition-delay: 4s;
-	pointer-events: all;
-}
-
-.yt-playlist-loading .yt-playlist-spinner {
-	opacity: 1;
 }
 
 .yt-playlist-wrapper {
@@ -509,6 +545,14 @@ body.yt-theme-light {
 }
 
 .yt-playlist-item.active:active {
+	background-color: var(--yt-player-accent-primary-alpha-bg-hover);
+}
+
+.yt-playlist-item.context-menu-active {
+	background-color: var(--yt-player-playlist-hover-bg);
+}
+
+.yt-playlist-item.active.context-menu-active {
 	background-color: var(--yt-player-accent-primary-alpha-bg-hover);
 }
 
@@ -556,6 +600,184 @@ body.yt-theme-light {
 	margin-left: 12px;
 	white-space: nowrap;
 	flex-shrink: 0;
+}
+
+.yt-context-menu-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.6);
+	z-index: 10000;
+	display: none;
+	align-items: center;
+	justify-content: center;
+	opacity: 0;
+	transition: opacity 0.2s ease;
+}
+
+.yt-context-menu-overlay.visible {
+	opacity: 1;
+}
+
+.yt-context-menu-modal {
+	background: var(--yt-player-bg-primary);
+	border-radius: 8px;
+	max-width: 90vw;
+	width: 400px;
+	max-height: 80vh;
+	overflow: hidden;
+	box-shadow: 0 8px 32px var(--yt-player-shadow-heavy);
+	transform: scale(0.9);
+	transition: transform 0.2s ease;
+}
+
+.yt-context-menu-overlay.visible .yt-context-menu-modal {
+	transform: scale(1);
+}
+
+.yt-context-menu-header {
+	display: flex;
+	align-items: center;
+	padding: 16px;
+	border-bottom: 1px solid var(--yt-player-bg-secondary);
+	gap: 12px;
+}
+
+.yt-context-menu-thumbnail {
+	width: 60px;
+	height: 45px;
+	background-color: #333;
+	border-radius: 4px;
+	background-size: cover;
+	background-position: center;
+	flex-shrink: 0;
+}
+
+.yt-context-menu-video-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.yt-context-menu-title {
+	color: var(--yt-player-text-primary);
+	font-size: 14px;
+	font-weight: 500;
+	line-height: 1.3;
+	margin-bottom: 4px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
+}
+
+.yt-context-menu-author {
+	color: var(--yt-player-text-secondary);
+	font-size: 12px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.yt-context-menu-content {
+	padding: 8px 0;
+}
+
+.yt-context-menu-option.separator {
+	border-bottom: 1px solid var(--yt-player-bg-secondary);
+	margin-bottom: 8px;
+	padding-bottom: 16px;
+}
+
+.yt-context-menu-option {
+	display: flex;
+	align-items: center;
+	padding: 12px 16px;
+	cursor: pointer;
+	transition: background-color 0.2s;
+	gap: 12px;
+}
+
+.yt-context-menu-option:active {
+	background-color: var(--yt-player-bg-active);
+}
+
+.yt-context-menu-option-icon {
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+
+.yt-context-menu-option-icon svg {
+	width: 24px;
+	height: 24px;
+	fill: var(--yt-player-text-primary);
+}
+
+.yt-context-menu-option-text {
+	color: var(--yt-player-text-primary);
+	font-size: 14px;
+	flex: 1;
+}
+
+/* Play Next Indicator */
+.play-next-indicator {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	background-color: var(--yt-player-accent-primary);
+	color: white;
+	border-radius: 50%;
+	width: 20px;
+	height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 10;
+	pointer-events: none;
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.yt-playlist-item.play-next .play-next-indicator {
+	opacity: 1;
+	visibility: visible;
+}
+
+/* Repeat Current Indicator */
+.repeat-current-indicator {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	background-color: var(--yt-player-accent-secondary);
+	color: white;
+	border-radius: 50%;
+	width: 20px;
+	height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 10;
+	pointer-events: none;
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.yt-playlist-item.repeat-current .repeat-current-indicator {
+	opacity: 1;
+	visibility: visible;
+}
+
+.yt-playlist-item {
+	position: relative;
 }
 
 /* === PLAYER CONTROLS === */
@@ -876,6 +1098,23 @@ body.yt-theme-light {
 	transition: background-color 0.2s ease;
 }
 
+.yt-left-section {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+}
+
+.yt-player-controls.compact .yt-left-section {
+	margin-right: 10px;
+}
+
+.yt-player-controls:not(.compact) .yt-left-section {
+	position: absolute;
+	left: 10px;
+	top: 50%;
+	transform: translateY(-50%);
+}
+
 .yt-right-section {
 	display: flex;
 	align-items: center;
@@ -944,7 +1183,72 @@ body.yt-theme-light {
 	display: block !important;
 }
 
+/* Repeat Button States */
+.yt-repeat-button.off .icon.repeat-off {
+	display: block !important;
+}
+
+.yt-repeat-button.off .icon.repeat-on {
+	display: none !important;
+}
+
+.yt-repeat-button.on .icon.repeat-on {
+	display: block !important;
+}
+
+.yt-repeat-button.on .icon.repeat-off {
+	display: none !important;
+}
+
 /* === BUTTON STYLES === */
+
+/* Repeat Button */
+.yt-repeat-button {
+	width: max(30px, min(48px, var(--yt-max-voice-button-width)));
+	aspect-ratio: 1 / 1;
+	background-color: var(--yt-player-button-normal);
+	border-radius: 50%;
+	color: var(--yt-player-text-primary);
+	border: none;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s ease,
+		color 0.2s ease;
+	-webkit-tap-highlight-color: transparent;
+	transform: scale(1);
+}
+
+.yt-repeat-button:active {
+	background-color: var(--yt-player-button-active);
+	transform: scale(0.92);
+}
+
+.yt-repeat-button.on {
+	background-color: var(--yt-player-accent-primary);
+	color: var(--yt-player-accent-text);
+}
+
+.yt-repeat-button.on:active {
+	background-color: var(--yt-player-accent-secondary);
+	transform: scale(0.92);
+}
+
+.yt-repeat-button .icon {
+	width: 18px;
+	height: 18px;
+	fill: currentColor;
+}
+
+/* Repeat Button Visibility Rules */
+.yt-player-wrapper.hide-repeat-button .yt-repeat-button {
+	display: none !important;
+}
+
+.yt-player-wrapper.hide-repeat-button-when-inactive:not(.repeat-active) .yt-repeat-button {
+	display: none !important;
+}
 
 /* Voice Search Button */
 .yt-voice-search-button {
@@ -1098,6 +1402,15 @@ body.yt-theme-light {
 	height: 80px;
 }
 
+.yt-player-controls.large .yt-repeat-button {
+	width: max(35px, min(60px, var(--yt-max-voice-button-width)));
+}
+
+.yt-player-controls.large .yt-repeat-button .icon {
+	width: 24px;
+	height: 24px;
+}
+
 .yt-player-controls.large .yt-voice-search-button {
 	width: max(35px, min(60px, var(--yt-max-voice-button-width)));
 }
@@ -1136,12 +1449,17 @@ body.yt-theme-light {
 	height: 44px;
 }
 
+.yt-player-controls.compact .yt-repeat-button {
+	width: max(20px, min(36px, var(--yt-max-voice-button-width)));
+}
+
 .yt-player-controls.compact .yt-voice-search-button {
 	width: max(20px, min(36px, var(--yt-max-voice-button-width)));
 }
 
 .yt-player-controls.compact .yt-control-button .icon,
-.yt-player-controls.compact .yt-voice-search-button .icon {
+.yt-player-controls.compact .yt-voice-search-button .icon,
+.yt-player-controls.compact .yt-repeat-button .icon {
 	width: 14px;
 	height: 14px;
 }
@@ -1153,6 +1471,11 @@ body.yt-theme-light {
 
 .yt-player-controls.compact .yt-voice-search-button .icon {
 	width: 12px;
+}
+
+.yt-player-controls.compact .yt-repeat-button .icon {
+	width: 12px;
+	height: 12px;
 }
 
 .yt-player-controls.compact .yt-video-author,
@@ -1390,6 +1713,14 @@ body.yt-native-search-dialog .yt-player-wrapper .yt-player-drawer {
 	.yt-navbar-logo-button:hover svg g path:first-of-type {
 		fill: var(--yt-player-accent-secondary);
 	}
+
+	.yt-playlist-restore-all-button:hover {
+		background-color: var(--yt-player-restore-button-hover-bg);
+	}
+
+	.yt-context-menu-option:hover {
+		background-color: var(--yt-player-bg-hover);
+	}
 }
 
 /* === CUSTOM NAVBAR === */
@@ -1583,6 +1914,10 @@ body.theme-dark .yt-drawer-full .yt-custom-navbar {
 }
 
 /* === NATIVE ELEMENT FIXES === */
+
+bottom-sheet-container {
+	z-index: 1000;
+}
 
 .yt-custom-controls-drawn .watch-below-the-player {
 	overflow-y: auto !important;

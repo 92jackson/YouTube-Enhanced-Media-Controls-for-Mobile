@@ -47,10 +47,15 @@ window.userSettings = {
 	navbarShowHomeButton: true,
 	playlistRemoveSame: false,
 	allowDifferentVersions: false,
+	videoBlacklist: [],
+	removedFromMix: {},
 	enableMediaSessionHandlers: true,
 	alwaysHideDesktopBanner: false,
 	spoofUserAgent: false,
 	autoSkipAds: false,
+	showRepeatButton: 'show-when-active',
+	smartPreviousThreshold: 5,
+	gestureSensitivity: 'normal',
 };
 
 /**

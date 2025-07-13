@@ -3,7 +3,7 @@
 <head>
 <title>Enhanced Player Settings</title>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
@@ -36,6 +36,8 @@
 	body {
 		font-family: "Roboto", "Segoe UI", sans-serif;
 		margin: 0;
+		padding: 0;
+		min-width: 400px;
 		background-color: var(--md-color-background);
 		color: var(--md-color-on-surface);
 		font-size: 16px;
@@ -47,7 +49,6 @@
 	.options-page {
 		width: 100%;
 		max-width: 600px;
-		min-width: 400px;
 		margin: 0 auto;
 	}
 
@@ -400,6 +401,169 @@
 		color: #004085;
 		background-color: #cce5ff;
 	}
+
+	/* Blacklisted Videos Styles */
+	.blacklisted-video-item {
+		display: flex;
+		align-items: center;
+		padding: 12px;
+		border: 1px solid var(--md-color-divider);
+		border-radius: 8px;
+		margin-bottom: 8px;
+		background-color: var(--md-color-surface);
+		transition: background-color 0.2s ease;
+	}
+
+	.blacklisted-video-item:hover {
+		background-color: rgba(0, 0, 0, 0.04);
+	}
+
+	.blacklisted-video-thumbnail {
+		width: 80px;
+		height: 45px;
+		border-radius: 4px;
+		object-fit: cover;
+		margin-right: 12px;
+		flex-shrink: 0;
+	}
+
+	.blacklisted-video-info {
+		flex-grow: 1;
+		min-width: 0;
+	}
+
+	.blacklisted-video-id {
+		font-family: monospace;
+		font-size: 12px;
+		color: var(--md-color-on-surface-medium);
+		margin-bottom: 4px;
+	}
+
+	.blacklisted-video-title {
+		font-size: 14px;
+		color: var(--md-color-on-surface);
+		word-wrap: break-word;
+		overflow-wrap: break-word;
+	}
+
+	.blacklisted-video-remove {
+		background-color: var(--md-color-primary);
+		color: var(--md-color-on-primary);
+		border: none;
+		border-radius: 4px;
+		padding: 8px 16px;
+		font-size: 12px;
+		cursor: pointer;
+		transition: background-color 0.2s ease;
+		flex-shrink: 0;
+		margin-left: 12px;
+	}
+
+	.blacklisted-video-remove:hover {
+		background-color: var(--md-color-primary-dark);
+	}
+
+	.collapse-indicator {
+		margin-left: auto;
+		transition: transform 0.2s ease;
+		font-size: 12px;
+		color: #666;
+	}
+
+	.blacklisted-videos-header {
+		display: flex;
+		align-items: center;
+		user-select: none;
+	}
+
+	.blacklisted-videos-header:hover {
+		background-color: rgba(0, 0, 0, 0.02);
+	}
+
+	.blacklisted-videos-header.expanded .collapse-indicator::before {
+		content: '▲';
+	}
+
+	.collapse-indicator::before {
+		content: '▼';
+	}
+
+	.blacklisted-video-remove:focus {
+		outline: 2px solid var(--md-color-primary);
+		outline-offset: 2px;
+	}
+
+	.clear-all-button {
+		background-color: #f44336;
+		color: white;
+		border: none;
+		border-radius: 4px;
+		padding: 8px;
+		font-size: 12px;
+		cursor: pointer;
+		transition: background-color 0.2s ease;
+	}
+
+	.clear-all-button:hover {
+		background-color: #d32f2f;
+	}
+
+	.clear-all-button:focus {
+		outline: 2px solid var(--md-color-primary);
+		outline-offset: 2px;
+	}
+
+	.clear-all-button:disabled {
+		background-color: #ccc;
+		cursor: not-allowed;
+		opacity: 0.6;
+	}
+
+	/* --- Text Input --- */
+	.text-item label {
+		font-size: 12px;
+		color: var(--md-color-on-surface-medium);
+		display: block;
+		margin-bottom: 4px;
+	}
+	
+	.text-wrapper {
+		position: relative;
+		background-color: #f0f0f0;
+		border-radius: 4px 4px 0 0;
+		border-bottom: 1px solid var(--md-color-on-surface-medium);
+		transition: border-bottom-color 0.2s ease;
+	}
+	.text-wrapper::after {
+		content: attr(data-suffix);
+		position: absolute;
+		top: 50%;
+		right: 12px;
+		font-size: 16px;
+		color: var(--md-color-on-surface-medium);
+		transform: translateY(-50%);
+		pointer-events: none;
+	}
+	.text-wrapper:focus-within {
+		border-bottom: 2px solid var(--md-color-primary);
+	}
+	.text-wrapper input {
+		width: 100%;
+		padding: 16px 80px 16px 12px;
+		border: none;
+		background: none;
+		font-size: 16px;
+		color: var(--md-color-on-surface);
+	}
+	.text-wrapper input:focus {
+		outline: none;
+	}
+	.text-item .description {
+		font-size: 12px;
+		color: var(--md-color-on-surface-medium);
+		margin-top: 6px;
+		padding-left: 12px;
+	}
 </style>
 </head>
 <body>
@@ -531,6 +695,17 @@
 						<input type="checkbox" id="showSkipButton">
 						<span class="switch-slider"></span>
 					</label>
+				</div>
+				<div class="setting-item select-item">
+					<label for="showRepeatButton">Show Repeat Button</label>
+					<div class="select-wrapper">
+						<select id="showRepeatButton">
+							<option value="disabled">Disabled</option>
+							<option value="show-when-active" selected>Show When Active</option>
+							<option value="always-show">Always Show</option>
+						</select>
+					</div>
+					<div class="description">Controls when the repeat button is visible. 'Show When Active' hides the button unless repeat mode is enabled.</div>
 				</div>
 			</fieldset>
 		</div>
@@ -756,6 +931,13 @@
 					</select>
 				</div>
 			</div>
+			<div class="setting-item text-item">
+				<label for="smartPreviousThreshold">Smart Previous Restart Threshold</label>
+				<div class="text-wrapper" data-suffix="seconds">
+					<input type="number" id="smartPreviousThreshold" min="1" max="60" step="1" value="5" />
+				</div>
+				<div class="description">When using 'Smart' behavior, videos will restart if the current time is above this threshold, otherwise it will go to the previous video. Default: 5 seconds.</div>
+			</div>
 		</div>
 	</div>
 
@@ -804,6 +986,17 @@
 				<div class="setting-item select-item">
 					<label for="gestureTwoFingerPressAction">Two Finger Tap</label>
 					<div class="select-wrapper"><select id="gestureTwoFingerPressAction"><option value="unassigned">Unassigned</option><option value="restartCurrentVideo">Restart Current Video</option><option value="previousVideoOnly">Previous Video Only</option><option value="restartPreviousVideo">Restart then Previous (Smart)</option><option value="nextVideo">Next Video</option><option value="playPause">Play/Pause</option><option value="toggleVoiceSearch">Toggle Voice Search</option><option value="seekBackward10">Seek Backward (10s)</option><option value="seekForward10">Seek Forward (10s)</option><option value="togglePlaylist">Toggle Playlist Drawer</option></select></div>
+				</div>
+				<div class="setting-item select-item">
+					<label for="gestureSensitivity">Gesture Sensitivity</label>
+					<div class="select-wrapper">
+						<select id="gestureSensitivity">
+							<option value="low">Low (More distance required)</option>
+							<option value="normal">Normal (Default)</option>
+							<option value="high">High (Less distance required)</option>
+						</select>
+					</div>
+					<div class="description">Adjust how much finger movement is required to trigger gestures. Lower sensitivity requires more movement, higher sensitivity requires less.</div>
 				</div>
 				<div class="setting-item toggle-item">
 					<div class="toggle-label-group" data-target-id="showGestureFeedback">
@@ -885,6 +1078,30 @@
 					<input type="checkbox" id="enableMediaSessionHandlers">
 					<span class="switch-slider"></span>
 				</label>
+			</div>
+		</div>
+	</div>
+
+	<!-- Blacklisted Videos -->
+	<div class="card">
+		<div class="card-header blacklisted-videos-header" style="cursor: pointer;">
+			<span class="icon">🚫</span>
+			<h2>Blacklisted Videos</h2>
+			<span class="collapse-indicator"></span>
+		</div>
+		<div class="card-content blacklisted-videos-container" style="display: none;">
+			<div class="setting-item">
+				<div class="toggle-label-main">Manage Blacklisted Videos</div>
+				<div class="toggle-label-description">Videos that have been blacklisted and will be hidden from playlists.</div>
+			</div>
+			<div style="margin-bottom: 16px;">
+				<button id="clear-all-blacklisted" class="clear-all-button">Clear All Blacklisted Videos</button>
+			</div>
+			<div id="blacklisted-videos-container">
+				<div id="blacklisted-videos-list"></div>
+				<div id="no-blacklisted-videos" style="display: none; text-align: center; color: var(--md-color-on-surface-medium); padding: 24px;">
+					No blacklisted videos found.
+				</div>
 			</div>
 		</div>
 	</div>

@@ -9,6 +9,7 @@ const defaultSettings = {
 	showVoiceSearchButton: true,
 	showPreviousButton: true,
 	showSkipButton: true,
+	showRepeatButton: 'show-when-active',
 	customPlaylistMode: 'below-video',
 	returnToDefaultModeOnVideoSelect: false,
 	playlistItemDensity: 'comfortable',
@@ -16,6 +17,7 @@ const defaultSettings = {
 	keepPlaylistFocused: false,
 	parsingPreference: 'original',
 	previousButtonBehavior: 'smart',
+	smartPreviousThreshold: 5,
 	enableGestures: true,
 	gestureSingleSwipeLeftAction: 'restartPreviousVideo',
 	gestureSingleSwipeRightAction: 'nextVideo',
@@ -25,6 +27,7 @@ const defaultSettings = {
 	gestureTwoFingerSwipeRightAction: 'unassigned',
 	gestureTwoFingerPressAction: 'unassigned',
 	showGestureFeedback: true,
+	gestureSensitivity: 'normal',
 	autoPlayPreference: 'attemptUnmuted',
 	autoClickContinueWatching: true,
 	fixNativePlaylistScroll: false,
@@ -43,9 +46,15 @@ const defaultSettings = {
 	enableMediaSessionHandlers: true,
 	autoSkipAds: false,
 	autoReloadStuckPlaylist: true,
+	videoBlacklist: [],
 };
 
 let statusTimeout = null;
+
+// Get the standard thumbnail URL for a given video ID
+function getStandardThumbnailUrl(videoId) {
+	return videoId ? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg` : '';
+}
 
 function updateControlStates() {
 	const isCustomPlayerEnabled = document.getElementById('enableCustomPlayer').checked;
@@ -110,6 +119,8 @@ function save_options() {
 				const increments = element.dataset.increments.split(',').map(parseFloat);
 				const index = parseInt(element.value);
 				settingsToSave[key] = increments[index] ?? 1;
+			} else if (key === 'smartPreviousThreshold') {
+				settingsToSave[key] = parseInt(element.value) || 5;
 			} else {
 				settingsToSave[key] = element.value;
 			}
@@ -167,6 +178,8 @@ function restore_options() {
 			if (element) {
 				if (element.type === 'checkbox') {
 					element.checked = items[key];
+				} else if (key === 'smartPreviousThreshold') {
+					element.value = parseInt(items[key]) || 5;
 				} else {
 					element.value = items[key];
 				}
@@ -184,7 +197,7 @@ function restore_options() {
 		}
 
 		const inputs = document.querySelectorAll(
-			'input[type="checkbox"], input[type="range"], select'
+			'input[type="checkbox"], input[type="range"], input[type="number"], select'
 		);
 		inputs.forEach((input) => {
 			input.addEventListener('change', save_options);
@@ -272,4 +285,221 @@ function initCustomPlayerFontSlider() {
 	updateSliderUI();
 }
 
-document.addEventListener('DOMContentLoaded', restore_options);
+function loadBlacklistedVideos() {
+	const storageApi = typeof browser !== 'undefined' ? browser.storage : chrome.storage;
+	const storageLocal = storageApi.local;
+
+	const displayBlacklistedVideos = (items) => {
+		const videoBlacklist = items.videoBlacklist || [];
+		const listContainer = document.getElementById('blacklisted-videos-list');
+		const noVideosMessage = document.getElementById('no-blacklisted-videos');
+
+		if (!listContainer) return;
+
+		listContainer.innerHTML = '';
+
+		if (videoBlacklist.length === 0) {
+			noVideosMessage.style.display = 'block';
+			return;
+		}
+
+		noVideosMessage.style.display = 'none';
+
+		videoBlacklist.forEach((video) => {
+			// Handle both old format (string) and new format (object)
+			let videoId, videoTitle;
+			if (typeof video === 'string') {
+				videoId = video;
+				videoTitle = 'Blacklisted Video';
+			} else if (typeof video === 'object' && video.id) {
+				videoId = video.id;
+				videoTitle = video.title || 'Blacklisted Video';
+			} else {
+				return; // Skip invalid entries
+			}
+
+			const videoItem = document.createElement('div');
+			videoItem.className = 'blacklisted-video-item';
+
+			const thumbnail = document.createElement('img');
+			thumbnail.className = 'blacklisted-video-thumbnail';
+			thumbnail.src = getStandardThumbnailUrl(videoId);
+			thumbnail.alt = 'Video thumbnail';
+			thumbnail.loading = 'lazy';
+
+			const videoInfo = document.createElement('div');
+			videoInfo.className = 'blacklisted-video-info';
+
+			const videoIdElement = document.createElement('div');
+			videoIdElement.className = 'blacklisted-video-id';
+			videoIdElement.textContent = videoId;
+
+			const videoTitleElement = document.createElement('div');
+			videoTitleElement.className = 'blacklisted-video-title';
+			videoTitleElement.textContent = videoTitle;
+
+			const removeButton = document.createElement('button');
+			removeButton.className = 'blacklisted-video-remove';
+			removeButton.textContent = 'Remove';
+			removeButton.addEventListener('click', () => removeFromBlacklist(videoId));
+
+			videoInfo.appendChild(videoIdElement);
+			videoInfo.appendChild(videoTitleElement);
+			videoItem.appendChild(thumbnail);
+			videoItem.appendChild(videoInfo);
+			videoItem.appendChild(removeButton);
+			listContainer.appendChild(videoItem);
+		});
+	};
+
+	if (storageLocal) {
+		if (typeof storageLocal.get === 'function' && storageLocal.get.length === 1) {
+			storageLocal
+				.get(['videoBlacklist'])
+				.then(displayBlacklistedVideos)
+				.catch((err) => {
+					console.error('Error loading blacklisted videos:', err);
+					displayBlacklistedVideos({ videoBlacklist: [] });
+				});
+		} else {
+			storageLocal.get(['videoBlacklist'], displayBlacklistedVideos);
+		}
+	} else {
+		console.warn('Enhanced Player: Storage API not available.');
+		displayBlacklistedVideos({ videoBlacklist: [] });
+	}
+}
+
+function removeFromBlacklist(videoId) {
+	const storageApi = typeof browser !== 'undefined' ? browser.storage : chrome.storage;
+	const storageLocal = storageApi.local;
+
+	const updateBlacklist = (items) => {
+		const videoBlacklist = items.videoBlacklist || [];
+		// Handle both old format (strings) and new format (objects)
+		const updatedBlacklist = videoBlacklist.filter((video) => {
+			if (typeof video === 'string') {
+				return video !== videoId;
+			} else if (typeof video === 'object' && video.id) {
+				return video.id !== videoId;
+			}
+			return true; // Keep invalid entries for now
+		});
+
+		const settingsToSave = { videoBlacklist: updatedBlacklist };
+
+		if (storageLocal) {
+			if (typeof storageLocal.set === 'function' && storageLocal.set.length === 1) {
+				storageLocal
+					.set(settingsToSave)
+					.then(() => {
+						showSaveSnackbar();
+						loadBlacklistedVideos(); // Reload the list
+					})
+					.catch((err) => {
+						console.error(
+							'Enhanced Player: Failed to remove video from blacklist',
+							err
+						);
+					});
+			} else {
+				storageLocal.set(settingsToSave, () => {
+					if (chrome.runtime.lastError) {
+						console.error(
+							'Enhanced Player: Failed to remove video from blacklist',
+							chrome.runtime.lastError
+						);
+					} else {
+						showSaveSnackbar();
+						loadBlacklistedVideos(); // Reload the list
+					}
+				});
+			}
+		}
+	};
+
+	if (storageLocal) {
+		if (typeof storageLocal.get === 'function' && storageLocal.get.length === 1) {
+			storageLocal
+				.get(['videoBlacklist'])
+				.then(updateBlacklist)
+				.catch((err) => {
+					console.error('Error loading blacklisted videos for removal:', err);
+				});
+		} else {
+			storageLocal.get(['videoBlacklist'], updateBlacklist);
+		}
+	}
+}
+
+function initBlacklistedVideosCollapse() {
+	const header = document.querySelector('.blacklisted-videos-header');
+	const container = document.querySelector('.blacklisted-videos-container');
+
+	if (!header || !container) return;
+
+	header.addEventListener('click', () => {
+		const isExpanded = container.style.display !== 'none';
+
+		if (isExpanded) {
+			container.style.display = 'none';
+			header.classList.remove('expanded');
+		} else {
+			container.style.display = 'block';
+			header.classList.add('expanded');
+		}
+	});
+}
+
+function clearAllBlacklistedVideos() {
+	const confirmed = confirm(
+		'Are you sure you want to clear all blacklisted videos? This action cannot be undone.'
+	);
+
+	if (!confirmed) return;
+
+	const storageApi = typeof browser !== 'undefined' ? browser.storage : chrome.storage;
+	const storageLocal = storageApi.local;
+
+	const settingsToSave = { videoBlacklist: [] };
+
+	if (storageLocal) {
+		if (typeof storageLocal.set === 'function' && storageLocal.set.length === 1) {
+			storageLocal
+				.set(settingsToSave)
+				.then(() => {
+					showSaveSnackbar();
+					loadBlacklistedVideos(); // Reload the list
+				})
+				.catch((err) => {
+					console.error('Enhanced Player: Failed to clear blacklisted videos', err);
+				});
+		} else {
+			storageLocal.set(settingsToSave, () => {
+				if (chrome.runtime.lastError) {
+					console.error(
+						'Enhanced Player: Failed to clear blacklisted videos',
+						chrome.runtime.lastError
+					);
+				} else {
+					showSaveSnackbar();
+					loadBlacklistedVideos(); // Reload the list
+				}
+			});
+		}
+	}
+}
+
+function initClearAllButton() {
+	const clearAllButton = document.getElementById('clear-all-blacklisted');
+	if (clearAllButton) {
+		clearAllButton.addEventListener('click', clearAllBlacklistedVideos);
+	}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+	restore_options();
+	loadBlacklistedVideos();
+	initBlacklistedVideosCollapse();
+	initClearAllButton();
+});
