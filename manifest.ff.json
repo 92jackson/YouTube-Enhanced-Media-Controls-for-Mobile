@@ -17,7 +17,7 @@
 	},
 	"options_page": "src/options/options.html",
 	"background": {
-		"service_worker": "src/background/background.js"
+		"scripts": ["src/background/background.js"]
 	},
 	"declarative_net_request": {
 		"rule_resources": [
@@ -65,5 +65,10 @@
 			"resources": ["src/options/options.html"],
 			"matches": ["*://m.youtube.com/*", "*://www.youtube.com/*", "*://youtube.com/*"]
 		}
-	]
+	],
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "youtubemobilemediacontrols@jetrel.net"
+		}
+	}
 }

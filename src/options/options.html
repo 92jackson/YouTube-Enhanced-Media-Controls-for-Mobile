@@ -3,7 +3,7 @@
 <head>
 <title>Enhanced Player Settings</title>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
@@ -37,7 +37,6 @@
 		font-family: "Roboto", "Segoe UI", sans-serif;
 		margin: 0;
 		padding: 0;
-		min-width: 400px;
 		background-color: var(--md-color-background);
 		color: var(--md-color-on-surface);
 		font-size: 16px;
@@ -48,7 +47,6 @@
 
 	.options-page {
 		width: 100%;
-		max-width: 600px;
 		margin: 0 auto;
 	}
 
@@ -59,6 +57,22 @@
 		box-shadow: var(--md-elevation-2);
 	}
 
+	.header-content {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.header-icon {
+				width: 32px;
+				height: 32px;
+				flex-shrink: 0;
+			}
+			#version-number {
+				font-weight: 400;
+				opacity: 0.8;
+			}
+
 	.header h1 {
 		font-size: 20px;
 		font-weight: 500;
@@ -68,6 +82,8 @@
 
 	.main-content {
 		padding: 16px;
+		max-width: 600px;
+		margin: 0 auto;
 	}
 
 	@media (min-width: 600px) {
@@ -289,7 +305,6 @@
 	/* --- Slider --- */
 	.material-slider-wrapper {
 	  width: 100%;
-	  max-width: 500px;
 	  margin-bottom: 30px;
 	}
 
@@ -564,13 +579,26 @@
 		margin-top: 6px;
 		padding-left: 12px;
 	}
+	
+	code {
+		background-color: rgba(0, 0, 0, 0.08);
+		color: var(--md-color-on-surface);
+		padding: 2px 6px;
+		border-radius: 4px;
+		font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+		font-size: 0.9em;
+		border: 1px solid rgba(0, 0, 0, 0.12);
+	}
 </style>
 </head>
 <body>
 
 <div class="options-page">
 <header class="header">
-	<h1>YouTube Enhanced Media Controls</h1>
+	<div class="header-content">
+					<img src="../../icons/icon48.png" alt="Extension Icon" class="header-icon">
+					<h1>YouTube Enhanced Media Controls <span id="version-number"></span></h1>
+				</div>
 </header>
 
 <main class="main-content">
@@ -616,16 +644,33 @@
 						<option value="system">System Default</option>
 						<option value="light">Light</option>
 						<option value="dark">Dark</option>
+						<optgroup label="Color Themes">
+							<option value="red">Red</option>
+							<option value="pink">Pink</option>
+							<option value="babypink">Baby Pink</option>
+							<option value="purple">Purple</option>
+							<option value="indigo">Indigo</option>
+							<option value="blue">Blue</option>
+							<option value="teal">Teal</option>
+							<option value="cyan">Cyan</option>
+							<option value="green">Green</option>
+							<option value="lime">Lime</option>
+							<option value="yellow">Yellow</option>
+							<option value="orange">Orange</option>
+							<option value="brown">Brown</option>
+							<option value="grey">Grey</option>
+						</optgroup>
 					</select>
 				</div>
 			</div>
 			<div class="setting-item select-item">
-				<label for="customPlayerAccentColor">Accent Colour</label>
+				<label for="customPlayerAccentColor">Accent Color</label>
 				<div class="select-wrapper">
 					<select id="customPlayerAccentColor">
-						<optgroup label="Preset Colours">
+						<optgroup label="Preset Colors">
 							<option value="red">Red (Default)</option>
 							<option value="pink">Pink</option>
+							<option value="babypink">Baby Pink</option>
 							<option value="purple">Purple</option>
 							<option value="indigo">Indigo</option>
 							<option value="blue">Blue</option>
@@ -655,6 +700,18 @@
 					<div class="slider-labels"></div>
 					<div class="preview-text">"This is a preview of the size."</div>
 				</div>
+			</div>
+
+			<div class="setting-item select-item">
+				<label for="applyThemeColorToBrowser">Apply Color to Browser UI</label>
+				<div class="select-wrapper">
+					<select id="applyThemeColorToBrowser">
+						<option value="disabled">Disabled</option>
+						<option value="theme" selected>Use Theme Color</option>
+						<option value="accent">Use Accent Color</option>
+					</select>
+				</div>
+				<div class="description">Sets the browser's theme color on compatible browsers.</div>
 			</div>
 
 			<div class="setting-item toggle-item">
@@ -821,7 +878,7 @@
 					</select>
 				</div>
 			</div>
-			<div class="depends-on-playlist-enabled" id="return-to-default-mode-setting-container" style="margin-top: 24px;">
+			<div class="depends-on-playlist-enabled" id="return-to-default-mode-setting-container" style="margin-top: 24px; padding-left: 24px;">
 				<div class="setting-item toggle-item" id="returnToDefaultToggleItemContainer">
 					<div class="toggle-label-group" data-target-id="returnToDefaultModeOnVideoSelect">
 						<div class="toggle-label-main">Return to Default Mode On Video Select</div>
@@ -834,6 +891,16 @@
 				</div>
 			</div>
 			<fieldset class="depends-on-playlist-enabled" style="margin-top: 24px; padding-top:24px; border-top: 1px solid var(--md-color-divider);">
+				<div class="setting-item select-item">
+					<label for="playlistColorMode">Playlist Colors</label>
+					<div class="select-wrapper">
+						<select id="playlistColorMode">
+							<option value="theme">Decided by Theme</option>
+							<option value="light">Light</option>
+							<option value="dark">Dark</option>
+						</select>
+					</div>
+				</div>
 				<div class="setting-item select-item">
 					<label for="playlistItemDensity">Item Density</label>
 					<div class="select-wrapper">
@@ -874,17 +941,21 @@
 		</div>
 		<div class="card-content">
 			<div class="setting-item select-item">
-				<label for="parsingPreference">Video Information Display</label>
+				<label for="parsingPreference">Music Video Parse and Clean</label>
 				<div class="select-wrapper">
 					<select id="parsingPreference">
-						<option value="original">Use Original Video Title & Channel Name</option>
-						<option value="parsed">Attempt to Parse Artist & Title (Music)</option>
-					</select>
+					<option value="original">Disabled</option>
+					<option value="mixesOnly">Mixes Only</option>
+					<option value="mixesAndPlaylists">Mixes and Playlists</option>
+					<option value="parsed">Always Parse</option>
+				</select>
 				</div>
 				<p class="description">
-					&bull; 'Use Original' always shows YouTube's default video title and channel name.<br>
-					&bull; 'Attempt to Parse' tries to extract the artist and track information from the video title (e.g. "Artist - Track")- reverts to original on fail
-					<i>(may cause undesired effects on non-music videos).</i>
+					On Music videos, this attempts to extract the artist and track information from the video title, i.e. <code>'Artist - Title'</code>, it's then cleaned-up and displayed as the video title and instead of the channel name.<br><br>
+					&bull; 'Disabled' never parse, use the default video and channel name.<br>
+					&bull; 'Mixes Only' parse on YouTube generated Mixes.<br>
+					&bull; 'Mixes and Playlists' as above, but for your Playlists too.<br>
+					&bull; 'Always Parse' always parse (may cause undesired effects on non-music videos).
 				</p>
 			</div>
 			<div class="setting-item toggle-item">
@@ -1132,6 +1203,17 @@
 								<div class="toggle-label-group">
 									<div class="toggle-label-main">View on GitHub</div>
 									<div class="toggle-label-description">View source, report issues, or contribute.</div>
+								</div>
+							</a>
+						</div>
+						<div class="link-item">
+							<a href="https://discord.gg/e3eXGTJbjx" target="_blank" rel="noopener noreferrer" class="github-link">
+								<svg height="24" aria-hidden="true" viewBox="0 0 24 24" version="1.1" width="24" class="github-logo">
+									<path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0189 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1568 2.4189Z"></path>
+								</svg>
+								<div class="toggle-label-group">
+									<div class="toggle-label-main">Join Discord Server</div>
+									<div class="toggle-label-description">Get support and connect with the community.</div>
 								</div>
 							</a>
 						</div>

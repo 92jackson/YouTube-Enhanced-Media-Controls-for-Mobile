@@ -4,6 +4,7 @@ const defaultSettings = {
 	defaultPlayerLayout: 'normal',
 	customPlayerTheme: 'system',
 	customPlayerAccentColor: 'red',
+	applyThemeColorToBrowser: 'theme', // 'disable', 'theme', 'accent'
 	customPlayerFontMultiplier: 1,
 	showBottomControls: true,
 	showVoiceSearchButton: true,
@@ -15,11 +16,12 @@ const defaultSettings = {
 	playlistItemDensity: 'comfortable',
 	allowMultilinePlaylistTitles: false,
 	keepPlaylistFocused: false,
-	parsingPreference: 'original',
+	playlistColorMode: 'theme',
+	parsingPreference: 'mixesAndPlaylists',
 	previousButtonBehavior: 'smart',
 	smartPreviousThreshold: 5,
 	enableGestures: true,
-	gestureSingleSwipeLeftAction: 'restartPreviousVideo',
+	gestureSingleSwipeLeftAction: 'previousVideoOnly',
 	gestureSingleSwipeRightAction: 'nextVideo',
 	gestureTwoFingerSwipeUpAction: 'toggleVoiceSearch',
 	gestureTwoFingerSwipeDownAction: 'playPause',
@@ -259,7 +261,9 @@ function initCustomPlayerFontSlider() {
 	const preview = wrapper?.querySelector('.preview-text');
 
 	// Build label elements
-	labelContainer.innerHTML = '';
+	while (labelContainer.firstChild) {
+		labelContainer.removeChild(labelContainer.firstChild);
+	}
 	labels.forEach((label, index) => {
 		const span = document.createElement('span');
 		span.textContent = label;
@@ -296,7 +300,9 @@ function loadBlacklistedVideos() {
 
 		if (!listContainer) return;
 
-		listContainer.innerHTML = '';
+		while (listContainer.firstChild) {
+			listContainer.removeChild(listContainer.firstChild);
+		}
 
 		if (videoBlacklist.length === 0) {
 			noVideosMessage.style.display = 'block';
@@ -497,9 +503,28 @@ function initClearAllButton() {
 	}
 }
 
+function loadVersionNumber() {
+	fetch(chrome.runtime.getURL('manifest.json'))
+		.then(response => response.json())
+		.then(manifest => {
+			const versionElement = document.getElementById('version-number');
+			if (versionElement && manifest.version) {
+				versionElement.textContent = `v${manifest.version}`;
+			}
+		})
+		.catch(error => {
+			console.error('Failed to load version from manifest:', error);
+			const versionElement = document.getElementById('version-number');
+			if (versionElement) {
+				versionElement.textContent = 'Version unavailable';
+			}
+		});
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 	restore_options();
 	loadBlacklistedVideos();
 	initBlacklistedVideosCollapse();
 	initClearAllButton();
+	loadVersionNumber();
 });

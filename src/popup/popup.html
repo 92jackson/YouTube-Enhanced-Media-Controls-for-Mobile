@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>YouTube Enhanced Media Controls</title>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+			background: #f8f9fa;
+			color: #333;
+			min-height: 200px;
+		}
+
+		.popup-container {
+			padding: 20px;
+			min-width: 300px;
+			width: 100%;
+			margin: 0 auto;
+		}
+
+		.popup-header {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			margin-bottom: 20px;
+		}
+
+		.popup-icon {
+			width: 32px;
+			height: 32px;
+			flex-shrink: 0;
+		}
+
+		.popup-title h1 {
+			font-size: 16px;
+			font-weight: 600;
+			color: #1a1a1a;
+			margin-bottom: 2px;
+			line-height: 1.2;
+		}
+
+		.version-text {
+			font-size: 12px;
+			color: #666;
+			font-weight: 400;
+		}
+
+		.popup-content {
+			display: flex;
+			flex-direction: column;
+			gap: 16px;
+		}
+
+		.settings-button {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 12px 16px;
+			background: #007bff;
+			color: white;
+			border: none;
+			border-radius: 8px;
+			font-size: 14px;
+			font-weight: 500;
+			cursor: pointer;
+			transition: background-color 0.2s ease;
+			width: 100%;
+			justify-content: center;
+		}
+
+		.settings-button:hover {
+			background: #0056b3;
+		}
+
+		.settings-button:active {
+			transform: translateY(1px);
+		}
+
+		.popup-links {
+			display: flex;
+			gap: 8px;
+			justify-content: center;
+		}
+
+		.popup-link {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			padding: 8px 12px;
+			background: #e9ecef;
+			color: #495057;
+			text-decoration: none;
+			border-radius: 6px;
+			font-size: 12px;
+			font-weight: 500;
+			transition: all 0.2s ease;
+			flex: 1;
+			justify-content: center;
+		}
+
+		.popup-link:hover {
+			background: #dee2e6;
+			color: #212529;
+			transform: translateY(-1px);
+		}
+
+		.popup-link svg {
+			flex-shrink: 0;
+		}
+
+		/* Dark mode support */
+		@media (prefers-color-scheme: dark) {
+			body {
+				background: #1a1a1a;
+				color: #e0e0e0;
+			}
+			
+			.popup-title h1 {
+				color: #ffffff;
+			}
+			
+			.version-text {
+				color: #999;
+			}
+			
+			.popup-link {
+				background: #2d2d2d;
+				color: #e0e0e0;
+			}
+			
+			.popup-link:hover {
+				background: #3d3d3d;
+				color: #ffffff;
+			}
+		}
+	</style>
+</head>
+<body>
+	<div class="popup-container">
+		<div class="popup-header">
+			<img src="../../icons/icon48.png" alt="Extension Icon" class="popup-icon">
+			<div class="popup-title">
+				<h1>YouTube Enhanced Media Controls</h1>
+				<span class="version-text">Loading...</span>
+			</div>
+		</div>
+		
+		<div class="popup-content">
+			<button id="open-settings" class="settings-button">
+				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<circle cx="12" cy="12" r="3"></circle>
+					<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+				</svg>
+				Open Settings
+			</button>
+			
+			<div class="popup-links">
+				<a href="https://github.com/92jackson/YouTube-Enhanced-Media-Controls-for-Mobile" target="_blank" class="popup-link">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+						<path d="M12 1C5.923 1 1 5.923 1 12c0 4.867 3.149 8.979 7.521 10.436.55.096.756-.233.756-.522 0-.262-.013-1.128-.013-2.049-2.764.509-3.479-.674-3.699-1.292-.124-.317-.66-1.293-1.127-1.554-.385-.207-.936-.715-.014-.729.866-.014 1.485.797 1.691 1.128.99 1.663 2.571 1.196 3.204.907.096-.715.385-1.196.701-1.471-2.448-.275-5.005-1.224-5.005-5.432 0-1.196.426-2.186 1.128-2.956-.111-.275-.496-1.402.11-2.915 0 0 .921-.288 3.024 1.128a10.193 10.193 0 0 1 2.75-.371c.936 0 1.871.123 2.75.371 2.104-1.43 3.025-1.128 3.025-1.128.605 1.513.221 2.64.111 2.915.701.77 1.127 1.747 1.127 2.956 0 4.222-2.571 5.157-5.019 5.432.399.344.743 1.004.743 2.035 0 1.471-.014 2.654-.014 3.025 0 .289.206.632.756.522C19.851 20.979 23 16.854 23 12c0-6.077-4.922-11-11-11Z"></path>
+					</svg>
+					GitHub
+				</a>
+				<a href="https://discord.gg/e3eXGTJbjx" target="_blank" class="popup-link">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+						<path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0189 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1568 2.4189Z"></path>
+					</svg>
+					Discord
+				</a>
+			</div>
+		</div>
+	</div>
+	
+	<script src="popup.js"></script>
+</body>
+</html>

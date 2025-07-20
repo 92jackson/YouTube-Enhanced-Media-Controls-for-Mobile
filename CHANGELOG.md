@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.5] - 2025-07-20
+
+### Added
+
+-   **Theme Colors** - Added an array of theme colors to choose from, alongside the pre-exsisting 'System', 'Light' and 'Dark' options
+-   **Playlist Color Modes** - Added new options to choose how playlist colors are displayed regardless of the current theme
+-   **Set Browser UI Color** - Option added to set the browser UI color to the current theme or accent color (compatible browsers only - usually mobile browsers)
+
+### Changed
+
+-   **Enhanced Music Video Parse and Clean** - Added new parsing preference options: "Mixes Only" and "Mixes and Playlists" for more granular control over when artist/title extraction occurs
+-   **Options Page** - Now opens as a new tab. Old popup now links to the options page, gibhub and discord links
+
+### Fixed
+
+-   **Smart Previous Gesture** - Corrected gesture functionality, was previouslly mapped to the restart gesture
+
 ## [1.0.4] - 2025-07-13
 
 ### Added

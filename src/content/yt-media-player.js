@@ -1767,7 +1767,7 @@ class YTMediaPlayer {
 		const actions = {
 			previousVideoOnly: () => this.options.callbacks.onGesturePreviousOnly?.(),
 			restartCurrentVideo: () => this.options.callbacks.onGestureRestartCurrent?.(),
-			restartPreviousVideo: () => this.options.callbacks.onGestureRestartCurrent?.(),
+			restartPreviousVideo: () => this.options.callbacks.onGestureSmartPrevious?.(),
 			nextVideo: () => this.options.callbacks.onSkipClick?.(),
 			playPause: () => {
 				const currentState = this.playButton.classList.contains('playing')
@@ -1909,7 +1909,8 @@ class YTMediaPlayer {
 			this.programmaticScrollInProgress ||
 			!this.options.keepPlaylistFocused ||
 			!this.hasPlaylist ||
-			!this.playlistWrapper
+			!this.playlistWrapper ||
+			this._isContextMenuOpen()
 		) {
 			return;
 		}
@@ -1922,7 +1923,12 @@ class YTMediaPlayer {
 	}
 
 	_performAutoScrollFocus() {
-		if (!this.options.keepPlaylistFocused || !this.hasPlaylist || !this.playlistWrapper) {
+		if (
+			!this.options.keepPlaylistFocused ||
+			!this.hasPlaylist ||
+			!this.playlistWrapper ||
+			this._isContextMenuOpen()
+		) {
 			return;
 		}
 
@@ -1961,6 +1967,25 @@ class YTMediaPlayer {
 				});
 			}
 		});
+	}
+
+	/**
+	 * Check if the context menu is currently open
+	 * @returns {boolean} True if context menu is visible
+	 */
+	_isContextMenuOpen() {
+		return this.contextMenu && this.contextMenu.style.display === 'flex' && this.contextMenu.classList.contains('visible');
+	}
+
+	/**
+	 * Resume auto-scroll if context menu is closed
+	 */
+	_resumeAutoScrollIfNeeded() {
+		// Only resume if context menu is closed and keepPlaylistFocused is enabled
+		if (!this._isContextMenuOpen() && this.options.keepPlaylistFocused) {
+			// Start the auto-scroll timer to focus on the current item
+			this._performAutoScrollFocus();
+		}
 	}
 
 	/**
@@ -2618,7 +2643,7 @@ class YTMediaPlayer {
 
 		// Blacklist option
 		const blacklistOption = document.createElement('div');
-		blacklistOption.className = 'yt-context-menu-option';
+		blacklistOption.className = 'yt-context-menu-option separator';
 
 		const blacklistIcon = document.createElement('div');
 		blacklistIcon.className = 'yt-context-menu-option-icon';
@@ -2644,6 +2669,33 @@ class YTMediaPlayer {
 		});
 		content.appendChild(blacklistOption);
 
+		// Show Details option
+		const detailsOption = document.createElement('div');
+		detailsOption.className = 'yt-context-menu-option';
+
+		const detailsIcon = document.createElement('div');
+		detailsIcon.className = 'yt-context-menu-option-icon';
+		const detailsSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		detailsSvg.setAttribute('viewBox', '0 0 24 24');
+		const detailsPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		detailsPath.setAttribute(
+			'd',
+			'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z'
+		);
+		detailsSvg.appendChild(detailsPath);
+		detailsIcon.appendChild(detailsSvg);
+
+		const detailsText = document.createElement('div');
+		detailsText.className = 'yt-context-menu-option-text';
+		detailsText.textContent = 'Show details';
+
+		detailsOption.appendChild(detailsIcon);
+		detailsOption.appendChild(detailsText);
+		detailsOption.addEventListener('click', () => {
+			this._showDetailsInContextMenu();
+		});
+		content.appendChild(detailsOption);
+
 		modal.appendChild(content);
 		overlay.appendChild(modal);
 
@@ -2659,6 +2711,9 @@ class YTMediaPlayer {
 		if (!this.contextMenu) {
 			this.contextMenu = this._createContextMenu();
 			document.body.appendChild(this.contextMenu);
+		} else {
+			// Reset to main menu content when reopening
+			this._resetContextMenuToMain();
 		}
 
 		this.contextMenuVideoId = videoId;
@@ -2700,10 +2755,9 @@ class YTMediaPlayer {
 	}
 
 	_hideContextMenu(event) {
-		// If called from an event and the click is outside the context menu, prevent it
-		if (event && this.contextMenu && !this.contextMenu.contains(event.target)) {
-			event.preventDefault();
-			event.stopPropagation();
+		// If called from an event and the click is inside the context menu, don't close it
+		if (event && this.contextMenu && this.contextMenu.contains(event.target)) {
+			return;
 		}
 
 		// Remove context menu active class from the playlist item
@@ -2721,9 +2775,285 @@ class YTMediaPlayer {
 			this.contextMenu.classList.remove('visible');
 			setTimeout(() => {
 				this.contextMenu.style.display = 'none';
+				// Resume auto-scroll after context menu is fully closed
+				this._resumeAutoScrollIfNeeded();
 			}, 200);
 		}
 		document.removeEventListener('click', this._hideContextMenu_bound, true);
+	}
+
+	/**
+	 * Show a detailed dialog with all video information
+	 * @param {string} videoId - The video ID to show details for
+	 */
+	/**
+	 * Reset context menu to main menu content
+	 */
+	_resetContextMenuToMain() {
+		if (!this.contextMenu) return;
+
+		// Get the content area
+		const content = this.contextMenu.querySelector('.yt-context-menu-content');
+		if (!content) return;
+
+		// Clear existing content
+		content.innerHTML = '';
+
+		// Recreate the main menu options
+		// Play Next option
+		const playNextOption = document.createElement('div');
+		playNextOption.className = 'yt-context-menu-option';
+
+		const playNextIcon = document.createElement('div');
+		playNextIcon.className = 'yt-context-menu-option-icon';
+		const playNextSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		playNextSvg.setAttribute('viewBox', '0 0 24 24');
+		const playNextPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		playNextPath.setAttribute('d', 'M8 5v14l11-7z');
+		playNextSvg.appendChild(playNextPath);
+		playNextIcon.appendChild(playNextSvg);
+
+		const playNextText = document.createElement('div');
+		playNextText.className = 'yt-context-menu-option-text';
+		playNextText.textContent = 'Play next';
+
+		playNextOption.appendChild(playNextIcon);
+		playNextOption.appendChild(playNextText);
+		playNextOption.addEventListener('click', () => {
+			this._setPlayNext(this.contextMenuVideoId);
+			this._hideContextMenu();
+		});
+		content.appendChild(playNextOption);
+
+		// Repeat Current Video option
+		const repeatOption = document.createElement('div');
+		repeatOption.className = 'yt-context-menu-option separator';
+
+		const repeatIcon = document.createElement('div');
+		repeatIcon.className = 'yt-context-menu-option-icon';
+		const repeatSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		repeatSvg.setAttribute('viewBox', '0 0 24 24');
+		const repeatPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		repeatPath.setAttribute(
+			'd',
+			'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z'
+		);
+		repeatSvg.appendChild(repeatPath);
+		repeatIcon.appendChild(repeatSvg);
+
+		const repeatText = document.createElement('div');
+		repeatText.className = 'yt-context-menu-option-text';
+		repeatText.textContent = 'Play this on repeat';
+
+		repeatOption.appendChild(repeatIcon);
+		repeatOption.appendChild(repeatText);
+		repeatOption.addEventListener('click', () => {
+			this._setRepeatCurrent(this.contextMenuVideoId);
+			this._hideContextMenu();
+		});
+		content.appendChild(repeatOption);
+
+		// Remove from mix option
+		const removeOption = document.createElement('div');
+		removeOption.className = 'yt-context-menu-option';
+
+		const removeIcon = document.createElement('div');
+		removeIcon.className = 'yt-context-menu-option-icon';
+		const removeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		removeSvg.setAttribute('viewBox', '0 0 24 24');
+		const removePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		removePath.setAttribute(
+			'd',
+			'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'
+		);
+		removeSvg.appendChild(removePath);
+		removeIcon.appendChild(removeSvg);
+
+		const removeText = document.createElement('div');
+		removeText.className = 'yt-context-menu-option-text';
+		removeText.textContent = 'Remove from this mix';
+
+		removeOption.appendChild(removeIcon);
+		removeOption.appendChild(removeText);
+		removeOption.addEventListener('click', () => {
+			this._removeFromMix(this.contextMenuVideoId);
+			this._hideContextMenu();
+		});
+		content.appendChild(removeOption);
+
+		// Blacklist option
+		const blacklistOption = document.createElement('div');
+		blacklistOption.className = 'yt-context-menu-option separator';
+
+		const blacklistIcon = document.createElement('div');
+		blacklistIcon.className = 'yt-context-menu-option-icon';
+		const blacklistSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		blacklistSvg.setAttribute('viewBox', '0 0 24 24');
+		const blacklistPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		blacklistPath.setAttribute(
+			'd',
+			'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z'
+		);
+		blacklistSvg.appendChild(blacklistPath);
+		blacklistIcon.appendChild(blacklistSvg);
+
+		const blacklistText = document.createElement('div');
+		blacklistText.className = 'yt-context-menu-option-text';
+		blacklistText.textContent = 'Blacklist this video';
+
+		blacklistOption.appendChild(blacklistIcon);
+		blacklistOption.appendChild(blacklistText);
+		blacklistOption.addEventListener('click', () => {
+			this._blacklistVideo(this.contextMenuVideoId);
+			this._hideContextMenu();
+		});
+		content.appendChild(blacklistOption);
+
+		// Show Details option
+		const detailsOption = document.createElement('div');
+		detailsOption.className = 'yt-context-menu-option';
+
+		const detailsIcon = document.createElement('div');
+		detailsIcon.className = 'yt-context-menu-option-icon';
+		const detailsSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		detailsSvg.setAttribute('viewBox', '0 0 24 24');
+		const detailsPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		detailsPath.setAttribute(
+			'd',
+			'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z'
+		);
+		detailsSvg.appendChild(detailsPath);
+		detailsIcon.appendChild(detailsSvg);
+
+		const detailsText = document.createElement('div');
+		detailsText.className = 'yt-context-menu-option-text';
+		detailsText.textContent = 'Show details';
+
+		detailsOption.appendChild(detailsIcon);
+		detailsOption.appendChild(detailsText);
+		detailsOption.addEventListener('click', () => {
+			this._showDetailsInContextMenu();
+		});
+		content.appendChild(detailsOption);
+	}
+
+	/**
+	 * Show details within the context menu
+	 */
+	_showDetailsInContextMenu() {
+		// Find video data from playlist
+		const videoData = this.options.currentPlaylist?.items?.find((item) => item.id === this.contextMenuVideoId);
+		if (!videoData) {
+			console.warn('Video data not found for ID:', this.contextMenuVideoId);
+			return;
+		}
+
+		// Get the existing context menu modal
+		const modal = document.querySelector('.yt-context-menu-modal');
+		if (!modal) return;
+
+		// Clear existing content
+		const content = modal.querySelector('.yt-context-menu-content');
+		if (!content) return;
+		content.innerHTML = '';
+
+		// Create back button
+		const backOption = document.createElement('div');
+		backOption.className = 'yt-context-menu-option';
+
+		const backIcon = document.createElement('div');
+		backIcon.className = 'yt-context-menu-option-icon';
+		const backSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		backSvg.setAttribute('viewBox', '0 0 24 24');
+		const backPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		backPath.setAttribute('d', 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z');
+		backSvg.appendChild(backPath);
+		backIcon.appendChild(backSvg);
+
+		const backText = document.createElement('div');
+		backText.className = 'yt-context-menu-option-text';
+		backText.textContent = 'Back to menu';
+
+		backOption.appendChild(backIcon);
+		backOption.appendChild(backText);
+		backOption.addEventListener('click', () => {
+			this._resetContextMenuToMain();
+		});
+		content.appendChild(backOption);
+
+		// Add separator
+		const separator = document.createElement('div');
+		separator.className = 'yt-context-menu-separator';
+		content.appendChild(separator);
+
+		// Create details content
+		const detailsContainer = document.createElement('div');
+		detailsContainer.className = 'yt-context-menu-details';
+
+		// Basic details
+		const basicDetails = [
+			{ label: 'Title', value: videoData.title || 'Unknown Title' },
+			{ label: 'Artist', value: videoData.artist || 'Unknown Artist' },
+			{ label: 'Duration', value: videoData.duration || '0:00' },
+			{ label: 'Video ID', value: videoData.id || 'Unknown' }
+		];
+
+		basicDetails.forEach(detail => {
+			const row = document.createElement('div');
+			row.className = 'yt-context-menu-detail-row';
+
+			const label = document.createElement('div');
+			label.className = 'yt-context-menu-detail-label';
+			label.textContent = detail.label + ':';
+
+			const value = document.createElement('div');
+			value.className = 'yt-context-menu-detail-value';
+			value.textContent = detail.value;
+
+			row.appendChild(label);
+			row.appendChild(value);
+			detailsContainer.appendChild(row);
+		});
+
+		// Add parsed metadata if available
+		if (videoData.parsedMetadata) {
+			const metadata = videoData.parsedMetadata;
+			
+			// Add separator for parsed metadata
+			const parsedSeparator = document.createElement('div');
+			parsedSeparator.className = 'yt-context-menu-detail-separator';
+			detailsContainer.appendChild(parsedSeparator);
+			
+			const parsedDetails = [
+				{ label: 'Parsed Track', value: metadata.track || 'N/A' },
+				{ label: 'Parsed Artist', value: metadata.artist || 'N/A' },
+				{ label: 'Featuring', value: metadata.featuring || 'None' },
+				{ label: 'Original Title', value: metadata.originalTitle || 'N/A' },
+				{ label: 'Original Channel', value: metadata.originalChannel || 'N/A' },
+				{ label: 'Parsed', value: metadata.parsed ? 'Yes' : 'No' },
+				{ label: 'Parse Method', value: metadata.parseMethod || 'N/A' },
+				{ label: 'Parse Confidence', value: metadata.parseConfidence || 'N/A' }
+			];
+			
+			parsedDetails.forEach(detail => {
+				const row = document.createElement('div');
+				row.className = 'yt-context-menu-detail-row yt-context-menu-detail-parsed';
+
+				const label = document.createElement('div');
+				label.className = 'yt-context-menu-detail-label';
+				label.textContent = detail.label + ':';
+
+				const value = document.createElement('div');
+				value.className = 'yt-context-menu-detail-value';
+				value.textContent = detail.value;
+
+				row.appendChild(label);
+				row.appendChild(value);
+				detailsContainer.appendChild(row);
+			});
+		}
+
+		content.appendChild(detailsContainer);
 	}
 
 	async _removeFromMix(videoId) {

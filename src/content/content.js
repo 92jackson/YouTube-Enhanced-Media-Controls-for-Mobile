@@ -72,6 +72,7 @@ const CSS_SELECTORS = {
 const COLOR_MAP = {
 	red: { primary: '#ff0000', secondary: '#dd0000' },
 	pink: { primary: '#ec407a', secondary: '#e91e63' },
+	babypink: { primary: '#f5a9d0', secondary: '#f06292' },
 	purple: { primary: '#9b59b6', secondary: '#8e44ad' },
 	indigo: { primary: '#3f51b5', secondary: '#303f9f' },
 	blue: { primary: '#3498db', secondary: '#2980b9' },
@@ -377,14 +378,23 @@ class PlayerStateManager {
 		const nativeState = this.getNativePlayerState();
 		const video = DOMHelper.findVideoElement();
 
-		// Update time if video element is available
+		let currentTime = video?.currentTime || 0;
+		let duration = video?.duration || 0;
+
+		// If we auto skip ads, dont show the ad timer
+		if (!window.userSettings.autoSkipAds && DOMHelper.isAdPlaying()) {
+			currentTime = 0;
+			duration = 0;
+		}
+
 		if (
 			video &&
 			!ytPlayerInstance.isSeekbarDragging &&
 			!isNaN(video.duration) &&
 			video.duration > 0
 		) {
-			ytPlayerInstance.setCurrentTime(video.currentTime, video.duration);
+			// Update time if video element is available
+			ytPlayerInstance.setCurrentTime(currentTime, duration);
 		}
 
 		// Update play state
@@ -513,6 +523,67 @@ function applyTheme() {
  * @param {string} colorName - The name of the color from the predefined map
  * @param {object} colors - The colors to apply if adaptive
  */
+/**
+ * Updates the browser's theme-color meta tag
+ * @param {string} accentColor - The current accent color
+ */
+function updateBrowserThemeColor(accentColor) {
+	const setting = window.userSettings.applyThemeColorToBrowser;
+	if (setting === 'disabled') return;
+
+	let themeColorMeta = document.querySelector('meta[name="theme-color"]');
+	if (!themeColorMeta) {
+		themeColorMeta = document.createElement('meta');
+		themeColorMeta.name = 'theme-color';
+		document.head.appendChild(themeColorMeta);
+	}
+
+	let colorToUse;
+	if (setting === 'accent') {
+		colorToUse = accentColor;
+	} else if (setting === 'theme') {
+		// Get theme color based on current theme
+		const theme = window.userSettings.customPlayerTheme;
+		
+		// Define theme-specific navbar background colors (matching CSS --yt-player-bg-secondary)
+		const themeColors = {
+			'dark': '#0f0f0f',
+			'light': '#ffffff',
+			'red': '#ff0000',
+			'blue': '#3498db',
+			'green': '#2ecc71',
+			'purple': '#9b59b6',
+			'orange': '#e67e22',
+			'pink': '#e91e63',
+			'teal': '#008080',
+			'yellow': '#f1c40f',
+			'babypink': '#f5a9d0',
+			'indigo': '#3f51b5',
+			'cyan': '#00bcd4',
+			'lime': '#cddc39',
+			'brown': '#795548',
+			'grey': '#9e9e9e'
+		};
+		
+		if (theme === 'system') {
+			// System theme - detect current preference
+			const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+			colorToUse = isDark ? '#0f0f0f' : '#ffffff';
+		} else {
+			// Use theme-specific color or fallback to dark theme
+			colorToUse = themeColors[theme] || '#0f0f0f';
+		}
+	}
+
+	themeColorMeta.content = colorToUse;
+	logger.log('ThemeColor', `Updated browser theme color to: ${colorToUse} (mode: ${setting}, theme: ${window.userSettings.customPlayerTheme})`);
+}
+
+/**
+ * Sets theme CSS properties and updates browser theme color
+ * @param {string} colorName - The color name from COLOR_MAP
+ * @param {object} colors - Optional custom colors object
+ */
 function setThemeCSS(colorName, colors = {}) {
 	if (colorName === 'adaptive' && !colors.primary) colorName = 'red';
 
@@ -520,7 +591,25 @@ function setThemeCSS(colorName, colors = {}) {
 	const { primary, secondary } = colors.primary ? colors : selectedColors;
 
 	// Set CSS custom properties used by the stylesheet
-	document.body.classList.remove('yt-theme-light', 'yt-theme-dark', 'yt-theme-system');
+	document.body.classList.remove(
+		'yt-theme-light',
+		'yt-theme-dark',
+		'yt-theme-system',
+		'yt-theme-red',
+		'yt-theme-pink',
+		'yt-theme-babypink',
+		'yt-theme-purple',
+		'yt-theme-indigo',
+		'yt-theme-blue',
+		'yt-theme-teal',
+		'yt-theme-cyan',
+		'yt-theme-green',
+		'yt-theme-lime',
+		'yt-theme-yellow',
+		'yt-theme-orange',
+		'yt-theme-brown',
+		'yt-theme-grey'
+	);
 	document.body.classList.add(`yt-theme-${window.userSettings.customPlayerTheme}`);
 
 	if (colorName !== 'adaptive' || colors.primary || !PageUtils.isVideoWatchPage()) {
@@ -535,6 +624,9 @@ function setThemeCSS(colorName, colors = {}) {
 			ColorUtils.hexToRgba(primary, 0.12)
 		);
 	}
+
+	// Update browser theme color (called for all cases to handle theme changes)
+	updateBrowserThemeColor(primary);
 }
 
 /**
@@ -587,10 +679,15 @@ async function getVideoDetailsFromPage() {
 	let displayTitle = rawTitle;
 	let displayAuthor = DOMUtils.getText(CSS_SELECTORS.videoAuthor) || 'Unknown Author';
 
-	// Apply parsing preference if enabled
+	// Apply parsing preference
 	if (
 		window.userSettings.enableCustomPlayer &&
-		window.userSettings.parsingPreference === 'parsed'
+		(window.userSettings.parsingPreference === 'parsed' ||
+			(window.userSettings.parsingPreference === 'mixesAndPlaylists' &&
+				PageUtils.isPlaylistPage()) ||
+			(window.userSettings.parsingPreference === 'mixesOnly' &&
+				PageUtils.isPlaylistPage() &&
+				/^(?:my\s+)?mix/i.test(DOMUtils.getText(CSS_SELECTORS.playlistTitle) || '')))
 	) {
 		const parsedInfo = MediaUtils.parseTitleToMusicMetadata(rawTitle, displayAuthor);
 		if (parsedInfo) {
@@ -654,12 +751,18 @@ function getPlaylistItemsFromPage() {
 			let itemArtist = artistEl ? artistEl.textContent.trim() : 'Unknown Artist';
 			const duration = durationEl ? durationEl.textContent.trim() : '0:00';
 
-			// Apply parsing preference
+			// Apply parsing preference and get parsed metadata
+			let parsedInfo = null;
 			if (
 				window.userSettings.enableCustomPlayer &&
-				window.userSettings.parsingPreference === 'parsed'
+				(window.userSettings.parsingPreference === 'parsed' ||
+					(window.userSettings.parsingPreference === 'mixesAndPlaylists' &&
+						PageUtils.isPlaylistPage()) ||
+					(window.userSettings.parsingPreference === 'mixesOnly' &&
+						PageUtils.isPlaylistPage() &&
+						/^(?:my\s+)?mix/i.test(playlistTitle)))
 			) {
-				const parsedInfo = MediaUtils.parseTitleToMusicMetadata(itemTitle, itemArtist);
+				parsedInfo = MediaUtils.parseTitleToMusicMetadata(itemTitle, itemArtist);
 				if (parsedInfo) {
 					itemTitle = parsedInfo.track;
 					itemArtist =
@@ -674,6 +777,17 @@ function getPlaylistItemsFromPage() {
 				artist: itemArtist,
 				duration,
 				thumbnailUrl: MediaUtils.getStandardThumbnailUrl(videoId),
+				// Include parsed metadata if available
+				parsedMetadata: parsedInfo || {
+					artist: itemArtist,
+					featuring: null,
+					track: itemTitle,
+					originalTitle: rawItemTitle,
+					originalChannel: itemArtist,
+					parsed: false,
+					parseMethod: 'none',
+					parseConfidence: 'low',
+				},
 			});
 		});
 
@@ -2287,6 +2401,8 @@ async function manageFeatures() {
 		'yt-auto-continue-active': window.userSettings.autoClickContinueWatching,
 		'yt-custom-voice-search-active':
 			window.userSettings.enableCustomPlayer && window.userSettings.showVoiceSearchButton,
+		'yt-playlist-light': window.userSettings.playlistColorMode === 'light',
+		'yt-playlist-dark': window.userSettings.playlistColorMode === 'dark',
 	};
 
 	Object.entries(bodyClasses).forEach(([className, shouldHave]) => {
@@ -2438,7 +2554,12 @@ function initializeEventListenersAndObservers() {
 				let themeUpdateNeeded = false;
 
 				for (const key in changes) {
-					if (key === 'customPlayerTheme' || key === 'customPlayerAccentColor') {
+					if (
+						key === 'customPlayerTheme' ||
+						key === 'customPlayerAccentColor' ||
+						key === 'playlistColorMode' ||
+						key === 'applyThemeColorToBrowser'
+					) {
 						themeUpdateNeeded = true;
 					}
 
@@ -2482,6 +2603,10 @@ function initializeEventListenersAndObservers() {
 												newValue;
 										}
 									},
+									applyThemeColorToBrowser: () => {
+										// Re-apply theme to update browser theme color
+										applyTheme();
+									},
 									showBottomControls: () =>
 										ytPlayerInstance.setBottomControlsVisibility(newValue),
 									defaultPlayerLayout: () => ytPlayerInstance.setLayout(newValue),
@@ -2504,11 +2629,11 @@ function initializeEventListenersAndObservers() {
 									keepPlaylistFocused: () =>
 										ytPlayerInstance.setKeepPlaylistFocused(newValue),
 									showGestureFeedback: () =>
-									ytPlayerInstance.setShowGestureFeedback(newValue),
-								enableGestures: () =>
-									ytPlayerInstance.setGesturesEnabled(newValue),
-								gestureSensitivity: () =>
-									ytPlayerInstance.setGestureSensitivity(newValue),
+										ytPlayerInstance.setShowGestureFeedback(newValue),
+									enableGestures: () =>
+										ytPlayerInstance.setGesturesEnabled(newValue),
+									gestureSensitivity: () =>
+										ytPlayerInstance.setGestureSensitivity(newValue),
 									enableDebugLogging: () => {
 										if (ytPlayerInstance && ytPlayerInstance.options) {
 											ytPlayerInstance.options.enableDebugLogging = newValue;
@@ -2565,16 +2690,16 @@ function initializeEventListenersAndObservers() {
 								}
 
 								// Handle gesture settings
-							const gestureSettings = [
-								'gestureSingleSwipeLeftAction',
-								'gestureSingleSwipeRightAction',
-								'gestureTwoFingerSwipeUpAction',
-								'gestureTwoFingerSwipeDownAction',
-								'gestureTwoFingerSwipeLeftAction',
-								'gestureTwoFingerSwipeRightAction',
-								'gestureTwoFingerPressAction',
-								'gestureSensitivity',
-							];
+								const gestureSettings = [
+									'gestureSingleSwipeLeftAction',
+									'gestureSingleSwipeRightAction',
+									'gestureTwoFingerSwipeUpAction',
+									'gestureTwoFingerSwipeDownAction',
+									'gestureTwoFingerSwipeLeftAction',
+									'gestureTwoFingerSwipeRightAction',
+									'gestureTwoFingerPressAction',
+									'gestureSensitivity',
+								];
 								if (
 									gestureSettings.includes(key) &&
 									ytPlayerInstance &&
