@@ -22,9 +22,15 @@ const CSS_SELECTORS = {
 		'.playlist-engagement-panel-mix-title',
 		'.playlist-engagement-panel-list-title',
 	],
-	playlistItemHeadline: '.compact-media-item-headline span.yt-core-attributed-string',
-	playlistItemByline: '.compact-media-item-byline span.yt-core-attributed-string',
-	playlistItemDuration: '.badge-shape-wiz__text',
+	playlistItemHeadline: [
+		'.compact-media-item-headline span.yt-core-attributed-string',
+		'h4.YtmCompactMediaItemHeadline',
+	],
+	playlistItemByline: [
+		'.compact-media-item-byline span.yt-core-attributed-string',
+		'.YtmCompactMediaItemByline',
+	],
+	playlistItemDuration: ['.badge-shape-wiz__text', 'ytm-thumbnail-overlay-time-status-renderer'],
 	playlistCloseButton: 'ytm-button-renderer.icon-close button',
 	playlistEntryPointButton:
 		'ytm-playlist-panel-entry-point button[aria-label="Show playlist videos"]',
@@ -39,6 +45,7 @@ const CSS_SELECTORS = {
 	videoTitle: [
 		'ytm-slim-video-metadata-section-renderer .title',
 		'.slim-video-metadata-header h2',
+		'.slim-video-information-title',
 	],
 	videoAuthor: [
 		'ytm-slim-owner-renderer .ytm-channel-name',
@@ -544,27 +551,27 @@ function updateBrowserThemeColor(accentColor) {
 	} else if (setting === 'theme') {
 		// Get theme color based on current theme
 		const theme = window.userSettings.customPlayerTheme;
-		
+
 		// Define theme-specific navbar background colors (matching CSS --yt-player-bg-secondary)
 		const themeColors = {
-			'dark': '#0f0f0f',
-			'light': '#ffffff',
-			'red': '#ff0000',
-			'blue': '#3498db',
-			'green': '#2ecc71',
-			'purple': '#9b59b6',
-			'orange': '#e67e22',
-			'pink': '#e91e63',
-			'teal': '#008080',
-			'yellow': '#f1c40f',
-			'babypink': '#f5a9d0',
-			'indigo': '#3f51b5',
-			'cyan': '#00bcd4',
-			'lime': '#cddc39',
-			'brown': '#795548',
-			'grey': '#9e9e9e'
+			dark: '#0f0f0f',
+			light: '#ffffff',
+			red: '#ff0000',
+			blue: '#3498db',
+			green: '#2ecc71',
+			purple: '#9b59b6',
+			orange: '#e67e22',
+			pink: '#e91e63',
+			teal: '#008080',
+			yellow: '#f1c40f',
+			babypink: '#f5a9d0',
+			indigo: '#3f51b5',
+			cyan: '#00bcd4',
+			lime: '#cddc39',
+			brown: '#795548',
+			grey: '#9e9e9e',
 		};
-		
+
 		if (theme === 'system') {
 			// System theme - detect current preference
 			const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -576,7 +583,10 @@ function updateBrowserThemeColor(accentColor) {
 	}
 
 	themeColorMeta.content = colorToUse;
-	logger.log('ThemeColor', `Updated browser theme color to: ${colorToUse} (mode: ${setting}, theme: ${window.userSettings.customPlayerTheme})`);
+	logger.log(
+		'ThemeColor',
+		`Updated browser theme color to: ${colorToUse} (mode: ${setting}, theme: ${window.userSettings.customPlayerTheme})`
+	);
 }
 
 /**
