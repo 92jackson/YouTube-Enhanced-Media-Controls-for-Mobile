@@ -2469,13 +2469,17 @@ bottom-sheet-container {
 	overflow-y: auto !important;
 	overflow-x: hidden !important;
 	height: calc(var(--yt-below-player-height, 150px) - 0px) !important;
-	padding-top: 0 !important;
+	padding-top: 0;
 }
 
 body.yt-custom-controls-drawn ytm-chip-cloud-renderer {
 	opacity: 0 !important;
 	height: 0px !important;
 	pointer-events: none !important;
+}
+
+body.chip-cloud-present .watch-below-the-player {
+	padding-top: 48px !important;
 }
 
 body.yt-custom-controls-drawn .player-size {

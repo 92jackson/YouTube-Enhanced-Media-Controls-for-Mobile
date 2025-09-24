@@ -75,6 +75,7 @@ const CSS_SELECTORS = {
 	shoppingCloseButton: '.ytm-bottom-sheet-overlay-renderer-close button',
 
 	pageContainerInert: '.page-container[inert]',
+	chipCloudRenderer: 'ytm-chip-cloud-renderer',
 };
 
 /** @const {Object} Map of color names to their respective primary and secondary colors */
@@ -1881,6 +1882,13 @@ function preventPageContainerInert() {
 	const pageContainerInert = DOMUtils.getElement(CSS_SELECTORS.pageContainerInert);
 	if (pageContainerInert && ytPlayerInstance && ytPlayerInstance.hasPlaylist) {
 		pageContainerInert.removeAttribute('inert');
+	}
+
+	const chipCloudRenderer = DOMUtils.getElement(CSS_SELECTORS.chipCloudRenderer);
+	if (chipCloudRenderer) {
+		document.body.classList.add('chip-cloud-present');
+	} else {
+		document.body.classList.remove('chip-cloud-present');
 	}
 }
 
