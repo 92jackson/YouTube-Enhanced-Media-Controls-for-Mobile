@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.7] - 2025-09-24
+
+### Added
+
+-   **Prevent Page Container Inert** - Prevents the page container from being inert when the custom playlist is active, fixing issues with scroll in the area below the video
+
+### Changed
+
+-   **Minor changes to CSS** - Corrected spacing around `.watch-below-the-player`
+
 ## [1.0.6] - 2025-09-06
 
 ### Fixed

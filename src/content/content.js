@@ -73,6 +73,8 @@ const CSS_SELECTORS = {
 	dialogs: 'dialog',
 	shoppingPopup: '.ytm-bottom-sheet-overlay-container',
 	shoppingCloseButton: '.ytm-bottom-sheet-overlay-renderer-close button',
+
+	pageContainerInert: '.page-container[inert]',
 };
 
 /** @const {Object} Map of color names to their respective primary and secondary colors */
@@ -1872,6 +1874,16 @@ function handleNativePlaylistChanges() {
 	}
 }
 
+/**
+ * Prevents the page container from being inert
+ */
+function preventPageContainerInert() {
+	const pageContainerInert = DOMUtils.getElement(CSS_SELECTORS.pageContainerInert);
+	if (pageContainerInert && ytPlayerInstance && ytPlayerInstance.hasPlaylist) {
+		pageContainerInert.removeAttribute('inert');
+	}
+}
+
 // --- Standalone Features ---
 
 /**
@@ -2543,6 +2555,7 @@ function initializeEventListenersAndObservers() {
 			handleVoiceSearchDialogChanges();
 			handleSearchSuggestionsChanges();
 			handleNativePlaylistChanges();
+			preventPageContainerInert();
 		},
 		{ childList: true, subtree: true },
 		'Manager'

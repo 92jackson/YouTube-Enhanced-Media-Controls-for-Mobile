@@ -148,7 +148,7 @@ class YTMediaPlayer {
 		// Configuration constants
 		this.MIN_MEANINGFUL_SNAP_DIFFERENCE = 40;
 		this.playlistScrollDebounceDelay = 2500;
-		
+
 		// Initialize gesture thresholds based on sensitivity
 		this._updateGestureThresholds();
 
@@ -182,22 +182,22 @@ class YTMediaPlayer {
 	 */
 	_updateGestureThresholds() {
 		const sensitivity = this.options.gestureSensitivity || 'normal';
-		
+
 		// Base threshold values (normal sensitivity)
 		const baseSwipeDistance = 60;
 		const baseTapDistance = 60;
 		const baseSwipeTime = 500;
 		const baseVerticalRatio = 0.7;
-		
+
 		// Sensitivity multipliers
 		const multipliers = {
-			low: { distance: 1.5, time: 0.8, ratio: 0.8 },    // Require more distance, less time, stricter ratio
+			low: { distance: 1.5, time: 0.8, ratio: 0.8 }, // Require more distance, less time, stricter ratio
 			normal: { distance: 1.0, time: 1.0, ratio: 1.0 }, // Default values
-			high: { distance: 0.7, time: 1.2, ratio: 1.2 }    // Require less distance, more time, looser ratio
+			high: { distance: 0.7, time: 1.2, ratio: 1.2 }, // Require less distance, more time, looser ratio
 		};
-		
+
 		const multiplier = multipliers[sensitivity] || multipliers.normal;
-		
+
 		this.SWIPE_DISTANCE_THRESHOLD = Math.round(baseSwipeDistance * multiplier.distance);
 		this.TAP_DISTANCE_THRESHOLD = Math.round(baseTapDistance * multiplier.distance);
 		this.SWIPE_TIME_THRESHOLD = Math.round(baseSwipeTime * multiplier.time);
@@ -1367,7 +1367,7 @@ class YTMediaPlayer {
 		// Calculate below-player height
 		const navbarHeight = 48;
 		const dragHandleHeight =
-			this.options.customPlaylistMode !== DrawerMode.DISABLED
+			this.options.customPlaylistMode !== DrawerMode.DISABLED && this.hasPlaylist
 				? this.drawerState !== DrawerState.CLOSED
 					? 70
 					: 48
@@ -1974,7 +1974,11 @@ class YTMediaPlayer {
 	 * @returns {boolean} True if context menu is visible
 	 */
 	_isContextMenuOpen() {
-		return this.contextMenu && this.contextMenu.style.display === 'flex' && this.contextMenu.classList.contains('visible');
+		return (
+			this.contextMenu &&
+			this.contextMenu.style.display === 'flex' &&
+			this.contextMenu.classList.contains('visible')
+		);
 	}
 
 	/**
@@ -2942,7 +2946,9 @@ class YTMediaPlayer {
 	 */
 	_showDetailsInContextMenu() {
 		// Find video data from playlist
-		const videoData = this.options.currentPlaylist?.items?.find((item) => item.id === this.contextMenuVideoId);
+		const videoData = this.options.currentPlaylist?.items?.find(
+			(item) => item.id === this.contextMenuVideoId
+		);
 		if (!videoData) {
 			console.warn('Video data not found for ID:', this.contextMenuVideoId);
 			return;
@@ -2995,10 +3001,10 @@ class YTMediaPlayer {
 			{ label: 'Title', value: videoData.title || 'Unknown Title' },
 			{ label: 'Artist', value: videoData.artist || 'Unknown Artist' },
 			{ label: 'Duration', value: videoData.duration || '0:00' },
-			{ label: 'Video ID', value: videoData.id || 'Unknown' }
+			{ label: 'Video ID', value: videoData.id || 'Unknown' },
 		];
 
-		basicDetails.forEach(detail => {
+		basicDetails.forEach((detail) => {
 			const row = document.createElement('div');
 			row.className = 'yt-context-menu-detail-row';
 
@@ -3018,12 +3024,12 @@ class YTMediaPlayer {
 		// Add parsed metadata if available
 		if (videoData.parsedMetadata) {
 			const metadata = videoData.parsedMetadata;
-			
+
 			// Add separator for parsed metadata
 			const parsedSeparator = document.createElement('div');
 			parsedSeparator.className = 'yt-context-menu-detail-separator';
 			detailsContainer.appendChild(parsedSeparator);
-			
+
 			const parsedDetails = [
 				{ label: 'Parsed Track', value: metadata.track || 'N/A' },
 				{ label: 'Parsed Artist', value: metadata.artist || 'N/A' },
@@ -3032,10 +3038,10 @@ class YTMediaPlayer {
 				{ label: 'Original Channel', value: metadata.originalChannel || 'N/A' },
 				{ label: 'Parsed', value: metadata.parsed ? 'Yes' : 'No' },
 				{ label: 'Parse Method', value: metadata.parseMethod || 'N/A' },
-				{ label: 'Parse Confidence', value: metadata.parseConfidence || 'N/A' }
+				{ label: 'Parse Confidence', value: metadata.parseConfidence || 'N/A' },
 			];
-			
-			parsedDetails.forEach(detail => {
+
+			parsedDetails.forEach((detail) => {
 				const row = document.createElement('div');
 				row.className = 'yt-context-menu-detail-row yt-context-menu-detail-parsed';
 
