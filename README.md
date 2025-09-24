@@ -4,7 +4,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Firefox](https://img.shields.io/badge/Firefox-Compatible-FF7139.svg?logo=firefoxbrowser&logoColor=white)
 ![Kiwi Browser](https://img.shields.io/badge/Kiwi%20Browser-Compatible-00C851.svg)
-![Edge](https://img.shields.io/badge/Edge-Coming%20Soon-FFA500.svg?logo=microsoftedge&logoColor=white)
+![Edge](https://img.shields.io/badge/Edge%20Canary-Experimental-FFA500.svg?logo=microsoftedge&logoColor=white)
 
 ![Screenshot](https://addons.mozilla.org/user-media/previews/full/325/325301.png?modified=1751767591)
 
@@ -62,11 +62,24 @@ Install the extension from the [Firefox Browser ADD-ONS](https://addons.mozilla.
 3. Enable "Developer mode".
 4. Click "+ (from .zip/.crx/.user.js)" and select the downloaded `.zip` file.
 
+### Microsoft Edge Canary (Android)
+
+**Note**: This method requires Edge Canary and is experimental.
+
+1. Install [Microsoft Edge Canary](https://play.google.com/store/apps/details?id=com.microsoft.emmx.canary) from Google Play Store.
+2. Enable Developer Options:
+    - Go to Settings → About Microsoft Edge
+    - Tap the build number **5 times** to unlock Developer Options
+3. Install the extension by ID:
+    - In Edge Canary, go to Settings → Developer Options
+    - Find "Extension install by id" field
+    - Enter: `alabiblpjgpdmeobghefpoaijodckbjk`
+
 ### Browser Compatibility
 
 -   ✅ Firefox
 -   ✅ Kiwi Browser (Android)
--   🔄 Edge (Coming Soon)
+-   🧪 Microsoft Edge Canary (Android) - Experimental
 
 ## 🛠️ Configuration
 
