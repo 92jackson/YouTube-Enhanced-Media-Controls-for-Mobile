@@ -3,7 +3,7 @@ const defaultSettings = {
 	enableCustomPlayer: true,
 	defaultPlayerLayout: 'normal',
 	customPlayerTheme: 'system',
-	customPlayerAccentColor: 'red',
+	customPlayerAccentColor: 'adaptive',
 	applyThemeColorToBrowser: 'theme', // 'disable', 'theme', 'accent'
 	customPlayerFontMultiplier: 1,
 	showBottomControls: true,
@@ -505,14 +505,14 @@ function initClearAllButton() {
 
 function loadVersionNumber() {
 	fetch(chrome.runtime.getURL('manifest.json'))
-		.then(response => response.json())
-		.then(manifest => {
+		.then((response) => response.json())
+		.then((manifest) => {
 			const versionElement = document.getElementById('version-number');
 			if (versionElement && manifest.version) {
 				versionElement.textContent = `v${manifest.version}`;
 			}
 		})
-		.catch(error => {
+		.catch((error) => {
 			console.error('Failed to load version from manifest:', error);
 			const versionElement = document.getElementById('version-number');
 			if (versionElement) {

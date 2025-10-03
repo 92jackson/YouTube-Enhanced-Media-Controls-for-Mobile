@@ -71,8 +71,11 @@ const CSS_SELECTORS = {
 
 	// Dialog and popup elements
 	dialogs: 'dialog',
-	shoppingPopup: '.ytm-bottom-sheet-overlay-container',
-	shoppingCloseButton: '.ytm-bottom-sheet-overlay-renderer-close button',
+	shoppingPopup: ['.ytm-bottom-sheet-overlay-container', 'ytm-bottom-sheet-overlay-renderer'],
+	shoppingCloseButton: [
+		'.ytm-bottom-sheet-overlay-renderer-close button',
+		'.YtmBottomSheetOverlayRendererClose button',
+	],
 
 	pageContainerInert: '.page-container[inert]',
 	chipCloudRenderer: 'ytm-chip-cloud-renderer',
@@ -647,10 +650,7 @@ function setThemeCSS(colorName, colors = {}) {
  * @param {string} url - The thumbnail URL to extract colors from
  */
 async function setAdaptiveColors(url) {
-	if (
-		window.userSettings.customPlayerAccentColor === 'adaptive' ||
-		window.userSettings.customPlayerAccentColor === 'adaptiveMatch'
-	) {
+	if (window.userSettings.customPlayerAccentColor === 'adaptive') {
 		try {
 			logger.log('AccentColor', `Fetching adaptive colors for thumbnail: ${url}`);
 			const colors = await ColorUtils.getAdaptiveColorFromThumbnail(url);
@@ -2583,9 +2583,11 @@ function initializeEventListenersAndObservers() {
 				let playerRebuildNeeded = false;
 				let settingsUpdated = false;
 				let themeUpdateNeeded = false;
+				const changedSettings = {};
 
 				for (const key in changes) {
 					if (
+						key === 'defaultPlayerLayout' ||
 						key === 'customPlayerTheme' ||
 						key === 'customPlayerAccentColor' ||
 						key === 'playlistColorMode' ||
@@ -2598,7 +2600,7 @@ function initializeEventListenersAndObservers() {
 						settingsUpdated = true;
 						const newValue = changes[key].newValue;
 						window.userSettings[key] = newValue;
-						logger.log('Settings', `Setting '${key}' changed to:`, newValue);
+						changedSettings[key] = newValue;
 
 						if (key === 'autoPlayPreference' && newValue !== 'attemptUnmuted') {
 							initialAutoplayDoneForCurrentVideo = false;
@@ -2607,6 +2609,7 @@ function initializeEventListenersAndObservers() {
 						if (ytPlayerInstance) {
 							const rebuildSettings = [
 								'enableCustomPlayer',
+								'defaultPlayerLayout',
 								'customPlaylistMode',
 								'showVoiceSearchButton',
 								'enableCustomNavbar',
@@ -2747,8 +2750,16 @@ function initializeEventListenersAndObservers() {
 
 					if (themeUpdateNeeded) {
 						applyTheme();
-						setAdaptiveColors(MediaUtils.getStandardThumbnailUrl(currentVideoId));
+						// Only call setAdaptiveColors if the accent color is actually set to adaptive mode
+						if (window.userSettings.customPlayerAccentColor === 'adaptive') {
+							setAdaptiveColors(MediaUtils.getStandardThumbnailUrl(currentVideoId));
+						}
 					}
+				}
+
+				// Log all changed settings in one go
+				if (settingsUpdated && Object.keys(changedSettings).length > 0) {
+					logger.log('Settings', 'Settings changed:', changedSettings);
 				}
 
 				if (settingsUpdated) {

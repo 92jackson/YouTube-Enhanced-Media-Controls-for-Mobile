@@ -818,12 +818,18 @@ class ColorUtils {
 	 * @returns {Promise<{primary: string, secondary: string}>}
 	 */
 	static getAdaptiveColorFromThumbnail(imgSrc) {
-		return new Promise((resolve, reject) => {
-			const img = new Image();
-			img.crossOrigin = 'anonymous';
-			img.src = imgSrc;
+		return new Promise(async (resolve, reject) => {
+			try {
+				// Use fetch API to bypass CORS issues in Firefox
+				// Extension host permissions allow cross-origin requests
+				const response = await fetch(imgSrc);
+				if (!response.ok) {
+					throw new Error(`Failed to fetch image: ${response.status}`);
+				}
 
-			img.onload = () => {
+				const blob = await response.blob();
+				const imageBitmap = await createImageBitmap(blob);
+
 				const sampleSize = 40;
 				const canvas = document.createElement('canvas');
 				canvas.width = sampleSize;
@@ -831,7 +837,7 @@ class ColorUtils {
 
 				const ctx = canvas.getContext('2d');
 				ctx.filter = 'blur(1px)';
-				ctx.drawImage(img, 0, 0, sampleSize, sampleSize);
+				ctx.drawImage(imageBitmap, 0, 0, sampleSize, sampleSize);
 
 				const { data } = ctx.getImageData(0, 0, sampleSize, sampleSize);
 
@@ -863,9 +869,9 @@ class ColorUtils {
 				};
 
 				resolve(resultColor);
-			};
-
-			img.onerror = reject;
+			} catch (error) {
+				reject(error);
+			}
 		});
 	}
 }

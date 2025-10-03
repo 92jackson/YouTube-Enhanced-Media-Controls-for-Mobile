@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.9] - 2025-10-03
+
+### Fixed
+
+-   **Adaptive Accent Colors** - Fixed CORS issues when fetching adaptive colors from thumbnails in FireFox
+
+### Changed
+
+-   **Default Accent Color Setting** - Changed to 'adaptive' from 'red'
+-   **Improved Logging on changing settings**
+
+### Added
+
+-   References for new "Ready to shop?" dialog for auto closing
+
 ## [1.0.8] - 2025-09-24
 
 ### Fixed

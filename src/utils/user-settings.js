@@ -20,7 +20,7 @@ window.userSettings = {
 	autoReloadStuckPlaylist: true,
 	allowBackgroundPlay: false,
 	customPlayerTheme: 'system',
-	customPlayerAccentColor: 'red',
+	customPlayerAccentColor: 'adaptive',
 	applyThemeColorToBrowser: 'theme', // 'disable', 'theme', 'accent'
 	showPreviousButton: true,
 	showSkipButton: true,
