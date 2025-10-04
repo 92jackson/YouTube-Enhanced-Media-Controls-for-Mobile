@@ -145,7 +145,75 @@ let gettingLateVideoDetails = false;
 /** @type {Element|null} Stores the video element being observed for events. */
 let observedVideoElement = null;
 
+// --- Buffer Detection Auto-Pause Variables ---
+/** @type {number|null} Timestamp of the last buffering event for rapid detection */
+let lastBufferingTimestamp = null;
+/** @type {number|null} Timeout ID for the auto-pause resume functionality */
+let bufferAutoPauseTimeout = null;
+/** @type {boolean} Flag to track if auto-pause is currently active */
+let isBufferAutoPauseActive = false;
+
 // --- Utility Classes & Helper Functions ---
+
+/**
+ * Handles experimental buffer detection and auto-pause functionality
+ * @param {HTMLVideoElement} videoElement - The video element
+ */
+async function handleBufferDetectionAutoPause(videoElement) {
+	// Only proceed if experimental buffer detection is enabled
+	if (!window.userSettings.rapidBufferDetection) {
+		return;
+	}
+
+	const currentTime = Date.now();
+	const bufferThreshold = (window.userSettings.bufferDetectionThreshold || 3) * 1000;
+
+	// Check if this is a rapid buffering event
+	if (lastBufferingTimestamp && currentTime - lastBufferingTimestamp < bufferThreshold) {
+		// Rapid buffering detected - trigger auto-pause
+		if (!isBufferAutoPauseActive && !videoElement.paused) {
+			isBufferAutoPauseActive = true;
+			const pauseDuration = (window.userSettings.bufferDetectionPauseDuration || 5) * 1000;
+
+			logger.log(
+				'BufferDetection',
+				`Rapid buffering detected. Auto-pausing for ${pauseDuration / 1000}s`
+			);
+
+			// Pause the video using native method
+			await native_handlePlayPause(window.PlayState.PAUSED, false);
+
+			// Set timeout to resume playback
+			bufferAutoPauseTimeout = setTimeout(async () => {
+				if (isBufferAutoPauseActive && videoElement.paused) {
+					logger.log('BufferDetection', 'Resuming playback after auto-pause');
+					try {
+						await native_handlePlayPause(window.PlayState.PLAYING, false);
+					} catch (err) {
+						logger.warn('BufferDetection', 'Failed to resume playback:', err);
+					}
+				}
+				isBufferAutoPauseActive = false;
+				bufferAutoPauseTimeout = null;
+			}, pauseDuration);
+		}
+	}
+
+	// Update the last buffering timestamp
+	lastBufferingTimestamp = currentTime;
+}
+
+/**
+ * Cleans up buffer detection auto-pause state
+ */
+function cleanupBufferDetectionAutoPause() {
+	if (bufferAutoPauseTimeout) {
+		clearTimeout(bufferAutoPauseTimeout);
+		bufferAutoPauseTimeout = null;
+	}
+	isBufferAutoPauseActive = false;
+	lastBufferingTimestamp = null;
+}
 
 /**
  * Checks if an ad is currently playing by inspecting #movie_player classes
@@ -1688,6 +1756,9 @@ async function setupCustomPlayerPageObservers() {
 			if (ytPlayerInstance && ytPlayerInstance.isPlayerVisible) {
 				ytPlayerInstance.setPlayState(window.PlayState.BUFFERING);
 			}
+
+			// Handle rapid buffer detection auto-pause
+			handleBufferDetectionAutoPause(videoElement);
 		},
 		onEnded: () => {
 			if (ytPlayerInstance && ytPlayerInstance.isPlayerVisible) {
@@ -1751,6 +1822,9 @@ function cleanupSpecificVideoObservers(videoElem) {
 		delete videoElem._customListeners;
 		if (observedVideoElement === videoElem) observedVideoElement = null;
 	}
+
+	// Clean up buffer detection auto-pause state
+	cleanupBufferDetectionAutoPause();
 }
 
 /**
@@ -2480,6 +2554,9 @@ function initializeEventListenersAndObservers() {
 					`URL changed from ${lastUrl} to ${url}. Re-evaluating features.`
 				);
 				lastUrl = url;
+
+				// Reset buffer detection state when video changes
+				cleanupBufferDetectionAutoPause();
 
 				if (ytNavbarInstance) {
 					ytNavbarInstance._handleNavigation();

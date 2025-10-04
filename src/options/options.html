@@ -1133,7 +1133,11 @@
 			<div class="setting-item toggle-item">
 				<div class="toggle-label-group" data-target-id="allowBackgroundPlay">
 					<div class="toggle-label-main">Allow background playback</div>
-					<div class="toggle-label-description">Use YouTube while on another tab or app, or while your screen is off.</div>
+					<div class="toggle-label-description">
+						Keep YouTube playing while using another tab, another app, or with the screen off.
+						<i>Note: Most browsers will still pause the video, but you can resume playback from your notification
+						controls.</i>
+					</div>
 				</div>
 				<label class="toggle-switch">
 					<input type="checkbox" id="allowBackgroundPlay">
@@ -1150,6 +1154,35 @@
 					<span class="switch-slider"></span>
 				</label>
 			</div>
+			<div class="setting-item toggle-item">
+				<div class="toggle-label-group" data-target-id="rapidBufferDetection">
+					<div class="toggle-label-main">Rapid Buffer Auto-Pause <span class="badge fix-badge">Fix</span> <span class="badge experimental-badge">Experimental</span></div>
+					<div class="toggle-label-description">
+						Pauses the video for a short duration when repeated buffering is detected. Useful on slow connections.
+						<i>Most browsers handle this automatically, but some do not do it reliably.</i>
+					</div>
+				</div>
+				<label class="toggle-switch">
+					<input type="checkbox" id="rapidBufferDetection">
+					<span class="switch-slider"></span>
+				</label>
+			</div>
+			<fieldset id="buffer-detection-options-fieldset">
+				<div class="setting-item text-item" id="bufferDetectionThresholdContainer">
+					<label for="bufferDetectionThreshold">Buffer Detection Threshold</label>
+					<div class="text-wrapper" data-suffix="seconds">
+						<input type="number" id="bufferDetectionThreshold" min="1" max="10" step="0.5" value="3" />
+					</div>
+					<div class="description">Time between buffering events to trigger auto-pause. Default: 3 seconds.</div>
+				</div>
+				<div class="setting-item text-item" id="bufferDetectionPauseDurationContainer">
+					<label for="bufferDetectionPauseDuration">Auto-Pause Duration</label>
+					<div class="text-wrapper" data-suffix="seconds">
+						<input type="number" id="bufferDetectionPauseDuration" min="5" max="60" step="1" value="5" />
+					</div>
+					<div class="description">How long to pause for when triggered. Default: 5 seconds.</div>
+				</div>
+			</fieldset>
 		</div>
 	</div>
 

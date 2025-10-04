@@ -49,6 +49,9 @@ const defaultSettings = {
 	autoSkipAds: false,
 	autoReloadStuckPlaylist: true,
 	videoBlacklist: [],
+	rapidBufferDetection: false,
+	bufferDetectionThreshold: 3,
+	bufferDetectionPauseDuration: 5,
 };
 
 let statusTimeout = null;
@@ -108,6 +111,11 @@ function updateControlStates() {
 	const playlistRemoveSameFieldset = document.getElementById('playlist-remove-same-fieldset');
 	if (playlistRemoveSameFieldset)
 		playlistRemoveSameFieldset.disabled = !isPlaylistRemoveSameEnabled;
+
+	// Buffer detection auto-pause control
+	const isBufferDetectionEnabled = document.getElementById('rapidBufferDetection').checked;
+	const bufferDetectionFieldset = document.getElementById('buffer-detection-options-fieldset');
+	if (bufferDetectionFieldset) bufferDetectionFieldset.disabled = !isBufferDetectionEnabled;
 }
 
 function save_options() {
@@ -212,6 +220,7 @@ function restore_options() {
 			'showBottomControls',
 			'enableCustomNavbar',
 			'playlistRemoveSame',
+			'rapidBufferDetection',
 		]
 			.map((id) => document.getElementById(id))
 			.filter(Boolean)

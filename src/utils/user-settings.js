@@ -58,6 +58,9 @@ window.userSettings = {
 	showRepeatButton: 'show-when-active',
 	smartPreviousThreshold: 5,
 	gestureSensitivity: 'normal',
+	rapidBufferDetection: false,
+	bufferDetectionThreshold: 3,
+	bufferDetectionPauseDuration: 5,
 };
 
 /**

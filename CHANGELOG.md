@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2025-10-04
+
+### Added
+
+-   **Rapid Buffer Auto-Pause** - Option to pause the video for a set duration when repeated buffering is detected. Useful on slow connections.
+
 ## [1.0.9] - 2025-10-03
 
 ### Fixed

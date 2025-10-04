@@ -1,6 +1,6 @@
 # YouTube Enhanced Media Controls (for Mobile)
 
-![Version](https://img.shields.io/badge/version-1.0.8-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Firefox](https://img.shields.io/badge/Firefox-Compatible-FF7139.svg?logo=firefoxbrowser&logoColor=white)
 ![Kiwi Browser](https://img.shields.io/badge/Kiwi%20Browser-Compatible-00C851.svg)
@@ -48,6 +48,7 @@ This extension was originally developed to provide a more user friendly interfac
 -   **Continue Watching Popup Handling**: Automatic dismissal of YouTube's continue watching overlays
 -   **Media Key Playlist Navigation Fix**: Prevents Android notification and Bluetooth media keys from skipping outside the current playlist to suggested videos
 -   **Auto Ad Skip**: Skip YouTube ads automatically as they play
+-   **Rapid Buffer Auto-Pause**: Pause the video for a set duration when repeated buffering is detected. Useful on slow connections.
 
 ## 📦 Installation
 
