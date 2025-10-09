@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1] - 2025-10-09
+
+### Fixed
+
+-   **Options Page** - Fixed issue where the options page would not open in Edge (Android) - use manifest `manifest.me.json` (workaround)
+
+### Changed
+
+-   **Minor changes to manifests for v3**
+
 ## [1.1.0] - 2025-10-04
 
 ### Added

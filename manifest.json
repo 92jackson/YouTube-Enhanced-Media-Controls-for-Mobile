@@ -1,7 +1,7 @@
 {
 	"manifest_version": 3,
 	"name": "YouTube Enhanced Media Controls (for Mobile)",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"description": "Adds an enhanced player wrapper to the YouTube mobile site (m.youtube.com), adding greater accessibility and providing fixes.",
 	"permissions": ["storage", "declarativeNetRequestWithHostAccess"],
 	"host_permissions": [
@@ -20,7 +20,10 @@
 		"default_title": "YouTube Enhanced Media Controls (for Mobile) Settings",
 		"default_popup": "src/popup/popup.html"
 	},
-	"options_page": "src/options/options.html",
+	"options_ui": {
+		"page": "src/options/options.html",
+		"open_in_tab": true
+	},
 	"background": {
 		"service_worker": "src/background/background.js"
 	},
