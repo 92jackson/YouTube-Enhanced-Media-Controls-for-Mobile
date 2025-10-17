@@ -136,6 +136,11 @@ class YTMediaPlayer {
 		this.isPrevButtonAnimating = false;
 		this.isRestartIconLocked = false;
 
+		// Buffer auto-pause state
+		this.isBufferAutoPauseActive = false;
+		this.bufferAutoPauseCountdown = 0;
+		this.bufferCountdownTimer = null;
+
 		// Gesture state
 		this.touchStartInfo = { x: 0, y: 0, time: 0, target: null, fingerCount: 0 };
 		this.isSwipeGestureActive = false;
@@ -592,6 +597,9 @@ class YTMediaPlayer {
 	}
 
 	_createPlayButton() {
+		const buttonContainer = document.createElement('div');
+		buttonContainer.className = 'yt-play-button-container';
+
 		const button = document.createElement('button');
 		button.className = 'yt-control-button yt-play-button paused';
 
@@ -646,7 +654,14 @@ class YTMediaPlayer {
 		bufferingSvg.appendChild(bufferingCircle);
 		button.appendChild(bufferingSvg);
 
-		return button;
+		// Create buffer countdown indicator
+		const bufferCountdown = document.createElement('div');
+		bufferCountdown.className = 'yt-buffer-countdown';
+
+		buttonContainer.appendChild(button);
+		buttonContainer.appendChild(bufferCountdown);
+
+		return buttonContainer;
 	}
 
 	_createSkipButton() {
@@ -779,6 +794,7 @@ class YTMediaPlayer {
 		// Control buttons
 		this.prevButton = this.playerWrapper.querySelector('.yt-prev-button');
 		this.playButton = this.playerWrapper.querySelector('.yt-play-button');
+		this.bufferCountdown = this.playerWrapper.querySelector('.yt-buffer-countdown');
 		this.skipButton = this.playerWrapper.querySelector('.yt-skip-button');
 		this.voiceButton = this.options.showVoiceButton
 			? this.playerWrapper.querySelector('.yt-voice-search-button')
@@ -925,29 +941,51 @@ class YTMediaPlayer {
 		// Calculate max drawer height
 		const maxDrawerHeight = Math.max(0, wrapperHeight - controlsHeight - OPEN_HANDLE_HEIGHT);
 
-		// Calculate mid drawer height (below video)
+		// Calculate mid drawer height (below video or metadata section)
 		let midDrawerHeight = 0;
 		if (maxDrawerHeight > 0) {
-			const videoAreaElement = DOMUtils.getElement(this.playerContainerSelector);
-			logger.log('Measurements', `Video area element found: ${!!videoAreaElement}`);
-			if (videoAreaElement) {
-				const videoAreaRect = videoAreaElement.getBoundingClientRect();
-				const playerWrapperRect = this.playerWrapper.getBoundingClientRect();
-				const targetDrawerTopY = videoAreaRect.bottom;
-				const spaceAvailable = playerWrapperRect.bottom - targetDrawerTopY;
+			const isVideoPlayerHidden = document.body.classList.contains('yt-hide-video-player');
+			
+			if (isVideoPlayerHidden) {
+				// When video is hidden, use the metadata section height
+				const metadataElement = DOMUtils.getElement('ytm-slim-video-metadata-section-renderer');
+				logger.log('Measurements', `Metadata section element found: ${!!metadataElement}`);
+				if (metadataElement) {
+					const metadataRect = metadataElement.getBoundingClientRect();
+					const playerWrapperRect = this.playerWrapper.getBoundingClientRect();
+					const targetDrawerTopY = metadataRect.bottom;
+					const spaceAvailable = playerWrapperRect.bottom - targetDrawerTopY;
 
-				logger.log(
-					'Measurements',
-					`Video area calculations (videoAreaRect: ${videoAreaRect}, playerWrapperRect: ${playerWrapperRect}, targetDrawerTopY: ${targetDrawerTopY}px, spaceAvailable: ${spaceAvailable}px)`
-				);
+					logger.log(
+						'Measurements',
+						`Metadata section calculations (metadataRect: ${metadataRect}, playerWrapperRect: ${playerWrapperRect}, targetDrawerTopY: ${targetDrawerTopY}px, spaceAvailable: ${spaceAvailable}px)`
+					);
 
-				midDrawerHeight = Math.max(0, spaceAvailable - controlsHeight - OPEN_HANDLE_HEIGHT);
-
-				// Ensure mid height is meaningfully different from max
-				if (maxDrawerHeight - midDrawerHeight < this.MIN_MEANINGFUL_SNAP_DIFFERENCE) {
-					logger.log('Measurements', `Mid height too close to max, setting to 0`);
-					midDrawerHeight = 0;
+					midDrawerHeight = Math.max(0, spaceAvailable - controlsHeight - OPEN_HANDLE_HEIGHT);
 				}
+			} else {
+				// Original logic for when video is visible
+				const videoAreaElement = DOMUtils.getElement(this.playerContainerSelector);
+				logger.log('Measurements', `Video area element found: ${!!videoAreaElement}`);
+				if (videoAreaElement) {
+					const videoAreaRect = videoAreaElement.getBoundingClientRect();
+					const playerWrapperRect = this.playerWrapper.getBoundingClientRect();
+					const targetDrawerTopY = videoAreaRect.bottom;
+					const spaceAvailable = playerWrapperRect.bottom - targetDrawerTopY;
+
+					logger.log(
+						'Measurements',
+						`Video area calculations (videoAreaRect: ${videoAreaRect}, playerWrapperRect: ${playerWrapperRect}, targetDrawerTopY: ${targetDrawerTopY}px, spaceAvailable: ${spaceAvailable}px)`
+					);
+
+					midDrawerHeight = Math.max(0, spaceAvailable - controlsHeight - OPEN_HANDLE_HEIGHT);
+				}
+			}
+
+			// Ensure mid height is meaningfully different from max
+			if (maxDrawerHeight - midDrawerHeight < this.MIN_MEANINGFUL_SNAP_DIFFERENCE) {
+				logger.log('Measurements', `Mid height too close to max, setting to 0`);
+				midDrawerHeight = 0;
 			}
 		} else {
 			logger.log(
@@ -1360,9 +1398,10 @@ class YTMediaPlayer {
 		const wrapperHeight = this.playerWrapper?.offsetHeight || 0;
 		const wrapperWidth = this.playerWrapper?.offsetWidth || 0;
 
-		// Get video container height
+		// Get video container height - if video player is hidden, use 0
+		const isVideoPlayerHidden = document.body.classList.contains('yt-hide-video-player');
 		const videoElement = DOMUtils.getElement(this.playerContainerSelector);
-		const videoHeight = videoElement ? videoElement.getBoundingClientRect().height : 0;
+		const videoHeight = isVideoPlayerHidden ? 0 : (videoElement ? videoElement.getBoundingClientRect().height : 0);
 
 		// Calculate below-player height
 		const navbarHeight = 48;
@@ -1791,6 +1830,9 @@ class YTMediaPlayer {
 				this._togglePlaylistDrawer();
 				this.options.callbacks.onGestureTogglePlaylist?.();
 			},
+			toggleFavourites: () => {
+				this.options.callbacks.onGestureToggleFavourites?.();
+			},
 		};
 
 		const actionFn = actions[actionName];
@@ -1870,6 +1912,8 @@ class YTMediaPlayer {
 			],
 			togglePlaylist:
 				'M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zm0-10v2h14V7H7z',
+			toggleFavourites:
+				'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z',
 		};
 
 		const pathData = iconPaths[actionName];
@@ -3303,6 +3347,54 @@ class YTMediaPlayer {
 		if (this.trackTimer) {
 			clearInterval(this.trackTimer);
 			this.trackTimer = null;
+		}
+	}
+
+	/**
+	 * Start buffer auto-pause countdown display
+	 */
+	startBufferCountdown(seconds = 3) {
+		if (!this.bufferCountdown) return;
+
+		this.isBufferAutoPauseActive = true;
+		this.bufferAutoPauseCountdown = seconds;
+
+		// Show countdown element
+		this.bufferCountdown.classList.add('visible');
+		this.bufferCountdown.textContent = seconds.toString();
+
+		// Clear any existing timer
+		if (this.bufferCountdownTimer) {
+			clearInterval(this.bufferCountdownTimer);
+		}
+
+		// Start countdown timer
+		this.bufferCountdownTimer = setInterval(() => {
+			this.bufferAutoPauseCountdown--;
+			this.bufferCountdown.textContent = this.bufferAutoPauseCountdown.toString();
+
+			if (this.bufferAutoPauseCountdown <= 0) {
+				this.stopBufferCountdown();
+			}
+		}, 1000);
+	}
+
+	/**
+	 * Stop buffer auto-pause countdown display
+	 */
+	stopBufferCountdown() {
+		if (!this.bufferCountdown) return;
+
+		this.isBufferAutoPauseActive = false;
+		this.bufferAutoPauseCountdown = 0;
+
+		// Hide countdown element
+		this.bufferCountdown.classList.remove('visible');
+
+		// Clear timer
+		if (this.bufferCountdownTimer) {
+			clearInterval(this.bufferCountdownTimer);
+			this.bufferCountdownTimer = null;
 		}
 	}
 

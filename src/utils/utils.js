@@ -10,6 +10,8 @@
  */
 window.logger = (() => {
 	const sourceColors = {};
+	const logHistory = []; // Store recent logs for mobile debugging
+	const MAX_LOG_HISTORY = 500; // Maximum number of logs to keep in memory
 
 	const getRandomColor = () => `hsl(${Math.floor(Math.random() * 360)}, 70%, 60%)`;
 
@@ -53,6 +55,31 @@ window.logger = (() => {
 		return [`%c${label}`, style];
 	};
 
+	// Store log entry in history for mobile debugging
+	const storeLogEntry = (source, level, message, args) => {
+		if (!userSettings?.enableDebugLogging) return;
+
+		const timestamp = new Date().toISOString();
+		const location = getLogLocation();
+		const levelText = level ? ` [${level}]` : '';
+		const logEntry = {
+			timestamp,
+			source,
+			level: level || 'LOG',
+			location,
+			message,
+			args: args.length > 0 ? args : null,
+			formatted: `${timestamp} [YTEMC] [${location} - ${source}]${levelText} ${message}${args.length > 0 ? ' ' + JSON.stringify(args) : ''}`
+		};
+
+		logHistory.push(logEntry);
+
+		// Keep only the most recent logs
+		if (logHistory.length > MAX_LOG_HISTORY) {
+			logHistory.shift();
+		}
+	};
+
 	// Helper to extract alwaysPost flag from args and return remaining args
 	const extractAlwaysPostFlag = (args) => {
 		let alwaysPost = false;
@@ -69,6 +96,9 @@ window.logger = (() => {
 			if (shouldLog(alwaysPost)) {
 				const [label, style] = format(source, level);
 				console.log(label, style, message, ...args);
+				
+				// Store in history for mobile debugging
+				storeLogEntry(source, level, message, args);
 			}
 		};
 
@@ -76,6 +106,52 @@ window.logger = (() => {
 		log: logFn(null),
 		warn: logFn('WARN'),
 		error: logFn('ERROR'),
+		// Export log history for mobile debugging
+		getLogHistory: () => [...logHistory], // Return a copy to prevent external modification
+		clearLogHistory: () => logHistory.length = 0,
+		downloadLogs: () => {
+			if (logHistory.length === 0) {
+				console.warn('No debug logs to download');
+				alert('No debug logs available. Make sure debug logging is enabled and some activity has occurred.');
+				return;
+			}
+
+			try {
+				const logContent = logHistory.map(entry => entry.formatted).join('\n');
+				const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+				const filename = `ytemc-debug-logs-${timestamp}.log`;
+				
+				// Use message passing to background script for downloads in extension environment
+				if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+					chrome.runtime.sendMessage({
+						action: 'downloadLogs',
+						logData: logContent,
+						filename: filename
+					}, (response) => {
+						if (chrome.runtime.lastError) {
+							console.error('Message passing failed:', chrome.runtime.lastError);
+							alert('Download failed: Unable to communicate with background script');
+						} else if (response && response.success) {
+							console.log(`Downloaded ${logHistory.length} debug log entries to ${filename}`);
+							logger.log('Logger', `Downloaded ${logHistory.length} debug log entries to ${filename}`);
+							alert(`Successfully downloaded ${logHistory.length} debug log entries`);
+						} else {
+							console.error('Download failed:', response?.error || 'Unknown error');
+							alert(`Download failed: ${response?.error || 'Unknown error'}`);
+						}
+					});
+				} else {
+					// Non-extension environment - show logs in console instead
+					console.warn('Extension environment not detected. Debug logs:');
+					console.log(logContent);
+					alert('Extension environment not detected. Debug logs have been output to the browser console.');
+				}
+				
+			} catch (error) {
+				console.error('Failed to download logs:', error);
+				alert('Failed to download logs: ' + error.message);
+			}
+		}
 	};
 })();
 

@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2025-10-17
+
+### Added
+
+-   **Favourite Mixes** - New feature to save and manage favourite YouTube mixes/playlists
+    -   Added favourites button to navbar for quick access
+    -   Modal dialog to view, add, and remove favourite mixes
+    -   Gesture support for toggling favourites dialog
+-   **Hide Video Player** - New option to completely hide the video player area to maximize space for metadata, comments, and suggested videos
+    -   Ideal for audio-only content consumption
+    -   Optional navbar toggle button for quick video visibility switching (disabled by default)
+-   **Buffer Detection Feedback** - Added visual countdown indicator for buffer auto-pause feature
+    -   Displays countdown timer next to play button when auto-pause is triggered
+-   **Debug Logging for Mobile** - Enhanced debugging capabilities for mobile browsers
+    -   New debug button in navbar (visible only when debugging enabled) to download logs, most recent 500 entries
+
+### Fixed
+
+-   **Buffer Detection** - Improved auto-pause logic to ignore expected buffering during user seeks, preventing false pauses when scrubbing through videos
+-   **Preemptive Button Handling** - Fixed issue where unmute and large play buttons wouldn't be clicked when video area is hidden, now properly checks for button availability rather than visibility
+
 ## [1.1.1] - 2025-10-09
 
 ### Fixed

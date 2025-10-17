@@ -78,7 +78,7 @@ const CSS_SELECTORS = {
 	],
 
 	pageContainerInert: '.page-container[inert]',
-	chipCloudRenderer: 'ytm-chip-cloud-renderer',
+	chipCloudRenderer: 'ytm-related-chip-cloud-renderer',
 };
 
 /** @const {Object} Map of color names to their respective primary and secondary colors */
@@ -152,6 +152,10 @@ let lastBufferingTimestamp = null;
 let bufferAutoPauseTimeout = null;
 /** @type {boolean} Flag to track if auto-pause is currently active */
 let isBufferAutoPauseActive = false;
+/** @type {number|null} Timestamp of the last user seek operation */
+let lastSeekTimestamp = null;
+/** @type {number} Grace period after seek to ignore buffer events (in milliseconds) */
+const SEEK_BUFFER_GRACE_PERIOD = 2000; // 2 seconds
 
 // --- Utility Classes & Helper Functions ---
 
@@ -168,6 +172,17 @@ async function handleBufferDetectionAutoPause(videoElement) {
 	const currentTime = Date.now();
 	const bufferThreshold = (window.userSettings.bufferDetectionThreshold || 3) * 1000;
 
+	// Check if we're within the grace period after a user seek
+	if (lastSeekTimestamp && currentTime - lastSeekTimestamp < SEEK_BUFFER_GRACE_PERIOD) {
+		logger.log(
+			'BufferDetection',
+			`Ignoring buffer event - within ${SEEK_BUFFER_GRACE_PERIOD}ms grace period after seek`
+		);
+		// Update timestamp but don't trigger auto-pause
+		lastBufferingTimestamp = currentTime;
+		return;
+	}
+
 	// Check if this is a rapid buffering event
 	if (lastBufferingTimestamp && currentTime - lastBufferingTimestamp < bufferThreshold) {
 		// Rapid buffering detected - trigger auto-pause
@@ -180,21 +195,26 @@ async function handleBufferDetectionAutoPause(videoElement) {
 				`Rapid buffering detected. Auto-pausing for ${pauseDuration / 1000}s`
 			);
 
+			// Start countdown in custom player if available
+			if (ytPlayerInstance && ytPlayerInstance.startBufferCountdown) {
+				ytPlayerInstance.startBufferCountdown(Math.ceil(pauseDuration / 1000));
+			}
+
 			// Pause the video using native method
-			await native_handlePlayPause(window.PlayState.PAUSED, false);
+			await native_handlePlayPause(window.PlayState.PAUSED, true);
 
 			// Set timeout to resume playback
 			bufferAutoPauseTimeout = setTimeout(async () => {
 				if (isBufferAutoPauseActive && videoElement.paused) {
 					logger.log('BufferDetection', 'Resuming playback after auto-pause');
 					try {
-						await native_handlePlayPause(window.PlayState.PLAYING, false);
+						await native_handlePlayPause(window.PlayState.PLAYING, true);
 					} catch (err) {
 						logger.warn('BufferDetection', 'Failed to resume playback:', err);
 					}
 				}
-				isBufferAutoPauseActive = false;
-				bufferAutoPauseTimeout = null;
+
+				cleanupBufferDetectionAutoPause();
 			}, pauseDuration);
 		}
 	}
@@ -211,8 +231,15 @@ function cleanupBufferDetectionAutoPause() {
 		clearTimeout(bufferAutoPauseTimeout);
 		bufferAutoPauseTimeout = null;
 	}
+
+	// Stop countdown in custom player if available
+	if (ytPlayerInstance && ytPlayerInstance.stopBufferCountdown) {
+		ytPlayerInstance.stopBufferCountdown();
+	}
+
 	isBufferAutoPauseActive = false;
 	lastBufferingTimestamp = null;
+	lastSeekTimestamp = null;
 }
 
 /**
@@ -897,11 +924,14 @@ async function handlePreemptiveYouTubeButtons() {
 
 	for (const button of buttonsToCheck) {
 		const element = DOMUtils.getElement(button.selector);
-		if (DOMUtils.isElementVisible(element)) {
-			if (DOMUtils.clickElement(element)) {
-				logger.log('NativePlayer', `Clicked preemptive ${button.name} button`);
-				clickedPreemptive = true;
-				await new Promise((r) => setTimeout(r, 200));
+		if (element) {
+			const style = window.getComputedStyle(element);
+			if (style.display !== 'none') {
+				if (DOMUtils.clickElement(element)) {
+					logger.log('NativePlayer', `Clicked preemptive ${button.name} button`);
+					clickedPreemptive = true;
+					await new Promise((r) => setTimeout(r, 200));
+				}
 			}
 		}
 	}
@@ -915,6 +945,8 @@ async function handlePreemptiveYouTubeButtons() {
  * @param {boolean} [sourceIsCustomPlayer=false]
  */
 async function native_handlePlayPause(requestedState, sourceIsCustomPlayer = false) {
+	if (!sourceIsCustomPlayer) cleanupBufferDetectionAutoPause();
+
 	await handlePreemptiveYouTubeButtons();
 
 	const video = DOMHelper.findVideoElement();
@@ -1169,6 +1201,8 @@ async function native_handleSkip(resquestByAdSkip = false) {
 function native_handleSeekbarUpdate(_, newTimeSeconds, isFinal) {
 	const video = DOMHelper.findVideoElement();
 	if (video && isFinal && typeof video.currentTime === 'number') {
+		// Record seek timestamp for buffer detection
+		lastSeekTimestamp = Date.now();
 		video.currentTime = newTimeSeconds;
 		logger.log('NativePlayer', `Seekbar updated to ${newTimeSeconds}s`);
 	}
@@ -1181,6 +1215,8 @@ function native_handleSeekbarUpdate(_, newTimeSeconds, isFinal) {
 function native_handleSeek(seconds) {
 	const video = DOMHelper.findVideoElement();
 	if (video && typeof video.currentTime === 'number' && !isNaN(video.duration)) {
+		// Record seek timestamp for buffer detection
+		lastSeekTimestamp = Date.now();
 		const newTime = Math.max(0, Math.min(video.duration, video.currentTime + seconds));
 		video.currentTime = newTime;
 		logger.log('NativePlayer', `Seeked ${seconds}s to ${newTime}s`);
@@ -1333,6 +1369,16 @@ async function customPlayer_onGesturePreviousOnly() {
  */
 async function customPlayer_onGestureSmartPrevious() {
 	_handleSmartPrevious();
+}
+
+/**
+ * Handles gesture-based toggle of the Favourites dialog
+ */
+function customPlayer_onGestureToggleFavourites() {
+	logger.log('Gestures', 'Favourites dialog toggled via gesture.');
+	if (ytNavbarInstance) {
+		ytNavbarInstance.toggleFavouritesDialog();
+	}
 }
 
 function customPlayer_onReloadPlaylistClick() {
@@ -1959,7 +2005,7 @@ function preventPageContainerInert() {
 	}
 
 	const chipCloudRenderer = DOMUtils.getElement(CSS_SELECTORS.chipCloudRenderer);
-	if (chipCloudRenderer) {
+	if (chipCloudRenderer && chipCloudRenderer.classList.contains('chips-visible')) {
 		document.body.classList.add('chip-cloud-present');
 	} else {
 		document.body.classList.remove('chip-cloud-present');
@@ -2158,6 +2204,7 @@ async function manageCustomPlayerLifecycle() {
 						onDrawerUserToggle: customPlayer_onDrawerUserToggle,
 						onGestureSeek: customPlayer_onGestureSeek,
 						onGestureTogglePlaylist: customPlayer_onGestureTogglePlaylist,
+						onGestureToggleFavourites: customPlayer_onGestureToggleFavourites,
 						onGestureRestartCurrent: customPlayer_onGestureRestartCurrent,
 						onGesturePreviousOnly: customPlayer_onGesturePreviousOnly,
 						onGestureSmartPrevious: customPlayer_onGestureSmartPrevious,
@@ -2312,6 +2359,8 @@ async function manageCustomNavbarLifecycle() {
 			showTextSearch: window.userSettings.navbarShowTextSearch,
 			showVoiceSearch: window.userSettings.navbarShowVoiceSearch,
 			showHomeButton: window.userSettings.navbarShowHomeButton,
+			showFavourites: window.userSettings.navbarShowFavourites,
+			enableDebugLogging: window.userSettings.enableDebugLogging,
 		});
 	}
 }
@@ -2507,6 +2556,7 @@ async function manageFeatures() {
 			window.userSettings.enableCustomPlayer && window.userSettings.showVoiceSearchButton,
 		'yt-playlist-light': window.userSettings.playlistColorMode === 'light',
 		'yt-playlist-dark': window.userSettings.playlistColorMode === 'dark',
+		'yt-hide-video-player': window.userSettings.hideVideoPlayer,
 	};
 
 	Object.entries(bodyClasses).forEach(([className, shouldHave]) => {
@@ -2787,6 +2837,8 @@ function initializeEventListenersAndObservers() {
 									'navbarShowMusic',
 									'navbarShowTextSearch',
 									'navbarShowVoiceSearch',
+									'navbarShowFavourites',
+									'navbarShowVideoToggle',
 								];
 								if (navbarSettings.includes(key) && ytNavbarInstance) {
 									const linkOptions = {
@@ -2796,6 +2848,9 @@ function initializeEventListenersAndObservers() {
 										showMusic: window.userSettings.navbarShowMusic,
 										showTextSearch: window.userSettings.navbarShowTextSearch,
 										showVoiceSearch: window.userSettings.navbarShowVoiceSearch,
+										showHomeButton: window.userSettings.navbarShowHomeButton,
+										showFavourites: window.userSettings.navbarShowFavourites,
+										showVideoToggle: window.userSettings.navbarShowVideoToggle,
 									};
 									ytNavbarInstance.updateLinks(linkOptions);
 								}

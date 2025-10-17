@@ -7,6 +7,7 @@ const defaultSettings = {
 	applyThemeColorToBrowser: 'theme', // 'disable', 'theme', 'accent'
 	customPlayerFontMultiplier: 1,
 	showBottomControls: true,
+	hideVideoPlayer: false,
 	showVoiceSearchButton: true,
 	showPreviousButton: true,
 	showSkipButton: true,
@@ -43,6 +44,8 @@ const defaultSettings = {
 	navbarShowTextSearch: true,
 	navbarShowVoiceSearch: false,
 	navbarShowHomeButton: true,
+	navbarShowFavourites: true,
+	navbarShowVideoToggle: false,
 	playlistRemoveSame: false,
 	allowDifferentVersions: false,
 	enableMediaSessionHandlers: true,
