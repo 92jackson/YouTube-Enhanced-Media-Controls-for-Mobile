@@ -1381,6 +1381,16 @@ function customPlayer_onGestureToggleFavourites() {
 	}
 }
 
+/**
+ * Handles gesture-based toggle of the video player visibility
+ */
+function customPlayer_onGestureToggleVideoPlayer() {
+	logger.log('Gestures', 'Video player visibility toggled via gesture.');
+	if (ytNavbarInstance) {
+		ytNavbarInstance._handleVideoToggleClick();
+	}
+}
+
 function customPlayer_onReloadPlaylistClick() {
 	logger.log('Event Handlers', 'Reload Playlist clicked');
 	const playlistPanel = DOMUtils.getElement(CSS_SELECTORS.playlistPanel);
@@ -2143,6 +2153,7 @@ async function manageCustomPlayerLifecycle() {
 			logger.log('Lifecycle', 'Custom player disabled. DESTROYING player.');
 			ytPlayerInstance.destroy();
 			ytPlayerInstance = null;
+			window.ytPlayerInstance = null; // Clean up global reference
 			currentVideoId = null;
 			cleanupAllCustomPlayerObservers();
 			hasUserManuallyToggledDrawerThisSession = false;
@@ -2178,6 +2189,7 @@ async function manageCustomPlayerLifecycle() {
 					);
 					ytPlayerInstance.destroy();
 					ytPlayerInstance = null;
+					window.ytPlayerInstance = null; // Clean up global reference
 				}
 
 				initialAutoplayDoneForCurrentVideo = false;
@@ -2205,6 +2217,7 @@ async function manageCustomPlayerLifecycle() {
 						onGestureSeek: customPlayer_onGestureSeek,
 						onGestureTogglePlaylist: customPlayer_onGestureTogglePlaylist,
 						onGestureToggleFavourites: customPlayer_onGestureToggleFavourites,
+						onGestureToggleVideoPlayer: customPlayer_onGestureToggleVideoPlayer,
 						onGestureRestartCurrent: customPlayer_onGestureRestartCurrent,
 						onGesturePreviousOnly: customPlayer_onGesturePreviousOnly,
 						onGestureSmartPrevious: customPlayer_onGestureSmartPrevious,
@@ -2213,6 +2226,9 @@ async function manageCustomPlayerLifecycle() {
 						onPlayNextSet: customPlayer_onPlayNextSet,
 					},
 				});
+
+				// Make ytPlayerInstance globally accessible
+				window.ytPlayerInstance = ytPlayerInstance;
 
 				ytPlayerInstance.updatePlaylist(
 					PageUtils.isPlaylistPage() ? [] : null,

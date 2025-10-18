@@ -191,7 +191,7 @@ class YTCustomNavbar {
 			videoToggleSvg.setAttribute('width', '20');
 			videoToggleSvg.setAttribute('height', '20');
 			const videoTogglePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-			
+
 			// Use different icons based on current state
 			const isVideoHidden = document.body.classList.contains('yt-hide-video-player');
 			if (isVideoHidden) {
@@ -207,7 +207,7 @@ class YTCustomNavbar {
 					'M21 6.5l-4 4V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11zM9.5 16L8 14.5 10.5 12 8 9.5 9.5 8 12 10.5 14.5 8 16 9.5 13.5 12 16 14.5 14.5 16 12 13.5 9.5 16z'
 				);
 			}
-			
+
 			videoToggleSvg.appendChild(videoTogglePath);
 			videoToggleBtn.appendChild(videoToggleSvg);
 			rightDiv.appendChild(videoToggleBtn);
@@ -701,28 +701,34 @@ class YTCustomNavbar {
 	 */
 	_handleVideoToggleClick() {
 		logger.log('Navbar', 'Video toggle button clicked');
-		
+
 		// Toggle the setting
 		const newValue = !window.userSettings.hideVideoPlayer;
 		window.userSettings.hideVideoPlayer = newValue;
-		
+
 		// Save the setting to storage
 		if (window.storageApi && window.storageApi.local) {
 			window.storageApi.local.set({ hideVideoPlayer: newValue });
 		}
-		
+
 		// Apply the change immediately by toggling the body class
 		document.body.classList.toggle('yt-hide-video-player', newValue);
-		
+
 		// Update the button icon to reflect the new state
 		this._updateVideoToggleIcon();
-		
+
 		// Trigger measurements recalculation if player exists
-		if (window.ytPlayerInstance && window.ytPlayerInstance._invalidateAndRecalculateMeasurements) {
+		if (
+			window.ytPlayerInstance &&
+			window.ytPlayerInstance._invalidateAndRecalculateMeasurements
+		) {
 			window.ytPlayerInstance._invalidateAndRecalculateMeasurements();
 		}
-		
-		logger.log('Navbar', `Video player visibility toggled to: ${newValue ? 'hidden' : 'visible'}`);
+
+		logger.log(
+			'Navbar',
+			`Video player visibility toggled to: ${newValue ? 'hidden' : 'visible'}`
+		);
 	}
 
 	/**
@@ -731,12 +737,12 @@ class YTCustomNavbar {
 	_updateVideoToggleIcon() {
 		const videoToggleBtn = this.navbarElement.querySelector('.yt-navbar-video-toggle');
 		if (!videoToggleBtn) return;
-		
+
 		const videoTogglePath = videoToggleBtn.querySelector('path');
 		if (!videoTogglePath) return;
-		
+
 		const isVideoHidden = document.body.classList.contains('yt-hide-video-player');
-		
+
 		if (isVideoHidden) {
 			// Show video icon (when video is currently hidden)
 			videoTogglePath.setAttribute(
@@ -802,12 +808,16 @@ class YTCustomNavbar {
 		const rightSection = document.createElement('div');
 		rightSection.className = 'yt-favourites-dialog-header-right';
 
-		// Check if we're on a mix page and add the button to right section if so
-		const isMixPage = window.location.href.includes('list=');
-		if (isMixPage) {
+		// Check if we're on a page with content we can add to favorites
+		const urlParams = new URLSearchParams(window.location.search);
+		const hasVideoId = !!urlParams.get('v');
+		const hasPlaylistId = !!urlParams.get('list');
+
+		if (hasVideoId) {
 			const addToFavBtn = document.createElement('button');
 			addToFavBtn.className = 'yt-favourites-dialog-add-btn';
-			addToFavBtn.textContent = '+ Add Current Mix';
+			// Show appropriate text based on whether it's a playlist/mix or individual video
+			addToFavBtn.textContent = hasPlaylistId ? '+ Add Current Mix' : '+ Add Current Video';
 			addToFavBtn.addEventListener('click', () => this._addCurrentMixToFavourites());
 			rightSection.appendChild(addToFavBtn);
 		}
@@ -859,11 +869,23 @@ class YTCustomNavbar {
 			overlay.classList.remove('visible');
 			modal.classList.remove('slide-in');
 			modal.classList.add('slide-out');
-			
+
 			// Remove from DOM after animation completes
 			setTimeout(() => {
 				overlay.remove();
 			}, 300);
+		}
+	}
+
+	/**
+	 * @description Toggles the favourites dialog visibility (for gesture support).
+	 */
+	toggleFavouritesDialog() {
+		const overlay = document.querySelector('.yt-favourites-dialog-overlay');
+		if (overlay && overlay.classList.contains('visible')) {
+			this._hideFavouritesDialog();
+		} else {
+			this._showFavouritesDialog();
 		}
 	}
 
@@ -891,7 +913,19 @@ class YTCustomNavbar {
 		if (favourites.length === 0) {
 			const emptyMessage = document.createElement('div');
 			emptyMessage.className = 'yt-favourites-dialog-empty';
-			emptyMessage.textContent = 'No favourite mixes saved yet.';
+
+			const boldText = document.createElement('strong');
+			boldText.textContent = 'No saved mixes or videos yet.';
+			emptyMessage.appendChild(boldText);
+
+			const lineBreak = document.createElement('br');
+			emptyMessage.appendChild(lineBreak);
+
+			const instructionText = document.createTextNode(
+				'Navigate to a mix or video you want to save, then click the add button.'
+			);
+			emptyMessage.appendChild(instructionText);
+
 			container.appendChild(emptyMessage);
 			return;
 		}
@@ -899,15 +933,37 @@ class YTCustomNavbar {
 		favourites.forEach((favourite, index) => {
 			const item = document.createElement('div');
 			item.className = 'yt-favourites-dialog-item';
-			
+
 			// Make the entire item clickable to play the mix
 			item.addEventListener('click', (e) => {
-				// Don't trigger if clicking the remove button
-				if (!e.target.closest('.yt-favourites-dialog-remove-btn')) {
-					// Generate full URL and navigate like a regular link click
-					const fullUrl = `https://m.youtube.com/watch?v=${favourite.videoId}&list=${favourite.playlistId}`;
-					logger.log('Navbar', `Navigating to favourite mix: ${fullUrl}`);
-					
+				// Don't trigger if clicking the more options button, or the rename input
+				// Also don't trigger if there's any active rename input in the dialog
+				const activeRenameInput = document.querySelector(
+					'.yt-favourites-dialog-rename-input'
+				);
+				if (
+					!e.target.closest('.yt-favourites-dialog-more-options-btn') &&
+					!e.target.closest('.yt-favourites-dialog-options-overlay') &&
+					!e.target.closest('.yt-favourites-dialog-rename-input') &&
+					!activeRenameInput
+				) {
+					// Generate appropriate URL based on whether it's a playlist or individual video
+					let fullUrl;
+					if (favourite.playlistId) {
+						// For playlists/mixes, include both video and playlist parameters
+						fullUrl = `https://m.youtube.com/watch?v=${favourite.videoId}&list=${favourite.playlistId}`;
+					} else {
+						// For individual videos, only include the video parameter
+						fullUrl = `https://m.youtube.com/watch?v=${favourite.videoId}`;
+					}
+
+					logger.log(
+						'Navbar',
+						`Navigating to favourite ${
+							favourite.playlistId ? 'mix' : 'video'
+						}: ${fullUrl}`
+					);
+
 					// Use window.location.href for full page navigation instead of SPA routing
 					window.location.href = fullUrl;
 					this._hideFavouritesDialog();
@@ -918,7 +974,7 @@ class YTCustomNavbar {
 			// Add thumbnail
 			const thumbnail = document.createElement('div');
 			thumbnail.className = 'yt-favourites-dialog-item-thumbnail';
-			
+
 			// Get the video ID for thumbnail
 			const videoId = favourite.videoId;
 			if (videoId) {
@@ -931,32 +987,194 @@ class YTCustomNavbar {
 
 			const title = document.createElement('div');
 			title.className = 'yt-favourites-dialog-item-title';
-			title.textContent = favourite.title || 'Untitled Mix';
+
+			// Determine if this is a playlist/mix or individual video
+			const isPlaylist = !!favourite.playlistId;
+			const originalTitle = favourite.title || '';
+
+			// Add appropriate badge before title
+			if (isPlaylist) {
+				// For playlists/mixes, check if it's a mix and add Mix badge
+				const isMix = /^(?:my\s+)?mix/i.test(originalTitle);
+				if (isMix) {
+					const mixBadge = document.createElement('span');
+					mixBadge.className = 'yt-mix-badge';
+					mixBadge.textContent = 'Mix';
+					title.appendChild(mixBadge);
+				}
+			} else {
+				// For individual videos, add Video badge
+				const videoBadge = document.createElement('span');
+				videoBadge.className = 'yt-video-badge';
+				videoBadge.textContent = 'Video';
+				title.appendChild(videoBadge);
+			}
+
+			// Use customTitle if available, otherwise fall back to original title
+			let displayTitle =
+				favourite.customTitle ||
+				favourite.title ||
+				(isPlaylist ? 'Untitled Mix' : 'Untitled Video');
+
+			// Strip 'mix - ' prefix from original titles only (not edited ones) and only for playlists
+			if (!favourite.customTitle && isPlaylist) {
+				displayTitle = StringUtils.stripMixPrefix(displayTitle, true);
+			}
+
+			const titleText = document.createTextNode(displayTitle);
+			title.appendChild(titleText);
 
 			const meta = document.createElement('div');
 			meta.className = 'yt-favourites-dialog-item-meta';
-			// Change subtitle to show playlist ID instead of track count
-			const playlistId = favourite.playlistId || 'Unknown ID';
-			meta.textContent = playlistId;
+
+			// Show appropriate ID based on type
+			const idText = isPlaylist
+				? document.createTextNode(favourite.playlistId || 'Unknown Playlist ID')
+				: document.createTextNode(favourite.videoId || 'Unknown Video ID');
+			meta.appendChild(idText);
 
 			info.appendChild(title);
 			info.appendChild(meta);
 
-			// Add remove button with cross icon
-			const removeBtn = document.createElement('button');
-			removeBtn.className = 'yt-favourites-dialog-remove-btn';
-			removeBtn.setAttribute('aria-label', 'Remove from favourites');
-			removeBtn.innerHTML = '×';
-			removeBtn.addEventListener('click', (e) => {
+			// Add more options button (three dots)
+			const moreOptionsBtn = document.createElement('button');
+			moreOptionsBtn.className = 'yt-favourites-dialog-more-options-btn';
+			moreOptionsBtn.setAttribute('aria-label', 'More options');
+
+			// Create three dots SVG icon
+			const moreOptionsSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			moreOptionsSvg.setAttribute('viewBox', '0 0 24 24');
+			moreOptionsSvg.setAttribute('width', '16');
+			moreOptionsSvg.setAttribute('height', '16');
+			const moreOptionsPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			moreOptionsPath.setAttribute(
+				'd',
+				'M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z'
+			);
+			moreOptionsSvg.appendChild(moreOptionsPath);
+			moreOptionsBtn.appendChild(moreOptionsSvg);
+
+			moreOptionsBtn.addEventListener('click', (e) => {
 				e.stopPropagation(); // Prevent item click
-				this._removeFavouriteFromDialog(index);
+				this._toggleOptionsOverlay(item, favourite, index);
 			});
 
 			item.appendChild(thumbnail);
 			item.appendChild(info);
-			item.appendChild(removeBtn);
+			item.appendChild(moreOptionsBtn);
 			container.appendChild(item);
 		});
+	}
+
+	/**
+	 * @description Toggles the options overlay for a favorites item.
+	 */
+	_toggleOptionsOverlay(itemElement, favourite, index) {
+		// Check if overlay already exists for this item
+		const existingOverlay = itemElement.querySelector('.yt-favourites-dialog-options-overlay');
+
+		if (existingOverlay) {
+			// Remove existing overlay
+			existingOverlay.remove();
+			return;
+		}
+
+		// Remove any other existing overlays first
+		const allOverlays = document.querySelectorAll('.yt-favourites-dialog-options-overlay');
+		allOverlays.forEach((overlay) => overlay.remove());
+
+		// Create overlay
+		const overlay = document.createElement('div');
+		overlay.className = 'yt-favourites-dialog-options-overlay';
+
+		// Add click handler to close overlay when clicking on the overlay itself
+		overlay.addEventListener('click', (e) => {
+			// Only close if clicking directly on the overlay, not on its buttons
+			if (e.target === overlay) {
+				overlay.remove();
+			}
+		});
+
+		// Create rename button
+		const renameBtn = document.createElement('button');
+		renameBtn.className =
+			'yt-favourites-dialog-overlay-btn yt-favourites-dialog-overlay-rename-btn';
+		renameBtn.setAttribute('aria-label', 'Rename mix');
+
+		// Create SVG edit icon
+		const renameSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		renameSvg.setAttribute('viewBox', '0 0 24 24');
+		renameSvg.setAttribute('width', '16');
+		renameSvg.setAttribute('height', '16');
+		const renamePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		renamePath.setAttribute(
+			'd',
+			'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z'
+		);
+		renameSvg.appendChild(renamePath);
+		renameBtn.appendChild(renameSvg);
+
+		const renameLabel = document.createElement('span');
+		renameLabel.textContent = 'Rename';
+		renameBtn.appendChild(renameLabel);
+
+		renameBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			overlay.remove(); // Remove overlay first
+			const titleElement = itemElement.querySelector('.yt-favourites-dialog-item-title');
+			this._startRenaming(titleElement, favourite, index);
+		});
+
+		// Create remove button
+		const removeBtn = document.createElement('button');
+		removeBtn.className =
+			'yt-favourites-dialog-overlay-btn yt-favourites-dialog-overlay-remove-btn';
+		removeBtn.setAttribute('aria-label', 'Remove from favourites');
+
+		// Create SVG trash icon
+		const removeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		removeSvg.setAttribute('viewBox', '0 0 24 24');
+		removeSvg.setAttribute('width', '16');
+		removeSvg.setAttribute('height', '16');
+		const removePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		removePath.setAttribute(
+			'd',
+			'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z'
+		);
+		removeSvg.appendChild(removePath);
+		removeBtn.appendChild(removeSvg);
+
+		const removeLabel = document.createElement('span');
+		removeLabel.textContent = 'Remove';
+		removeBtn.appendChild(removeLabel);
+
+		removeBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			overlay.remove(); // Remove overlay first
+			this._removeFavouriteFromDialog(index);
+		});
+
+		overlay.appendChild(renameBtn);
+		overlay.appendChild(removeBtn);
+		itemElement.appendChild(overlay);
+
+		// Add click outside to close
+		const closeOverlay = (e) => {
+			if (
+				!overlay.contains(e.target) &&
+				!itemElement
+					.querySelector('.yt-favourites-dialog-more-options-btn')
+					.contains(e.target)
+			) {
+				overlay.remove();
+				document.removeEventListener('click', closeOverlay);
+			}
+		};
+
+		// Use setTimeout to avoid immediate closure from the current click event
+		setTimeout(() => {
+			document.addEventListener('click', closeOverlay);
+		}, 0);
 	}
 
 	/**
@@ -979,40 +1197,157 @@ class YTCustomNavbar {
 	}
 
 	/**
-	 * @description Adds the current mix to favourites.
+	 * @description Starts the renaming process for a favourite mix.
+	 */
+	_startRenaming(titleElement, favourite, index) {
+		// Create input element
+		const input = document.createElement('input');
+		input.type = 'text';
+		input.className = 'yt-favourites-dialog-rename-input';
+		// Use customTitle if available, otherwise fall back to original title
+		const currentDisplayTitle = favourite.customTitle || favourite.title || 'Untitled Mix';
+		input.value = currentDisplayTitle;
+		input.maxLength = 100;
+
+		// Replace title with input
+		const originalText = titleElement.textContent;
+		titleElement.style.display = 'none';
+		titleElement.parentNode.insertBefore(input, titleElement);
+
+		// Focus and select all text
+		input.focus();
+		input.select();
+
+		// Handle save
+		const saveRename = async () => {
+			const newTitle = input.value.trim();
+			// Always save, even if it's the same - this allows reverting to original by clearing
+			await this._renameFavourite(index, newTitle);
+			// Restore original display
+			input.remove();
+			titleElement.style.display = '';
+		};
+
+		// Handle cancel
+		const cancelRename = () => {
+			input.remove();
+			titleElement.style.display = '';
+		};
+
+		// Event listeners
+		input.addEventListener('blur', saveRename);
+		input.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') {
+				e.preventDefault();
+				saveRename();
+			} else if (e.key === 'Escape') {
+				e.preventDefault();
+				cancelRename();
+			}
+		});
+	}
+
+	/**
+	 * @description Renames a favourite mix and updates storage.
+	 */
+	async _renameFavourite(index, newTitle) {
+		try {
+			const favourites = [...(window.userSettings.favouriteMixes || [])];
+			if (favourites[index]) {
+				// Use customTitle property to preserve original title
+				if (newTitle.trim() === '') {
+					// Empty title means revert to original
+					delete favourites[index].customTitle;
+				} else {
+					favourites[index].customTitle = newTitle.trim();
+				}
+				favourites[index].renamedAt = Date.now();
+
+				const success = await window.saveUserSetting('favouriteMixes', favourites);
+				if (success) {
+					this._updateFavouritesDialog();
+					logger.log('Navbar', 'Favourite renamed successfully', { index, newTitle });
+				}
+			}
+		} catch (error) {
+			logger.error('Navbar', 'Failed to rename favourite:', error);
+		}
+	}
+
+	/**
+	 * @description Adds the current mix or video to favourites.
 	 */
 	async _addCurrentMixToFavourites() {
-		const currentUrl = window.location.href;
 		const urlParams = new URLSearchParams(window.location.search);
 		const playlistId = urlParams.get('list');
 		const videoId = urlParams.get('v');
 
-		if (!playlistId || !videoId) {
-			logger.warn('Navbar', 'Cannot add to favourites: missing playlist or video ID');
+		if (!videoId) {
+			logger.warn('Navbar', 'Cannot add to favourites: missing video ID');
 			return;
 		}
 
-		// Get mix title from page
-		const titleElement = document.querySelector(
-			'.playlist-engagement-panel-mix-title, .playlist-engagement-panel-list-title'
-		);
-		const title = titleElement?.textContent?.trim() || `Mix - ${playlistId}`;
+		// Determine if this is a playlist/mix or individual video
+		let isPlaylist = !!playlistId;
+
+		// Get title using existing data from ytPlayerInstance
+		let title = '';
+
+		// First, try to get title from ytPlayerInstance (most reliable)
+		if (window.ytPlayerInstance && window.ytPlayerInstance.options) {
+			// Check for playlist title first
+			if (
+				window.ytPlayerInstance.options.currentPlaylist &&
+				window.ytPlayerInstance.options.currentPlaylist.title
+			) {
+				title = window.ytPlayerInstance.options.currentPlaylist.title;
+				isPlaylist = true;
+			}
+			// If no playlist title, try video title
+			else if (
+				window.ytPlayerInstance.options.nowPlayingVideoDetails &&
+				window.ytPlayerInstance.options.nowPlayingVideoDetails.title
+			) {
+				title = window.ytPlayerInstance.options.nowPlayingVideoDetails.title;
+			}
+		}
+
+		// Fallback
+		if (!title) {
+			title = isPlaylist ? `Mix - ${playlistId}` : `Video - ${videoId}`;
+		}
 
 		// Create favourite object
 		const favourite = {
 			title: title,
-			playlistId: playlistId,
 			videoId: videoId,
 			addedAt: Date.now(),
 		};
+
+		// Add playlistId only if it exists (for playlists/mixes)
+		if (isPlaylist) {
+			favourite.playlistId = playlistId;
+		}
 
 		// Get current favourites
 		const favourites = window.userSettings.favouriteMixes || [];
 
 		// Check if already exists
-		const exists = favourites.some((fav) => fav.playlistId === playlistId);
+		const exists = favourites.some((fav) => {
+			if (isPlaylist) {
+				// For playlists, check by playlistId
+				return fav.playlistId === playlistId;
+			} else {
+				// For individual videos, check by videoId and ensure it's not part of a playlist
+				return fav.videoId === videoId && !fav.playlistId;
+			}
+		});
+
 		if (exists) {
-			logger.log('Navbar', 'Mix already in favourites');
+			logger.log(
+				'Navbar',
+				isPlaylist ? 'Mix already in favourites' : 'Video already in favourites'
+			);
 			return;
 		}
 
@@ -1022,7 +1357,7 @@ class YTCustomNavbar {
 		// Save to storage
 		const success = await window.saveUserSetting('favouriteMixes', favourites);
 		if (success) {
-			logger.log('Navbar', 'Mix added to favourites', favourite);
+			logger.log('Navbar', `${isPlaylist ? 'Mix' : 'Video'} added to favourites`, favourite);
 			this._updateFavouritesDialog(); // Refresh the dialog
 		}
 	}

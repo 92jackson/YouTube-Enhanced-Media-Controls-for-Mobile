@@ -520,10 +520,99 @@ class MediaUtils {
 			return cleanText && cleanChannel && cleanText.includes(cleanChannel);
 		}
 
+		// Helper function to split text while respecting brackets and prioritizing spaced delimiters
+		function splitRespectingBrackets(text, pattern) {
+			const matches = [];
+			let bracketDepth = 0;
+			
+			// Convert pattern to global regex if it isn't already
+			const globalPattern = new RegExp(pattern.source, 'g');
+			let match;
+			let validMatches = [];
+			
+			// First pass: find all valid matches (outside brackets)
+			let lastIndex = 0;
+			bracketDepth = 0;
+			
+			while ((match = globalPattern.exec(text)) !== null) {
+				// Count brackets before this match
+				const beforeMatch = text.substring(lastIndex, match.index);
+				for (const char of beforeMatch) {
+					if (char === '(' || char === '[' || char === '{') bracketDepth++;
+					if (char === ')' || char === ']' || char === '}') bracketDepth--;
+				}
+				
+				// Only consider matches outside brackets
+				if (bracketDepth === 0) {
+					const hasSpaceBefore = match.index > 0 && /\s/.test(text[match.index - 1]);
+					const hasSpaceAfter = match.index + match[0].length < text.length && /\s/.test(text[match.index + match[0].length]);
+					
+					// For dash patterns, check if this looks like a hyphenated name
+					let isHyphenatedName = false;
+					if (pattern.source.includes('-')) {
+						const beforeText = text.substring(0, match.index);
+						const afterText = text.substring(match.index + match[0].length);
+						
+						// Get the word before and after the dash
+						const wordBefore = beforeText.match(/\S+$/)?.[0] || '';
+						const wordAfter = afterText.match(/^\S+/)?.[0] || '';
+						
+						// Consider it a hyphenated name if:
+						// 1. Both parts are relatively short (likely names)
+						// 2. No spaces around the dash
+						// 3. The first part looks like a name (starts with capital)
+						isHyphenatedName = wordBefore.length <= 15 && 
+										  wordAfter.length <= 15 && 
+										  !hasSpaceBefore && 
+										  !hasSpaceAfter &&
+										  /^[A-Z]/.test(wordBefore) &&
+										  /^[A-Z]/.test(wordAfter);
+					}
+					
+					if (!isHyphenatedName) {
+						validMatches.push({
+							match: match,
+							index: match.index,
+							length: match[0].length,
+							hasSpaceBefore: hasSpaceBefore,
+							hasSpaceAfter: hasSpaceAfter
+						});
+					}
+				}
+				
+				lastIndex = match.index + match[0].length;
+			}
+			
+			if (validMatches.length === 0) {
+				return [text]; // No valid matches found
+			}
+			
+			// Prioritize matches with spaces on both sides, then at least one space
+			let bestMatch = validMatches[0];
+			for (const validMatch of validMatches) {
+				// Prefer matches with spaces on both sides
+				if (validMatch.hasSpaceBefore && validMatch.hasSpaceAfter) {
+					if (!bestMatch.hasSpaceBefore || !bestMatch.hasSpaceAfter) {
+						bestMatch = validMatch;
+						break; // Found ideal match
+					}
+				}
+				// If no perfect match yet, prefer matches with at least one space
+				else if ((validMatch.hasSpaceBefore || validMatch.hasSpaceAfter) && 
+						 (!bestMatch.hasSpaceBefore && !bestMatch.hasSpaceAfter)) {
+					bestMatch = validMatch;
+				}
+			}
+			
+			const part1 = text.substring(0, bestMatch.index);
+			const part2 = text.substring(bestMatch.index + bestMatch.length);
+			return [part1, part2];
+		}
+
 		// Step 7: Pattern-based splitting if no quoted match
 		if (!parsed) {
 			const splitPatterns = [
-				{ pattern: /\s*-\s*/, name: 'dash' },
+				{ pattern: /-/, name: 'dash' },
 				{ pattern: /\s*:\s*/, name: 'colon' },
 				{ pattern: /\s+by\s+/i, name: 'by' },
 				{ pattern: /\s+–\s+/, name: 'en-dash' },
@@ -532,7 +621,7 @@ class MediaUtils {
 			];
 
 			for (const { pattern, name } of splitPatterns) {
-				const parts = title.split(pattern);
+				const parts = splitRespectingBrackets(title, pattern);
 				if (parts.length === 2) {
 					let part1 = parts[0].trim();
 					let part2 = parts[1].trim();
@@ -1000,5 +1089,28 @@ const DeviceUtils = {
 		const hasSmallScreen = window.screen.width <= 768 || window.innerWidth <= 768;
 
 		return hasMobileKeyword || (isTouchDevice && hasSmallScreen);
+	},
+};
+
+/**
+ * String utilities for text processing
+ */
+const StringUtils = {
+	/**
+	 * Strips "mix - " prefix from mix titles for display purposes
+	 * Only applies to original titles, not edited/custom titles
+	 * @param {string} title - The title to process
+	 * @param {boolean} isOriginalTitle - Whether this is the original title (not edited)
+	 * @returns {string} The processed title with mix prefix removed if applicable
+	 */
+	stripMixPrefix: (title, isOriginalTitle = true) => {
+		// Only strip prefix from original titles, not edited ones
+		if (!isOriginalTitle || !title) return title;
+		
+		// Don't strip from "my mix" patterns
+		if (/^my\s+mix/i.test(title)) return title;
+		
+		// Strip "mix - " prefix (handles various dash types and spacing)
+		return title.replace(/^mix\s*[-–—]\s*/i, '');
 	},
 };

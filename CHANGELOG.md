@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1] - 2025-10-18
+
+### Added
+
+-   **Video Favourites** - The favourites feature has been expanded to support stand-alone videos as well as mixes/playlists.
+-   **Mix/Favourites Renaming** - Rename saved favorite mixes in favorites dialog. Renamed mix names are reflected in the playlist drawer header when playing.
+-   **Toggle Video Player gesture** - Added gesture support for toggling video player visibility (hide/show video).
+
+### Fixed
+
+-   **Playback with Video Hidden**
+    -   Fixed bug where a few seconds of the last video would play at the start of a new video when Hide Video Player option was used.
+    -   Fixed bug which would trigger the Buffer Detection at the start of the video playback when Hide Video Player option was used.
+-   **Show Favourite Mixes gesture** - The Favourite Mixes popup can now be shown via a settable gesture.
+
+### Changed
+
+-   **Drawer Close Button** - Removed playlist drawer close button for cleaner interface (can still be accessed by dragging drawer).
+-   **Show "Playing next" when drawer closed** - Now shows the title of the next video as the playlist drawer header when the drawer is closed.
+-   Minor visual/styling changes.
+
 ## [1.2.0] - 2025-10-17
 
 ### Added

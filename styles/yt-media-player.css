@@ -640,22 +640,21 @@ body.yt-playlist-dark {
 }
 
 /* === VISIBILITY CONTROLS === */
-
 .yt-player-wrapper.yt-player-hidden {
 	display: none !important;
 }
 
 /* Hide Video Player Option */
-body.yt-hide-video-player #player-container-id {
-	display: none !important;
+body.yt-hide-video-player #player-container-id,
+body.yt-hide-video-player .player-placeholder {
+	/* Hacky method to hide without affecting functionality */
+	height: 0 !important;
+	position: absolute !important;
+	z-index: -100 !important;
+	opacity: 0 !important;
 }
-
 body.yt-hide-video-player ytm-app.sticky-player {
 	padding: 0 !important;
-}
-
-body.yt-hide-video-player .player-placeholder {
-	display: none !important;
 }
 
 .yt-player-wrapper.no-playlist .yt-drawer-drag-handle,
@@ -779,6 +778,8 @@ body.yt-hide-video-player .player-placeholder {
 	margin-bottom: -6px;
 	flex-shrink: 0;
 	transition: margin-bottom 0.3s ease-out;
+	position: absolute;
+	top: 10px;
 }
 
 .yt-drawer-header-content {
@@ -862,9 +863,10 @@ body.yt-hide-video-player .player-placeholder {
 	border-top-right-radius: 0;
 }
 
-.yt-player-wrapper:not(.drawer-closed) .yt-drawer-close-button {
+/*  Do we really need a close button on the draggable drawer? */
+/*.yt-player-wrapper:not(.drawer-closed) .yt-drawer-close-button {
 	display: block;
-}
+}*/
 
 /* Drawer Closed States */
 .yt-player-wrapper.drawer-closed .yt-drawer-drag-handle {
@@ -888,10 +890,31 @@ body.yt-hide-video-player .player-placeholder {
 	transform: translateY(-50%);
 	width: auto;
 	opacity: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	line-height: 1.2;
 }
 
 .yt-player-wrapper.drawer-closed .yt-drawer-header {
-	font-size: calc(14px * var(--yt-font-size-multiplier));
+	font-size: calc(12px * var(--yt-font-size-multiplier));
+	margin: 0;
+	padding: 0;
+}
+
+.yt-player-wrapper.drawer-closed .yt-drawer-playing-next-label {
+	font-size: calc(10px * var(--yt-font-size-multiplier));
+	opacity: 0.7;
+	margin-bottom: 2px;
+}
+
+.yt-player-wrapper.drawer-closed .yt-drawer-track-title {
+	font-size: calc(12px * var(--yt-font-size-multiplier));
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: calc(100vw - 120px); /* Account for drag handle and padding */
 }
 
 .yt-player-wrapper.drawer-closed .yt-drawer-subheader {
@@ -2691,7 +2714,7 @@ body.theme-dark .yt-drawer-full .yt-custom-navbar {
 
 .yt-favourites-dialog-item-title {
 	color: var(--yt-player-text-primary);
-	font-size: 14px;
+	font-size: calc(14px * var(--yt-font-size-multiplier));
 	font-weight: 500;
 	line-height: 1.3;
 	margin-bottom: 4px;
@@ -2702,18 +2725,17 @@ body.theme-dark .yt-drawer-full .yt-custom-navbar {
 
 .yt-favourites-dialog-item-meta {
 	color: var(--yt-player-text-secondary);
-	font-size: 12px;
+	font-size: calc(12px * var(--yt-font-size-multiplier));
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-/* Remove button */
-.yt-favourites-dialog-remove-btn {
+/* More options button */
+.yt-favourites-dialog-more-options-btn {
 	background: none;
 	border: none;
 	color: var(--yt-player-text-secondary);
-	font-size: 20px;
 	cursor: pointer;
 	padding: 8px;
 	border-radius: 50%;
@@ -2724,19 +2746,158 @@ body.theme-dark .yt-drawer-full .yt-custom-navbar {
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
-	line-height: 1;
 }
 
-.yt-favourites-dialog-remove-btn:hover {
+.yt-favourites-dialog-more-options-btn svg {
+	fill: currentColor;
+	transition: inherit;
+}
+
+.yt-favourites-dialog-more-options-btn:hover {
+	background: var(--yt-player-bg-tertiary);
+	color: var(--yt-player-text-primary);
+}
+
+/* Options overlay */
+.yt-favourites-dialog-options-overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.8);
+	border-radius: 12px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	z-index: 10;
+	animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+/* Overlay buttons */
+.yt-favourites-dialog-overlay-btn {
+	background: var(--yt-player-bg-primary);
+	border: 1px solid var(--yt-player-border);
+	color: var(--yt-player-text-primary);
+	cursor: pointer;
+	padding: 12px 16px;
+	border-radius: 8px;
+	transition: all 0.2s ease;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: calc(14px * var(--yt-font-size-multiplier));
+	font-weight: 500;
+	min-width: 100px;
+	justify-content: center;
+}
+
+.yt-favourites-dialog-overlay-btn svg {
+	fill: currentColor;
+	flex-shrink: 0;
+}
+
+.yt-favourites-dialog-overlay-btn:hover {
+	background: var(--yt-player-bg-secondary);
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.yt-favourites-dialog-overlay-remove-btn:hover {
 	background: rgba(255, 0, 0, 0.1);
 	color: #ff4444;
+	border-color: rgba(255, 68, 68, 0.3);
+}
+
+/* Mix badge */
+.yt-mix-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--yt-player-handle-text-primary);
+	color: var(--yt-player-handle-bg);
+	font-size: calc(0.7em * var(--yt-font-size-multiplier));
+	font-weight: 500;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	padding: 0.4em 0.6em;
+	border-radius: 4px;
+	margin-right: 0.5em;
+	vertical-align: bottom;
+	line-height: 1;
+	flex-shrink: 0;
+}
+
+/* Video badge */
+.yt-video-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--yt-player-accent-primary);
+	color: white;
+	font-size: calc(0.7em * var(--yt-font-size-multiplier));
+	font-weight: 500;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	padding: 0.4em 0.6em;
+	border-radius: 4px;
+	margin-right: 0.5em;
+	vertical-align: bottom;
+	line-height: 1;
+	flex-shrink: 0;
+}
+
+/* Mix badge in favorites dialog */
+.yt-favourites-dialog-item-title .yt-mix-badge {
+	margin-right: 0.4em;
+	font-size: calc(0.65em * var(--yt-font-size-multiplier));
+	padding: 0.15em 0.4em;
+	border-radius: 3px;
+	vertical-align: middle;
+}
+
+/* Video badge in favorites dialog */
+.yt-favourites-dialog-item-title .yt-video-badge {
+	margin-right: 0.4em;
+	font-size: calc(0.65em * var(--yt-font-size-multiplier));
+	padding: 0.15em 0.4em;
+	border-radius: 3px;
+	vertical-align: middle;
+}
+
+/* Rename input */
+.yt-favourites-dialog-rename-input {
+	background: var(--yt-player-bg-primary);
+	border: 2px solid var(--yt-player-accent-primary);
+	border-radius: 4px;
+	color: var(--yt-player-text-primary);
+	font-size: calc(14px * var(--yt-font-size-multiplier));
+	font-weight: 500;
+	padding: 4px 8px;
+	width: 100%;
+	outline: none;
+	font-family: inherit;
+}
+
+.yt-favourites-dialog-rename-input:focus {
+	border-color: var(--yt-player-accent-secondary);
 }
 
 /* Empty state */
 .yt-favourites-dialog-empty {
 	text-align: center;
 	color: var(--yt-player-text-secondary);
-	font-size: 14px;
+	font-size: calc(14px * var(--yt-font-size-multiplier));
 	padding: 32px 16px;
 }
 

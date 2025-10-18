@@ -945,10 +945,12 @@ class YTMediaPlayer {
 		let midDrawerHeight = 0;
 		if (maxDrawerHeight > 0) {
 			const isVideoPlayerHidden = document.body.classList.contains('yt-hide-video-player');
-			
+
 			if (isVideoPlayerHidden) {
 				// When video is hidden, use the metadata section height
-				const metadataElement = DOMUtils.getElement('ytm-slim-video-metadata-section-renderer');
+				const metadataElement = DOMUtils.getElement(
+					'ytm-slim-video-metadata-section-renderer'
+				);
 				logger.log('Measurements', `Metadata section element found: ${!!metadataElement}`);
 				if (metadataElement) {
 					const metadataRect = metadataElement.getBoundingClientRect();
@@ -961,7 +963,10 @@ class YTMediaPlayer {
 						`Metadata section calculations (metadataRect: ${metadataRect}, playerWrapperRect: ${playerWrapperRect}, targetDrawerTopY: ${targetDrawerTopY}px, spaceAvailable: ${spaceAvailable}px)`
 					);
 
-					midDrawerHeight = Math.max(0, spaceAvailable - controlsHeight - OPEN_HANDLE_HEIGHT);
+					midDrawerHeight = Math.max(
+						0,
+						spaceAvailable - controlsHeight - OPEN_HANDLE_HEIGHT
+					);
 				}
 			} else {
 				// Original logic for when video is visible
@@ -978,7 +983,10 @@ class YTMediaPlayer {
 						`Video area calculations (videoAreaRect: ${videoAreaRect}, playerWrapperRect: ${playerWrapperRect}, targetDrawerTopY: ${targetDrawerTopY}px, spaceAvailable: ${spaceAvailable}px)`
 					);
 
-					midDrawerHeight = Math.max(0, spaceAvailable - controlsHeight - OPEN_HANDLE_HEIGHT);
+					midDrawerHeight = Math.max(
+						0,
+						spaceAvailable - controlsHeight - OPEN_HANDLE_HEIGHT
+					);
 				}
 			}
 
@@ -1379,11 +1387,71 @@ class YTMediaPlayer {
 		const isEffectivelyClosed = this.drawerState === DrawerState.CLOSED;
 
 		if (isEffectivelyClosed) {
-			this.drawerHeader.textContent = /^(?:my\s+)?mix/i.test(this._fullPlaylistTitle)
-				? 'Mix'
-				: 'Playlist';
+			// Clear header first
+			this.drawerHeader.textContent = '';
+			
+			// Create "Playing next" label
+			const playingNextLabel = document.createElement('div');
+			playingNextLabel.className = 'yt-drawer-playing-next-label';
+			playingNextLabel.textContent = 'Playing next';
+			this.drawerHeader.appendChild(playingNextLabel);
+			
+			// Get the next track title
+			let nextTrackTitle = null;
+			
+			// Check if there's a "Play Next" video set (from context menu)
+			if (this.nextUpVideoId) {
+				const playlistData = this.getCachedPlaylistData();
+				const nextUpItem = playlistData.items.find(item => item.id === this.nextUpVideoId);
+				if (nextUpItem && nextUpItem.title) {
+					nextTrackTitle = nextUpItem.title;
+				}
+			} else {
+				// Get the naturally next track in the playlist
+				const currentVideoId = this.options.nowPlayingVideoDetails?.videoId;
+				if (currentVideoId) {
+					const nextVideo = this.getAdjacentVideo(currentVideoId, 'forward');
+					if (nextVideo && nextVideo.title) {
+						nextTrackTitle = nextVideo.title;
+					}
+				}
+			}
+			
+			// Add the track title if found
+			if (nextTrackTitle) {
+				const trackTitleElement = document.createElement('div');
+				trackTitleElement.className = 'yt-drawer-track-title';
+				trackTitleElement.textContent = nextTrackTitle;
+				this.drawerHeader.appendChild(trackTitleElement);
+			}
 		} else {
-			this.drawerHeader.textContent = this._fullPlaylistTitle;
+			// Clear header first
+			this.drawerHeader.textContent = '';
+			
+			// Check if this is a mix (use original title for badge check)
+			const isMix = /^(?:my\s+)?mix/i.test(this._originalPlaylistTitle || this._fullPlaylistTitle);
+			
+			if (isMix) {
+				// Add Mix badge before title
+				const mixBadge = document.createElement('span');
+				mixBadge.className = 'yt-mix-badge';
+				mixBadge.textContent = 'Mix';
+				this.drawerHeader.appendChild(mixBadge);
+			}
+			
+			// Add title text (strip prefix from original titles only)
+			let displayTitle = this._fullPlaylistTitle;
+			
+			// Check if we're displaying the original title (not a custom/edited one)
+			const isDisplayingOriginalTitle = this._originalPlaylistTitle && 
+				this._fullPlaylistTitle === this._originalPlaylistTitle;
+			
+			if (isDisplayingOriginalTitle) {
+				displayTitle = StringUtils.stripMixPrefix(displayTitle, true);
+			}
+			
+			const titleText = document.createTextNode(displayTitle);
+			this.drawerHeader.appendChild(titleText);
 		}
 	}
 
@@ -1401,7 +1469,11 @@ class YTMediaPlayer {
 		// Get video container height - if video player is hidden, use 0
 		const isVideoPlayerHidden = document.body.classList.contains('yt-hide-video-player');
 		const videoElement = DOMUtils.getElement(this.playerContainerSelector);
-		const videoHeight = isVideoPlayerHidden ? 0 : (videoElement ? videoElement.getBoundingClientRect().height : 0);
+		const videoHeight = isVideoPlayerHidden
+			? 0
+			: videoElement
+			? videoElement.getBoundingClientRect().height
+			: 0;
 
 		// Calculate below-player height
 		const navbarHeight = 48;
@@ -1833,6 +1905,9 @@ class YTMediaPlayer {
 			toggleFavourites: () => {
 				this.options.callbacks.onGestureToggleFavourites?.();
 			},
+			toggleVideoPlayer: () => {
+				this.options.callbacks.onGestureToggleVideoPlayer?.();
+			},
 		};
 
 		const actionFn = actions[actionName];
@@ -1914,6 +1989,8 @@ class YTMediaPlayer {
 				'M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zm0-10v2h14V7H7z',
 			toggleFavourites:
 				'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z',
+			toggleVideoPlayer:
+				'M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM14 13h-3v3H9v-3H6v-2h3V8h2v3h3v2z',
 		};
 
 		const pathData = iconPaths[actionName];
@@ -3669,13 +3746,24 @@ class YTMediaPlayer {
 			}
 
 			// Use cached title if available
-			const currentTitle = this.options.currentPlaylist.title;
+			let currentTitle = this.options.currentPlaylist.title;
+			let originalTitle = currentTitle; // Store original title for mix badge check
+
+			// Check if this playlist matches a renamed favorite mix
+			if (currentTitle && listId && window.userSettings?.favouriteMixes) {
+				const favourites = window.userSettings.favouriteMixes;
+				const matchingFavourite = favourites.find((fav) => fav.playlistId === listId);
+				if (matchingFavourite && matchingFavourite.customTitle) {
+					currentTitle = matchingFavourite.customTitle;
+				}
+			}
+
 			if (currentTitle) {
 				// Count visible items (non-hidden)
 				const visibleItemCount = newItems
 					? newItems.filter((item) => !item.hidden).length
 					: 0;
-				this.setHandleContent({ title: currentTitle, itemCount: visibleItemCount });
+				this.setHandleContent({ title: currentTitle, originalTitle: originalTitle, itemCount: visibleItemCount });
 			}
 		}
 	}
@@ -3824,8 +3912,9 @@ class YTMediaPlayer {
 	/**
 	 * Handle content
 	 */
-	setHandleContent({ title, itemCount }) {
+	setHandleContent({ title, originalTitle, itemCount }) {
 		this._fullPlaylistTitle = title;
+		this._originalPlaylistTitle = originalTitle || title; // Store original title for mix badge check
 		this.options.currentHandleTitle = title;
 
 		if (this.drawerSubheader && typeof itemCount === 'number') {
