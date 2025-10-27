@@ -49,6 +49,8 @@ window.userSettings = {
 	navbarShowVoiceSearch: false,
 	navbarShowHomeButton: true,
 	navbarShowFavourites: true,
+	favouritesDialogFilter: 'all', // 'all', 'mixes', 'playlists', 'videos'
+	favouritesDialogSort: 'newestFirst', // 'newestFirst', 'oldestFirst', 'aToZ', 'zToA'
 	navbarShowVideoToggle: false,
 	playlistRemoveSame: false,
 	allowDifferentVersions: false,

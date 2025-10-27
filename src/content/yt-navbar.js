@@ -816,9 +816,26 @@ class YTCustomNavbar {
 		if (hasVideoId) {
 			const addToFavBtn = document.createElement('button');
 			addToFavBtn.className = 'yt-favourites-dialog-add-btn';
-			// Show appropriate text based on whether it's a playlist/mix or individual video
-			addToFavBtn.textContent = hasPlaylistId ? '+ Add Current Mix' : '+ Add Current Video';
-			addToFavBtn.addEventListener('click', () => this._addCurrentMixToFavourites());
+			addToFavBtn.textContent = '+ Add to Favourites';
+
+			if (hasPlaylistId) {
+				// For mix/playlist context, create dropdown functionality
+				addToFavBtn.addEventListener('click', (e) => {
+					// Check if dropdown is already visible and toggle it
+					const existingDropdown = document.getElementById(
+						'yt-add-to-favourites-dropdown'
+					);
+					if (existingDropdown) {
+						this._hideAddToFavouritesDropdown();
+					} else {
+						this._showAddToFavouritesDropdown(e, addToFavBtn);
+					}
+				});
+			} else {
+				// For standalone video, add directly
+				addToFavBtn.addEventListener('click', () => this._addCurrentMixToFavourites());
+			}
+
 			rightSection.appendChild(addToFavBtn);
 		}
 
@@ -832,6 +849,103 @@ class YTCustomNavbar {
 		header.appendChild(title);
 		header.appendChild(rightSection);
 		modal.appendChild(header);
+
+		// Create filter area below header
+		const filterArea = document.createElement('div');
+		filterArea.className = 'yt-favourites-dialog-filter-area';
+
+		const filterContainer = document.createElement('div');
+		filterContainer.className = 'yt-favourites-dialog-filter-container';
+
+		// Create filter buttons container
+		const filterButtonsContainer = document.createElement('div');
+		filterButtonsContainer.className = 'yt-favourites-dialog-filter-buttons';
+
+		const filterButtons = [
+			{ value: 'all', label: 'All' },
+			{ value: 'mixes', label: 'Mixes' },
+			{ value: 'playlists', label: 'Playlists' },
+			{ value: 'videos', label: 'Videos' },
+		];
+
+		filterButtons.forEach(({ value, label }) => {
+			const filterBtn = document.createElement('button');
+			filterBtn.className = 'yt-favourites-dialog-filter-btn';
+			filterBtn.textContent = label;
+			filterBtn.dataset.filter = value;
+
+			// Set active state based on current setting
+			if (window.userSettings.favouritesDialogFilter === value) {
+				filterBtn.classList.add('active');
+			}
+
+			filterBtn.addEventListener('click', () => {
+				// Update active state
+				filterButtonsContainer
+					.querySelectorAll('.yt-favourites-dialog-filter-btn')
+					.forEach((btn) => {
+						btn.classList.remove('active');
+					});
+				filterBtn.classList.add('active');
+
+				// Save setting
+				window.userSettings.favouritesDialogFilter = value;
+				if (window.storageApi && window.storageApi.local) {
+					window.storageApi.local.set({ favouritesDialogFilter: value });
+				}
+
+				// Update the list
+				this._updateFavouritesDialog();
+			});
+
+			filterButtonsContainer.appendChild(filterBtn);
+		});
+
+		// Create sort controls container
+		const sortContainer = document.createElement('div');
+		sortContainer.className = 'yt-favourites-dialog-sort-container';
+
+		const sortSelect = document.createElement('select');
+		sortSelect.className = 'yt-favourites-dialog-sort-select';
+
+		const sortOptions = [
+			{ value: 'newestFirst', label: 'Newest First' },
+			{ value: 'oldestFirst', label: 'Oldest First' },
+			{ value: 'aToZ', label: 'A-Z' },
+			{ value: 'zToA', label: 'Z-A' },
+			{ value: 'type', label: 'Type' },
+		];
+
+		sortOptions.forEach(({ value, label }) => {
+			const option = document.createElement('option');
+			option.value = value;
+			option.textContent = label;
+
+			// Set selected state based on current setting
+			if (window.userSettings.favouritesDialogSort === value) {
+				option.selected = true;
+			}
+
+			sortSelect.appendChild(option);
+		});
+
+		sortSelect.addEventListener('change', () => {
+			// Save setting
+			window.userSettings.favouritesDialogSort = sortSelect.value;
+			if (window.storageApi && window.storageApi.local) {
+				window.storageApi.local.set({ favouritesDialogSort: sortSelect.value });
+			}
+
+			// Update the list
+			this._updateFavouritesDialog();
+		});
+
+		sortContainer.appendChild(sortSelect);
+
+		filterContainer.appendChild(filterButtonsContainer);
+		filterContainer.appendChild(sortContainer);
+		filterArea.appendChild(filterContainer);
+		modal.appendChild(filterArea);
 
 		// Create content area
 		const content = document.createElement('div');
@@ -862,6 +976,8 @@ class YTCustomNavbar {
 	 * @description Hides the favourites dialog with bottom sheet animation.
 	 */
 	_hideFavouritesDialog() {
+		this._hideAddToFavouritesDropdown();
+
 		const overlay = document.querySelector('.yt-favourites-dialog-overlay');
 		const modal = document.querySelector('.yt-favourites-dialog-modal');
 		if (overlay && modal) {
@@ -909,13 +1025,119 @@ class YTCustomNavbar {
 		container.innerHTML = '';
 
 		const favourites = window.userSettings.favouriteMixes || [];
+		const currentFilter = window.userSettings.favouritesDialogFilter || 'all';
 
-		if (favourites.length === 0) {
+		// Filter favourites based on current filter setting
+		const filteredFavourites = favourites.filter((favourite) => {
+			if (currentFilter === 'all') {
+				return true;
+			}
+
+			const isPlaylist = !!favourite.playlistId;
+			const originalTitle = favourite.title || '';
+			const isMix = /^(?:my\s+)?mix/i.test(originalTitle);
+
+			switch (currentFilter) {
+				case 'mixes':
+					return isPlaylist && isMix;
+				case 'playlists':
+					return isPlaylist && !isMix;
+				case 'videos':
+					return !isPlaylist;
+				default:
+					return true;
+			}
+		});
+
+		// Sort favourites based on current sort setting
+		const currentSort = window.userSettings.favouritesDialogSort || 'newestFirst';
+
+		filteredFavourites.sort((a, b) => {
+			switch (currentSort) {
+				case 'aToZ':
+					// Use display title (customTitle if available, otherwise original title)
+					const displayTitleA = a.customTitle || a.title || '';
+					const displayTitleB = b.customTitle || b.title || '';
+
+					// Remove "Mix -" prefix only from original titles (not custom titles)
+					const cleanTitleA = StringUtils.stripMixPrefix(
+						displayTitleA,
+						!a.customTitle
+					).toLowerCase();
+					const cleanTitleB = StringUtils.stripMixPrefix(
+						displayTitleB,
+						!b.customTitle
+					).toLowerCase();
+
+					return cleanTitleA.localeCompare(cleanTitleB);
+
+				case 'zToA':
+					// Use display title (customTitle if available, otherwise original title)
+					const displayTitleA_ZA = a.customTitle || a.title || '';
+					const displayTitleB_ZA = b.customTitle || b.title || '';
+
+					// Remove "Mix -" prefix only from original titles (not custom titles)
+					const cleanTitleA_ZA = StringUtils.stripMixPrefix(
+						displayTitleA_ZA,
+						!a.customTitle
+					).toLowerCase();
+					const cleanTitleB_ZA = StringUtils.stripMixPrefix(
+						displayTitleB_ZA,
+						!b.customTitle
+					).toLowerCase();
+
+					return cleanTitleB_ZA.localeCompare(cleanTitleA_ZA);
+
+				case 'type':
+					// Sort by type: playlists first, then videos
+					const isPlaylistA = !!a.playlistId;
+					const isPlaylistB = !!b.playlistId;
+
+					if (isPlaylistA && !isPlaylistB) return -1;
+					if (!isPlaylistA && isPlaylistB) return 1;
+
+					// If both are same type, sort alphabetically (also excluding prefixes)
+					const displayTitleA2 = a.customTitle || a.title || '';
+					const displayTitleB2 = b.customTitle || b.title || '';
+					const cleanTitleA2 = displayTitleA2
+						.toLowerCase()
+						.replace(/^(?!my\s)mix\s*-\s*/i, '');
+					const cleanTitleB2 = displayTitleB2
+						.toLowerCase()
+						.replace(/^(?!my\s)mix\s*-\s*/i, '');
+					return cleanTitleA2.localeCompare(cleanTitleB2);
+
+				case 'oldestFirst':
+					// Sort by date added (oldest first)
+					const indexA_OF = favourites.indexOf(a);
+					const indexB_OF = favourites.indexOf(b);
+					return indexA_OF - indexB_OF;
+
+				case 'newestFirst':
+				default:
+					// Default sort by date added (most recent first)
+					// Since items are added to the end of the array, reverse order
+					const indexA = favourites.indexOf(a);
+					const indexB = favourites.indexOf(b);
+					return indexB - indexA;
+			}
+		});
+
+		if (filteredFavourites.length === 0) {
 			const emptyMessage = document.createElement('div');
 			emptyMessage.className = 'yt-favourites-dialog-empty';
 
 			const boldText = document.createElement('strong');
-			boldText.textContent = 'No saved mixes or videos yet.';
+			if (currentFilter === 'all') {
+				boldText.textContent = 'No saved mixes or videos yet.';
+			} else {
+				const filterLabels = {
+					mixes: 'mixes',
+					playlists: 'playlists',
+					videos: 'videos',
+				};
+				boldText.textContent = `No saved ${filterLabels[currentFilter]} yet.`;
+			}
 			emptyMessage.appendChild(boldText);
 
 			const lineBreak = document.createElement('br');
@@ -930,7 +1152,9 @@ class YTCustomNavbar {
 			return;
 		}
 
-		favourites.forEach((favourite, index) => {
+		filteredFavourites.forEach((favourite, filteredIndex) => {
+			// Find the original index in the full favourites array
+			const originalIndex = favourites.indexOf(favourite);
 			const item = document.createElement('div');
 			item.className = 'yt-favourites-dialog-item';
 
@@ -975,12 +1199,51 @@ class YTCustomNavbar {
 			const thumbnail = document.createElement('div');
 			thumbnail.className = 'yt-favourites-dialog-item-thumbnail';
 
+			// Determine if this is a playlist/mix or individual video
+			const isPlaylist = !!favourite.playlistId;
+			
+			// Add stacked effect for playlists/mixes
+			if (isPlaylist) {
+				thumbnail.classList.add('stacked');
+			}
+
 			// Get the video ID for thumbnail
 			const videoId = favourite.videoId;
 			if (videoId) {
 				const thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
-				thumbnail.style.backgroundImage = `url('${thumbnailUrl}')`;
+				
+				// Create an actual img element instead of using background-image
+				const thumbnailImg = document.createElement('img');
+				thumbnailImg.src = thumbnailUrl;
+				thumbnailImg.alt = favourite.title || 'Video thumbnail';
+				thumbnailImg.style.width = '100%';
+				thumbnailImg.style.height = '100%';
+				thumbnailImg.style.objectFit = 'cover';
+				thumbnailImg.style.borderRadius = '8px';
+				thumbnailImg.style.position = 'relative';
+				thumbnailImg.style.zIndex = '9'; // Above the pseudo-elements but below play overlay
+				thumbnail.appendChild(thumbnailImg);
+				
+				// Extract adaptive colors for stacked effect if this is a playlist/mix
+				if (isPlaylist) {
+					ColorUtils.getAdaptiveColorFromThumbnail(thumbnailUrl)
+						.then(colors => {
+							// Apply adaptive colors to the stacked effect
+							thumbnail.style.setProperty('--stack-color-1', colors.primary);
+							thumbnail.style.setProperty('--stack-color-2', colors.secondary);
+						})
+						.catch(error => {
+							// Fallback to default colors if extraction fails
+							thumbnail.style.setProperty('--stack-color-1', '#666666');
+							thumbnail.style.setProperty('--stack-color-2', '#888888');
+						});
+				}
 			}
+
+			// Add play overlay element for hover effect
+			const playOverlay = document.createElement('div');
+			playOverlay.className = 'play-overlay';
+			thumbnail.appendChild(playOverlay);
 
 			const info = document.createElement('div');
 			info.className = 'yt-favourites-dialog-item-info';
@@ -988,27 +1251,25 @@ class YTCustomNavbar {
 			const title = document.createElement('div');
 			title.className = 'yt-favourites-dialog-item-title';
 
-			// Determine if this is a playlist/mix or individual video
-			const isPlaylist = !!favourite.playlistId;
 			const originalTitle = favourite.title || '';
 
 			// Add appropriate badge before title
 			if (isPlaylist) {
-				// For playlists/mixes, check if it's a mix and add Mix badge
+				// For playlists/mixes, check if it's a mix and add Mix badge, otherwise Playlist badge
 				const isMix = /^(?:my\s+)?mix/i.test(originalTitle);
 				if (isMix) {
 					const mixBadge = document.createElement('span');
 					mixBadge.className = 'yt-mix-badge';
 					mixBadge.textContent = 'Mix';
 					title.appendChild(mixBadge);
+				} else {
+					const playlistBadge = document.createElement('span');
+					playlistBadge.className = 'yt-mix-badge';
+					playlistBadge.textContent = 'List';
+					title.appendChild(playlistBadge);
 				}
-			} else {
-				// For individual videos, add Video badge
-				const videoBadge = document.createElement('span');
-				videoBadge.className = 'yt-video-badge';
-				videoBadge.textContent = 'Video';
-				title.appendChild(videoBadge);
 			}
+			// No badge for standalone videos
 
 			// Use customTitle if available, otherwise fall back to original title
 			let displayTitle =
@@ -1056,7 +1317,7 @@ class YTCustomNavbar {
 
 			moreOptionsBtn.addEventListener('click', (e) => {
 				e.stopPropagation(); // Prevent item click
-				this._toggleOptionsOverlay(item, favourite, index);
+				this._toggleOptionsOverlay(item, favourite, originalIndex);
 			});
 
 			item.appendChild(thumbnail);
@@ -1277,7 +1538,7 @@ class YTCustomNavbar {
 	/**
 	 * @description Adds the current mix or video to favourites.
 	 */
-	async _addCurrentMixToFavourites() {
+	async _addCurrentMixToFavourites(forceVideoOnly) {
 		const urlParams = new URLSearchParams(window.location.search);
 		const playlistId = urlParams.get('list');
 		const videoId = urlParams.get('v');
@@ -1289,6 +1550,7 @@ class YTCustomNavbar {
 
 		// Determine if this is a playlist/mix or individual video
 		let isPlaylist = !!playlistId;
+		if (forceVideoOnly) isPlaylist = false;
 
 		// Get title using existing data from ytPlayerInstance
 		let title = '';
@@ -1298,10 +1560,10 @@ class YTCustomNavbar {
 			// Check for playlist title first
 			if (
 				window.ytPlayerInstance.options.currentPlaylist &&
-				window.ytPlayerInstance.options.currentPlaylist.title
+				window.ytPlayerInstance.options.currentPlaylist.title &&
+				isPlaylist
 			) {
 				title = window.ytPlayerInstance.options.currentPlaylist.title;
-				isPlaylist = true;
 			}
 			// If no playlist title, try video title
 			else if (
@@ -1368,6 +1630,79 @@ class YTCustomNavbar {
 	 */
 	async _removeFavourite(index) {
 		return this._removeFavouriteFromDialog(index);
+	}
+
+	/**
+	 * @description Shows a dropdown menu for adding to favourites when on a mix/playlist.
+	 * @param {Event} event - The click event.
+	 * @param {HTMLElement} button - The button that was clicked.
+	 */
+	_showAddToFavouritesDropdown(event, button) {
+		// Remove any existing dropdown
+		this._hideAddToFavouritesDropdown();
+
+		// Create dropdown container
+		const dropdown = document.createElement('div');
+		dropdown.className = 'yt-add-to-favourites-dropdown';
+		dropdown.id = 'yt-add-to-favourites-dropdown';
+
+		// Create dropdown options
+		const addMixOption = document.createElement('button');
+		addMixOption.className = 'yt-dropdown-option';
+		addMixOption.textContent = 'Add Mix/Playlist';
+		addMixOption.addEventListener('click', () => {
+			this._addCurrentMixToFavourites();
+			this._hideAddToFavouritesDropdown();
+		});
+
+		const addVideoOption = document.createElement('button');
+		addVideoOption.className = 'yt-dropdown-option';
+		addVideoOption.textContent = 'Add Current Video';
+		addVideoOption.addEventListener('click', () => {
+			this._addCurrentMixToFavourites(true);
+			this._hideAddToFavouritesDropdown();
+		});
+
+		dropdown.appendChild(addMixOption);
+		dropdown.appendChild(addVideoOption);
+
+		// Position dropdown relative to button
+		const buttonRect = button.getBoundingClientRect();
+		dropdown.style.position = 'absolute';
+		dropdown.style.top = `${buttonRect.bottom + 5}px`;
+		dropdown.style.right = `${window.innerWidth - buttonRect.right}px`;
+		dropdown.style.zIndex = '10001';
+
+		// Add to DOM
+		document.body.appendChild(dropdown);
+
+		// Add click outside listener to close dropdown
+		setTimeout(() => {
+			document.addEventListener('click', this._handleDropdownOutsideClick.bind(this), {
+				once: true,
+			});
+		}, 0);
+	}
+
+	/**
+	 * @description Hides the add to favourites dropdown.
+	 */
+	_hideAddToFavouritesDropdown() {
+		const dropdown = document.getElementById('yt-add-to-favourites-dropdown');
+		if (dropdown) {
+			dropdown.remove();
+		}
+	}
+
+	/**
+	 * @description Handles clicks outside the dropdown to close it.
+	 * @param {Event} event - The click event.
+	 */
+	_handleDropdownOutsideClick(event) {
+		const dropdown = document.getElementById('yt-add-to-favourites-dropdown');
+		if (dropdown && !dropdown.contains(event.target)) {
+			this._hideAddToFavouritesDropdown();
+		}
 	}
 
 	/**

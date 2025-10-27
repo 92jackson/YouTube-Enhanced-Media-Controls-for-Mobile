@@ -13,8 +13,9 @@ const CSS_SELECTORS = {
 	adSkipButton: 'button.ytp-ad-skip-button-modern',
 
 	// Playlist elements
-	playlistPanel: 'ytm-engagement-panel',
-	playlistContentWrapper: 'ytm-engagement-panel .engagement-panel-content-wrapper',
+	playlistPanel: 'ytm-engagement-panel .engagement-panel-playlist',
+	playlistContentWrapper:
+		'ytm-engagement-panel .engagement-panel-playlist .engagement-panel-content-wrapper',
 	playlistSpinner: 'ytm-section-list-renderer .spinner',
 	playlistItems: 'ytm-playlist-panel-video-renderer',
 	playlistItemLink: 'a[href*="/watch"]',
@@ -154,6 +155,10 @@ let bufferAutoPauseTimeout = null;
 let isBufferAutoPauseActive = false;
 /** @type {number|null} Timestamp of the last user seek operation */
 let lastSeekTimestamp = null;
+/** @type {number|null} Timestamp of the last play event */
+let lastPlayTimestamp = null;
+/** @type {boolean} Whether the player has played since the last buffer event */
+let hasPlayedSinceLastBuffer = false;
 /** @type {number} Grace period after seek to ignore buffer events (in milliseconds) */
 const SEEK_BUFFER_GRACE_PERIOD = 2000; // 2 seconds
 
@@ -180,19 +185,33 @@ async function handleBufferDetectionAutoPause(videoElement) {
 		);
 		// Update timestamp but don't trigger auto-pause
 		lastBufferingTimestamp = currentTime;
+		hasPlayedSinceLastBuffer = false; // Reset play tracking on new buffer event
 		return;
 	}
 
-	// Check if this is a rapid buffering event
+	// Check if this is a rapid buffering event AND the player has played since the last buffer
 	if (lastBufferingTimestamp && currentTime - lastBufferingTimestamp < bufferThreshold) {
-		// Rapid buffering detected - trigger auto-pause
+		// Only trigger auto-pause if the player has actually played since the last buffer event
+		// This prevents auto-pause during new video loads where buffering occurs without play events
+		if (!hasPlayedSinceLastBuffer) {
+			logger.log(
+				'BufferDetection',
+				'Ignoring buffer event - no play event occurred since last buffer (likely new video load)'
+			);
+			lastBufferingTimestamp = currentTime;
+			return;
+		}
+
+		// Rapid buffering detected after playing - trigger auto-pause
 		if (!isBufferAutoPauseActive && !videoElement.paused) {
 			isBufferAutoPauseActive = true;
 			const pauseDuration = (window.userSettings.bufferDetectionPauseDuration || 5) * 1000;
 
 			logger.log(
 				'BufferDetection',
-				`Rapid buffering detected. Auto-pausing for ${pauseDuration / 1000}s`
+				`Rapid buffering detected after play event. Auto-pausing for ${
+					pauseDuration / 1000
+				}s`
 			);
 
 			// Start countdown in custom player if available
@@ -219,8 +238,9 @@ async function handleBufferDetectionAutoPause(videoElement) {
 		}
 	}
 
-	// Update the last buffering timestamp
+	// Update the last buffering timestamp and reset play tracking
 	lastBufferingTimestamp = currentTime;
+	hasPlayedSinceLastBuffer = false;
 }
 
 /**
@@ -240,6 +260,8 @@ function cleanupBufferDetectionAutoPause() {
 	isBufferAutoPauseActive = false;
 	lastBufferingTimestamp = null;
 	lastSeekTimestamp = null;
+	lastPlayTimestamp = null;
+	hasPlayedSinceLastBuffer = false;
 }
 
 /**
@@ -1790,6 +1812,10 @@ async function setupCustomPlayerPageObservers() {
 				ytPlayerInstance.setPlayState(window.PlayState.PLAYING);
 			}
 
+			// Update play state tracking for buffer detection
+			lastPlayTimestamp = Date.now();
+			hasPlayedSinceLastBuffer = true;
+
 			handlePreemptiveAdMuting();
 		},
 		onPause: () => {
@@ -2017,6 +2043,7 @@ function preventPageContainerInert() {
 	const chipCloudRenderer = DOMUtils.getElement(CSS_SELECTORS.chipCloudRenderer);
 	if (chipCloudRenderer && chipCloudRenderer.classList.contains('chips-visible')) {
 		document.body.classList.add('chip-cloud-present');
+		chipCloudRenderer.classList.remove('chips-fixed-positioning');
 	} else {
 		document.body.classList.remove('chip-cloud-present');
 	}
@@ -2230,10 +2257,17 @@ async function manageCustomPlayerLifecycle() {
 				// Make ytPlayerInstance globally accessible
 				window.ytPlayerInstance = ytPlayerInstance;
 
-				ytPlayerInstance.updatePlaylist(
-					PageUtils.isPlaylistPage() ? [] : null,
-					PageUtils.getCurrentPlaylistIdFromUrl()
-				);
+				// Initialize playlist with proper data immediately
+				if (PageUtils.isPlaylistPage()) {
+					const playlistData = getPlaylistItemsFromPage();
+					ytPlayerInstance.updatePlaylist(
+						playlistData.items,
+						PageUtils.getCurrentPlaylistIdFromUrl(),
+						playlistData.playlistTitle
+					);
+				} else {
+					ytPlayerInstance.updatePlaylist(null, null);
+				}
 
 				document.body.appendChild(ytPlayerInstance.playerWrapper);
 				document.body.classList.add('yt-custom-controls-drawn');
@@ -2734,7 +2768,8 @@ function initializeEventListenersAndObservers() {
 						key === 'customPlayerTheme' ||
 						key === 'customPlayerAccentColor' ||
 						key === 'playlistColorMode' ||
-						key === 'applyThemeColorToBrowser'
+						key === 'applyThemeColorToBrowser' ||
+						key === 'hideVideoPlayer'
 					) {
 						themeUpdateNeeded = true;
 					}
@@ -2757,6 +2792,7 @@ function initializeEventListenersAndObservers() {
 								'showVoiceSearchButton',
 								'enableCustomNavbar',
 								'showRepeatButton',
+								'hideVideoPlayer',
 							];
 							if (rebuildSettings.includes(key)) {
 								playerRebuildNeeded = true;

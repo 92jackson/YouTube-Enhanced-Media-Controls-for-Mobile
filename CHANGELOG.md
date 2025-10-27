@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.2] - 2025-10-27
+
+### Added
+
+-   **Favourites Dialog Sorting** - New options for sorting favourites in the dialog:
+    -   Newest First
+    -   Oldest First
+    -   A-Z
+    -   Z-A
+    -   Type (Playlists first, then Videos)
+-   **Favourites Dialog Filter** - New option for filtering favourites in the dialog:
+    -   All (Show all favourites)
+    -   Mixes (Show only saved mixes)
+    -   Playlists (Show only saved playlists)
+    -   Videos (Show only saved videos)
+
+### Fixed
+
+-   **YouTube Comment Section**
+    -   Fixed issue were trying to open the comments section would trigger the playlist area to generate.
+    -   Improved positioning based on the size of the custom player controls.
+-   **Playlist Repopulation** - Fixed issue where the playlist would not be repopulated when changing settings.
+
+### Changes
+
+-   Improved calculation for `--yt-below-player-height`.
+-   Improvements to the Rapid Buffer Detection to prevent mis-triggering.
+
 ## [1.2.1] - 2025-10-18
 
 ### Added

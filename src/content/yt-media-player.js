@@ -1389,20 +1389,22 @@ class YTMediaPlayer {
 		if (isEffectivelyClosed) {
 			// Clear header first
 			this.drawerHeader.textContent = '';
-			
+
 			// Create "Playing next" label
 			const playingNextLabel = document.createElement('div');
 			playingNextLabel.className = 'yt-drawer-playing-next-label';
 			playingNextLabel.textContent = 'Playing next';
 			this.drawerHeader.appendChild(playingNextLabel);
-			
+
 			// Get the next track title
 			let nextTrackTitle = null;
-			
+
 			// Check if there's a "Play Next" video set (from context menu)
 			if (this.nextUpVideoId) {
 				const playlistData = this.getCachedPlaylistData();
-				const nextUpItem = playlistData.items.find(item => item.id === this.nextUpVideoId);
+				const nextUpItem = playlistData.items.find(
+					(item) => item.id === this.nextUpVideoId
+				);
 				if (nextUpItem && nextUpItem.title) {
 					nextTrackTitle = nextUpItem.title;
 				}
@@ -1416,7 +1418,7 @@ class YTMediaPlayer {
 					}
 				}
 			}
-			
+
 			// Add the track title if found
 			if (nextTrackTitle) {
 				const trackTitleElement = document.createElement('div');
@@ -1427,29 +1429,38 @@ class YTMediaPlayer {
 		} else {
 			// Clear header first
 			this.drawerHeader.textContent = '';
-			
+
 			// Check if this is a mix (use original title for badge check)
-			const isMix = /^(?:my\s+)?mix/i.test(this._originalPlaylistTitle || this._fullPlaylistTitle);
-			
+			const isMix = /^(?:my\s+)?mix/i.test(
+				this._originalPlaylistTitle || this._fullPlaylistTitle
+			);
+
 			if (isMix) {
 				// Add Mix badge before title
 				const mixBadge = document.createElement('span');
 				mixBadge.className = 'yt-mix-badge';
 				mixBadge.textContent = 'Mix';
 				this.drawerHeader.appendChild(mixBadge);
+			} else if (this._originalPlaylistTitle || this._fullPlaylistTitle) {
+				// Add List badge for non-mix playlists
+				const listBadge = document.createElement('span');
+				listBadge.className = 'yt-mix-badge';
+				listBadge.textContent = 'List';
+				this.drawerHeader.appendChild(listBadge);
 			}
-			
+
 			// Add title text (strip prefix from original titles only)
 			let displayTitle = this._fullPlaylistTitle;
-			
+
 			// Check if we're displaying the original title (not a custom/edited one)
-			const isDisplayingOriginalTitle = this._originalPlaylistTitle && 
+			const isDisplayingOriginalTitle =
+				this._originalPlaylistTitle &&
 				this._fullPlaylistTitle === this._originalPlaylistTitle;
-			
+
 			if (isDisplayingOriginalTitle) {
 				displayTitle = StringUtils.stripMixPrefix(displayTitle, true);
 			}
-			
+
 			const titleText = document.createTextNode(displayTitle);
 			this.drawerHeader.appendChild(titleText);
 		}
@@ -1484,7 +1495,11 @@ class YTMediaPlayer {
 					: 48
 				: 0;
 		const belowPlayerHeight = Math.max(
-			window.innerHeight - navbarHeight - videoHeight - controlsHeight - dragHandleHeight,
+			window.visualViewport.height -
+				navbarHeight -
+				videoHeight -
+				controlsHeight -
+				dragHandleHeight,
 			100
 		);
 
@@ -1503,6 +1518,7 @@ class YTMediaPlayer {
 			'--yt-player-mid-drawer-height': `${midDrawerHeight}px`,
 			'--yt-video-height': `${videoHeight}px`,
 			'--yt-below-player-height': `${belowPlayerHeight}px`,
+			'--yt-drag-handle-height': `${dragHandleHeight}px`,
 			'--yt-max-voice-button-width': `${maxVoiceButtonWidth}px`,
 			'--yt-font-size-multiplier': fontMultiplier,
 		};
@@ -3763,7 +3779,11 @@ class YTMediaPlayer {
 				const visibleItemCount = newItems
 					? newItems.filter((item) => !item.hidden).length
 					: 0;
-				this.setHandleContent({ title: currentTitle, originalTitle: originalTitle, itemCount: visibleItemCount });
+				this.setHandleContent({
+					title: currentTitle,
+					originalTitle: originalTitle,
+					itemCount: visibleItemCount,
+				});
 			}
 		}
 	}
