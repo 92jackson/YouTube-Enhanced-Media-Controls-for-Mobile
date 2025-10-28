@@ -37,26 +37,67 @@ chrome.storage.onChanged.addListener((changes, area) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 	if (message.action === 'downloadLogs') {
 		try {
-			// Convert log data to base64 for data URI
-			const base64Data = btoa(unescape(encodeURIComponent(message.logData)));
+			// Detect browser type and use appropriate method
+			const isFirefox = typeof browser !== 'undefined' || navigator.userAgent.includes('Firefox');
 			
-			// Create data URI
-			const dataUri = `data:text/plain;base64,${base64Data}`;
-			
-			// Download the file using data URI
-			chrome.downloads.download({
-				url: dataUri,
-				filename: message.filename || 'debug-logs.txt',
-				saveAs: true
-			}, (downloadId) => {
-				if (chrome.runtime.lastError) {
-					console.error('[YT-EMC] Download failed:', chrome.runtime.lastError);
-					sendResponse({ success: false, error: chrome.runtime.lastError.message });
+			if (isFirefox) {
+				// Firefox: Use browser.downloads API with blob URL created in background context
+				// This works because we're in the background script context, not content script
+				if (typeof URL !== 'undefined' && URL.createObjectURL) {
+					const blob = new Blob([message.logContent], { type: 'text/plain;charset=utf-8' });
+					const blobUrl = URL.createObjectURL(blob);
+					
+					const downloadApi = typeof browser !== 'undefined' ? browser.downloads : chrome.downloads;
+					downloadApi.download({
+						url: blobUrl,
+						filename: message.filename || 'debug-logs.txt',
+						saveAs: true
+					}).then((downloadId) => {
+						URL.revokeObjectURL(blobUrl);
+						console.log('[YT-EMC] Download started with ID:', downloadId);
+						sendResponse({ success: true, downloadId: downloadId });
+					}).catch((error) => {
+						URL.revokeObjectURL(blobUrl);
+						console.error('[YT-EMC] Download failed:', error);
+						sendResponse({ success: false, error: error.message || error.toString() });
+					});
 				} else {
-					console.log('[YT-EMC] Download started with ID:', downloadId);
-					sendResponse({ success: true, downloadId: downloadId });
+					// Fallback: Use data URL for Firefox if blob URL not available
+					const base64Content = btoa(unescape(encodeURIComponent(message.logContent)));
+					const dataUrl = `data:text/plain;charset=utf-8;base64,${base64Content}`;
+					
+					const downloadApi = typeof browser !== 'undefined' ? browser.downloads : chrome.downloads;
+					downloadApi.download({
+						url: dataUrl,
+						filename: message.filename || 'debug-logs.txt',
+						saveAs: true
+					}).then((downloadId) => {
+						console.log('[YT-EMC] Download started with ID:', downloadId);
+						sendResponse({ success: true, downloadId: downloadId });
+					}).catch((error) => {
+						console.error('[YT-EMC] Download failed:', error);
+						sendResponse({ success: false, error: error.message || error.toString() });
+					});
 				}
-			});
+			} else {
+				// Chrome: Use data URL approach (service worker compatible)
+				const base64Content = btoa(unescape(encodeURIComponent(message.logContent)));
+				const dataUrl = `data:text/plain;charset=utf-8;base64,${base64Content}`;
+				
+				chrome.downloads.download({
+					url: dataUrl,
+					filename: message.filename || 'debug-logs.txt',
+					saveAs: true
+				}, (downloadId) => {
+					if (chrome.runtime.lastError) {
+						console.error('[YT-EMC] Download failed:', chrome.runtime.lastError);
+						sendResponse({ success: false, error: chrome.runtime.lastError.message });
+					} else {
+						console.log('[YT-EMC] Download started with ID:', downloadId);
+						sendResponse({ success: true, downloadId: downloadId });
+					}
+				});
+			}
 			
 			// Return true to indicate we will send a response asynchronously
 			return true;

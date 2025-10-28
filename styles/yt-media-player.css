@@ -2580,6 +2580,11 @@ body.theme-dark .yt-drawer-full .yt-custom-navbar {
 	flex-direction: column;
 }
 
+/* Lock height during search to prevent jumping */
+.yt-favourites-dialog-modal.search-active {
+	height: var(--locked-height);
+}
+
 .yt-favourites-dialog-modal.slide-in {
 	transform: translateY(0);
 }
@@ -2598,71 +2603,274 @@ body.theme-dark .yt-drawer-full .yt-custom-navbar {
 	position: relative;
 }
 
+/* Favourites Dialog Filter Area - Hidden (filter moved to header) */
 .yt-favourites-dialog-filter-area {
-	padding: 16px 24px;
-	border-bottom: 1px solid var(--yt-player-bg-secondary);
-	background: var(--yt-player-bg-primary);
+	display: none;
 }
 
-.yt-favourites-dialog-filter-container {
+.yt-favourites-dialog-filter-toggle {
+	background: none;
+	border: none;
+	color: var(--yt-player-text-secondary);
+	cursor: pointer;
+	padding: 6px;
+	border-radius: 50%;
+	transition: all 0.2s ease;
+	width: 32px;
+	height: 32px;
 	display: flex;
 	align-items: center;
-	gap: 16px;
 	justify-content: center;
 }
 
-.yt-favourites-dialog-filter-buttons {
-	display: flex;
-	align-items: center;
-	gap: 5px;
-}
-
-.yt-favourites-dialog-filter-btn {
-	background: transparent;
-	color: var(--yt-player-text-secondary);
-	border: 1px solid var(--yt-player-bg-secondary);
-	border-radius: 16px;
-	padding: 6px 12px;
-	font-size: calc(11px * var(--yt-font-size-multiplier));
-	font-weight: 500;
-	cursor: pointer;
-	transition: all 0.2s ease;
-}
-
-.yt-favourites-dialog-filter-btn:hover {
+.yt-favourites-dialog-filter-toggle:hover {
 	background: var(--yt-player-bg-secondary);
 	color: var(--yt-player-text-primary);
 }
 
-.yt-favourites-dialog-filter-btn.active {
+/* Search functionality */
+.yt-favourites-dialog-search-toggle {
+	background: none;
+	border: none;
+	color: var(--yt-player-text-secondary);
+	cursor: pointer;
+	padding: 6px;
+	border-radius: 50%;
+	width: 32px;
+	height: 32px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.2s ease;
+}
+
+.yt-favourites-dialog-search-toggle:hover {
+	background: var(--yt-player-bg-secondary);
+	color: var(--yt-player-text-primary);
+}
+
+.yt-favourites-dialog-search-container {
+	display: none;
+	align-items: center;
+	width: 100%;
+	gap: 8px;
+	padding: 0 4px;
+}
+
+.yt-favourites-dialog-search-input {
+	flex: 1;
+	background: var(--yt-player-bg-secondary);
+	border: 1px solid var(--yt-player-bg-tertiary);
+	border-radius: 20px;
+	padding: 8px 16px;
+	font-size: calc(14px * var(--yt-font-size-multiplier));
+	color: var(--yt-player-text-primary);
+	outline: none;
+	transition: border-color 0.2s ease;
+}
+
+.yt-favourites-dialog-search-input:focus {
+	border-color: var(--yt-player-accent-primary);
+}
+
+.yt-favourites-dialog-search-input::placeholder {
+	color: var(--yt-player-text-secondary);
+}
+
+.yt-favourites-dialog-search-clear {
+	background: none;
+	border: none;
+	color: var(--yt-player-text-secondary);
+	cursor: pointer;
+	padding: 4px;
+	border-radius: 50%;
+	width: 28px;
+	height: 28px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 18px;
+	transition: all 0.2s ease;
+}
+
+.yt-favourites-dialog-search-clear:hover {
+	background: var(--yt-player-bg-secondary);
+	color: var(--yt-player-text-primary);
+}
+
+/* Filter Popup Styles */
+.yt-filter-popup-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.7);
+	z-index: 10002;
+	opacity: 0;
+	transition: opacity 0.3s ease;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.yt-filter-popup-overlay.visible {
+	opacity: 1;
+}
+
+.yt-filter-popup-modal {
+	background: var(--yt-player-bg-primary);
+	border-radius: 12px;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+	max-width: 400px;
+	width: 100%;
+	max-height: 80vh;
+	overflow: hidden;
+	transform: translateY(20px);
+	transition: transform 0.3s ease;
+}
+
+.yt-filter-popup-modal.slide-in {
+	transform: translateY(0);
+}
+
+.yt-filter-popup-modal.slide-out {
+	transform: translateY(20px);
+}
+
+.yt-filter-popup-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 20px 24px 16px;
+	border-bottom: 1px solid var(--yt-player-bg-secondary);
+}
+
+.yt-filter-popup-title {
+	margin: 0;
+	font-size: calc(18px * var(--yt-font-size-multiplier));
+	font-weight: 600;
+	color: var(--yt-player-text-primary);
+}
+
+.yt-filter-popup-close {
+	background: none;
+	border: none;
+	color: var(--yt-player-text-secondary);
+	font-size: 24px;
+	cursor: pointer;
+	padding: 4px;
+	border-radius: 4px;
+	transition: all 0.2s ease;
+	line-height: 1;
+}
+
+.yt-filter-popup-close:hover {
+	background: var(--yt-player-bg-secondary);
+	color: var(--yt-player-text-primary);
+}
+
+.yt-filter-popup-content {
+	padding: 20px 24px 24px;
+	max-height: calc(80vh - 80px);
+	overflow-y: auto;
+}
+
+.yt-filter-popup-section {
+	margin-bottom: 24px;
+}
+
+.yt-filter-popup-section:last-child {
+	margin-bottom: 0;
+}
+
+.yt-filter-popup-section-title {
+	margin: 0 0 12px 0;
+	font-size: calc(14px * var(--yt-font-size-multiplier));
+	font-weight: 600;
+	color: var(--yt-player-text-primary);
+}
+
+.yt-filter-popup-buttons {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+	gap: 8px;
+}
+
+.yt-filter-popup-btn {
+	background: var(--yt-player-bg-secondary);
+	color: var(--yt-player-text-secondary);
+	border: 1px solid var(--yt-player-bg-tertiary);
+	border-radius: 8px;
+	padding: 10px 16px;
+	font-size: calc(12px * var(--yt-font-size-multiplier));
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	text-align: center;
+}
+
+.yt-filter-popup-btn:hover {
+	background: var(--yt-player-bg-tertiary);
+	color: var(--yt-player-text-primary);
+	border-color: var(--yt-player-accent-primary);
+}
+
+.yt-filter-popup-btn.active {
 	background: var(--yt-player-accent-primary);
 	color: white;
 	border-color: var(--yt-player-accent-primary);
 }
 
+/* Mobile responsiveness for filter popup */
+@media (max-width: 480px) {
+	.yt-filter-popup-overlay {
+		padding: 10px;
+	}
+
+	.yt-filter-popup-modal {
+		max-width: none;
+		width: 100%;
+	}
+
+	.yt-filter-popup-header {
+		padding: 16px 20px 12px;
+	}
+
+	.yt-filter-popup-content {
+		padding: 16px 20px 20px;
+	}
+
+	.yt-filter-popup-buttons {
+		grid-template-columns: repeat(2, 1fr);
+		gap: 6px;
+	}
+
+	.yt-filter-popup-btn {
+		padding: 12px 8px;
+		font-size: calc(11px * var(--yt-font-size-multiplier));
+	}
+}
+
+/* Legacy styles - keeping for backward compatibility but unused */
+.yt-favourites-dialog-filter-container {
+	display: none;
+}
+
+.yt-favourites-dialog-filter-buttons {
+	display: none;
+}
+
+.yt-favourites-dialog-filter-btn {
+	display: none;
+}
+
 .yt-favourites-dialog-sort-container {
-	display: flex;
-	align-items: center;
-	gap: 5px;
+	display: none;
 }
 
 .yt-favourites-dialog-sort-select {
-	background: var(--yt-player-bg-secondary);
-	color: var(--yt-player-text-primary);
-	border: 1px solid var(--yt-player-bg-tertiary);
-	border-radius: 6px;
-	padding: 4px 8px;
-	font-size: calc(11px * var(--yt-font-size-multiplier));
-	cursor: pointer;
-	outline: none;
-	transition: all 0.2s ease;
-}
-
-.yt-favourites-dialog-sort-select:hover {
-	border-color: var(--yt-player-accent-primary);
-}
-
-.yt-favourites-dialog-sort-select:focus {
+	display: none;
 	border-color: var(--yt-player-accent-primary);
 	box-shadow: 0 0 0 2px rgba(255, 0, 0, 0.1);
 }
@@ -2700,11 +2908,10 @@ body.theme-dark .yt-drawer-full .yt-custom-navbar {
 	background: none;
 	border: none;
 	color: var(--yt-player-text-secondary);
-	font-size: 24px;
 	cursor: pointer;
-	padding: 4px;
-	border-radius: 4px;
-	transition: background-color 0.2s ease;
+	padding: 6px;
+	border-radius: 50%;
+	transition: all 0.2s ease;
 	width: 32px;
 	height: 32px;
 	display: flex;
@@ -2713,7 +2920,7 @@ body.theme-dark .yt-drawer-full .yt-custom-navbar {
 }
 
 .yt-favourites-dialog-close:hover {
-	background-color: var(--yt-player-bg-secondary);
+	background: var(--yt-player-bg-secondary);
 	color: var(--yt-player-text-primary);
 }
 
@@ -2791,7 +2998,7 @@ body.theme-dark .yt-drawer-full .yt-custom-navbar {
 }
 
 /* Play button overlay - needs higher z-index for stacked thumbnails */
-.yt-favourites-dialog-item-thumbnail .play-overlay {
+.yt-favourites-dialog-item:active .yt-favourites-dialog-item-thumbnail .play-overlay {
 	content: '';
 	position: absolute;
 	top: 50%;

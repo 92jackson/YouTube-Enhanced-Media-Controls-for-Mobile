@@ -816,7 +816,7 @@ class YTCustomNavbar {
 		if (hasVideoId) {
 			const addToFavBtn = document.createElement('button');
 			addToFavBtn.className = 'yt-favourites-dialog-add-btn';
-			addToFavBtn.textContent = '+ Add to Favourites';
+			addToFavBtn.textContent = '+ Add';
 
 			if (hasPlaylistId) {
 				// For mix/playlist context, create dropdown functionality
@@ -839,113 +839,109 @@ class YTCustomNavbar {
 			rightSection.appendChild(addToFavBtn);
 		}
 
+		const filterButton = document.createElement('button');
+		filterButton.className = 'yt-favourites-dialog-filter-toggle';
+		filterButton.setAttribute('aria-label', 'Filter');
+
+		// Create SVG element without using innerHTML
+		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		svg.setAttribute('width', '16');
+		svg.setAttribute('height', '16');
+		svg.setAttribute('viewBox', '0 0 24 24');
+		svg.setAttribute('fill', 'currentColor');
+
+		const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		path.setAttribute('d', 'M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z');
+
+		svg.appendChild(path);
+		filterButton.appendChild(svg);
+
+		filterButton.addEventListener('click', () => this._showFilterPopup());
+
+		const searchButton = document.createElement('button');
+		searchButton.className = 'yt-favourites-dialog-search-toggle';
+		searchButton.setAttribute('aria-label', 'Search');
+
+		// Create SVG element without using innerHTML
+		const searchSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		searchSvg.setAttribute('width', '16');
+		searchSvg.setAttribute('height', '16');
+		searchSvg.setAttribute('viewBox', '0 0 24 24');
+		searchSvg.setAttribute('fill', 'currentColor');
+
+		const searchPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		searchPath.setAttribute(
+			'd',
+			'M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'
+		);
+
+		searchSvg.appendChild(searchPath);
+		searchButton.appendChild(searchSvg);
+
+		searchButton.addEventListener('click', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			this._showSearchInput();
+		});
+
 		const closeBtn = document.createElement('button');
 		closeBtn.className = 'yt-favourites-dialog-close';
 		closeBtn.setAttribute('aria-label', 'Close');
-		closeBtn.innerHTML = '×';
+
+		// Create SVG element without using innerHTML
+		const closeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		closeSvg.setAttribute('width', '16');
+		closeSvg.setAttribute('height', '16');
+		closeSvg.setAttribute('viewBox', '0 0 24 24');
+		closeSvg.setAttribute('fill', 'currentColor');
+
+		const closePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		closePath.setAttribute(
+			'd',
+			'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'
+		);
+
+		closeSvg.appendChild(closePath);
+		closeBtn.appendChild(closeSvg);
+
 		closeBtn.addEventListener('click', () => this._hideFavouritesDialog());
 
+		rightSection.appendChild(searchButton);
+		rightSection.appendChild(filterButton);
 		rightSection.appendChild(closeBtn);
 		header.appendChild(title);
 		header.appendChild(rightSection);
+
+		// Create search input container (initially hidden)
+		const searchContainer = document.createElement('div');
+		searchContainer.className = 'yt-favourites-dialog-search-container';
+		searchContainer.style.display = 'none';
+
+		const searchInput = document.createElement('input');
+		searchInput.type = 'text';
+		searchInput.className = 'yt-favourites-dialog-search-input';
+		searchInput.placeholder = 'Search favorites...';
+		// Remove debug logging from search input and filtering
+		searchInput.addEventListener('input', (e) => {
+			this._filterFavoritesBySearch(e.target.value);
+		});
+		searchInput.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape') {
+				this._hideSearchInput();
+			}
+		});
+
+		const clearSearchBtn = document.createElement('button');
+		clearSearchBtn.className = 'yt-favourites-dialog-search-clear';
+		clearSearchBtn.textContent = '×';
+		clearSearchBtn.setAttribute('aria-label', 'Clear search');
+		clearSearchBtn.addEventListener('click', () => this._hideSearchInput());
+
+		searchContainer.appendChild(searchInput);
+		searchContainer.appendChild(clearSearchBtn);
+		header.appendChild(searchContainer);
+
 		modal.appendChild(header);
-
-		// Create filter area below header
-		const filterArea = document.createElement('div');
-		filterArea.className = 'yt-favourites-dialog-filter-area';
-
-		const filterContainer = document.createElement('div');
-		filterContainer.className = 'yt-favourites-dialog-filter-container';
-
-		// Create filter buttons container
-		const filterButtonsContainer = document.createElement('div');
-		filterButtonsContainer.className = 'yt-favourites-dialog-filter-buttons';
-
-		const filterButtons = [
-			{ value: 'all', label: 'All' },
-			{ value: 'mixes', label: 'Mixes' },
-			{ value: 'playlists', label: 'Playlists' },
-			{ value: 'videos', label: 'Videos' },
-		];
-
-		filterButtons.forEach(({ value, label }) => {
-			const filterBtn = document.createElement('button');
-			filterBtn.className = 'yt-favourites-dialog-filter-btn';
-			filterBtn.textContent = label;
-			filterBtn.dataset.filter = value;
-
-			// Set active state based on current setting
-			if (window.userSettings.favouritesDialogFilter === value) {
-				filterBtn.classList.add('active');
-			}
-
-			filterBtn.addEventListener('click', () => {
-				// Update active state
-				filterButtonsContainer
-					.querySelectorAll('.yt-favourites-dialog-filter-btn')
-					.forEach((btn) => {
-						btn.classList.remove('active');
-					});
-				filterBtn.classList.add('active');
-
-				// Save setting
-				window.userSettings.favouritesDialogFilter = value;
-				if (window.storageApi && window.storageApi.local) {
-					window.storageApi.local.set({ favouritesDialogFilter: value });
-				}
-
-				// Update the list
-				this._updateFavouritesDialog();
-			});
-
-			filterButtonsContainer.appendChild(filterBtn);
-		});
-
-		// Create sort controls container
-		const sortContainer = document.createElement('div');
-		sortContainer.className = 'yt-favourites-dialog-sort-container';
-
-		const sortSelect = document.createElement('select');
-		sortSelect.className = 'yt-favourites-dialog-sort-select';
-
-		const sortOptions = [
-			{ value: 'newestFirst', label: 'Newest First' },
-			{ value: 'oldestFirst', label: 'Oldest First' },
-			{ value: 'aToZ', label: 'A-Z' },
-			{ value: 'zToA', label: 'Z-A' },
-			{ value: 'type', label: 'Type' },
-		];
-
-		sortOptions.forEach(({ value, label }) => {
-			const option = document.createElement('option');
-			option.value = value;
-			option.textContent = label;
-
-			// Set selected state based on current setting
-			if (window.userSettings.favouritesDialogSort === value) {
-				option.selected = true;
-			}
-
-			sortSelect.appendChild(option);
-		});
-
-		sortSelect.addEventListener('change', () => {
-			// Save setting
-			window.userSettings.favouritesDialogSort = sortSelect.value;
-			if (window.storageApi && window.storageApi.local) {
-				window.storageApi.local.set({ favouritesDialogSort: sortSelect.value });
-			}
-
-			// Update the list
-			this._updateFavouritesDialog();
-		});
-
-		sortContainer.appendChild(sortSelect);
-
-		filterContainer.appendChild(filterButtonsContainer);
-		filterContainer.appendChild(sortContainer);
-		filterArea.appendChild(filterContainer);
-		modal.appendChild(filterArea);
 
 		// Create content area
 		const content = document.createElement('div');
@@ -973,10 +969,323 @@ class YTCustomNavbar {
 	}
 
 	/**
+	 * @description Shows the filter popup for the favourites dialog.
+	 */
+	_showFilterPopup() {
+		// Remove any existing filter popup
+		this._hideFilterPopup();
+
+		// Create filter popup overlay
+		const filterOverlay = document.createElement('div');
+		filterOverlay.className = 'yt-filter-popup-overlay';
+		filterOverlay.id = 'yt-filter-popup-overlay';
+
+		// Create filter popup modal
+		const filterModal = document.createElement('div');
+		filterModal.className = 'yt-filter-popup-modal';
+
+		// Create header
+		const header = document.createElement('div');
+		header.className = 'yt-filter-popup-header';
+
+		const title = document.createElement('h3');
+		title.textContent = 'Filter & Sort';
+		title.className = 'yt-filter-popup-title';
+
+		const closeBtn = document.createElement('button');
+		closeBtn.className = 'yt-filter-popup-close';
+		closeBtn.setAttribute('aria-label', 'Close');
+		closeBtn.textContent = '×';
+		closeBtn.addEventListener('click', () => this._hideFilterPopup());
+
+		header.appendChild(title);
+		header.appendChild(closeBtn);
+		filterModal.appendChild(header);
+
+		// Create content area
+		const content = document.createElement('div');
+		content.className = 'yt-filter-popup-content';
+
+		// Filter section
+		const filterSection = document.createElement('div');
+		filterSection.className = 'yt-filter-popup-section';
+
+		const filterLabel = document.createElement('h4');
+		filterLabel.textContent = 'Show';
+		filterLabel.className = 'yt-filter-popup-section-title';
+		filterSection.appendChild(filterLabel);
+
+		const filterButtons = [
+			{ value: 'all', label: 'All' },
+			{ value: 'mixes', label: 'Mixes' },
+			{ value: 'playlists', label: 'Playlists' },
+			{ value: 'videos', label: 'Videos' },
+		];
+
+		const filterButtonsContainer = document.createElement('div');
+		filterButtonsContainer.className = 'yt-filter-popup-buttons';
+
+		filterButtons.forEach(({ value, label }) => {
+			const filterBtn = document.createElement('button');
+			filterBtn.className = 'yt-filter-popup-btn';
+			filterBtn.textContent = label;
+			filterBtn.dataset.filter = value;
+
+			// Set active state based on current setting
+			if (window.userSettings.favouritesDialogFilter === value) {
+				filterBtn.classList.add('active');
+			}
+
+			filterBtn.addEventListener('click', () => {
+				// Update active state
+				filterButtonsContainer.querySelectorAll('.yt-filter-popup-btn').forEach((btn) => {
+					btn.classList.remove('active');
+				});
+				filterBtn.classList.add('active');
+
+				// Save setting
+				window.userSettings.favouritesDialogFilter = value;
+				if (window.storageApi && window.storageApi.local) {
+					window.storageApi.local.set({ favouritesDialogFilter: value });
+				}
+
+				// Update the list
+				this._updateFavouritesDialog();
+			});
+
+			filterButtonsContainer.appendChild(filterBtn);
+		});
+
+		filterSection.appendChild(filterButtonsContainer);
+		content.appendChild(filterSection);
+
+		// Sort section
+		const sortSection = document.createElement('div');
+		sortSection.className = 'yt-filter-popup-section';
+
+		const sortLabel = document.createElement('h4');
+		sortLabel.textContent = 'Sort by';
+		sortLabel.className = 'yt-filter-popup-section-title';
+		sortSection.appendChild(sortLabel);
+
+		const sortOptions = [
+			{ value: 'newestFirst', label: 'Newest First' },
+			{ value: 'oldestFirst', label: 'Oldest First' },
+			{ value: 'aToZ', label: 'A-Z' },
+			{ value: 'zToA', label: 'Z-A' },
+			{ value: 'type', label: 'Type' },
+		];
+
+		const sortButtonsContainer = document.createElement('div');
+		sortButtonsContainer.className = 'yt-filter-popup-buttons';
+
+		sortOptions.forEach(({ value, label }) => {
+			const sortBtn = document.createElement('button');
+			sortBtn.className = 'yt-filter-popup-btn';
+			sortBtn.textContent = label;
+			sortBtn.dataset.sort = value;
+
+			// Set active state based on current setting
+			if (window.userSettings.favouritesDialogSort === value) {
+				sortBtn.classList.add('active');
+			}
+
+			sortBtn.addEventListener('click', () => {
+				// Update active state
+				sortButtonsContainer.querySelectorAll('.yt-filter-popup-btn').forEach((btn) => {
+					btn.classList.remove('active');
+				});
+				sortBtn.classList.add('active');
+
+				// Save setting
+				window.userSettings.favouritesDialogSort = value;
+				if (window.storageApi && window.storageApi.local) {
+					window.storageApi.local.set({ favouritesDialogSort: value });
+				}
+
+				// Update the list
+				this._updateFavouritesDialog();
+			});
+
+			sortButtonsContainer.appendChild(sortBtn);
+		});
+
+		sortSection.appendChild(sortButtonsContainer);
+		content.appendChild(sortSection);
+
+		filterModal.appendChild(content);
+		filterOverlay.appendChild(filterModal);
+
+		// Add to DOM
+		document.body.appendChild(filterOverlay);
+
+		// Add click outside listener to close popup
+		filterOverlay.addEventListener('click', (e) => {
+			if (e.target === filterOverlay) {
+				this._hideFilterPopup();
+			}
+		});
+
+		// Trigger animation
+		requestAnimationFrame(() => {
+			filterOverlay.classList.add('visible');
+			filterModal.classList.add('slide-in');
+		});
+	}
+
+	/**
+	 * @description Hides the filter popup.
+	 */
+	_hideFilterPopup() {
+		const filterOverlay = document.querySelector('.yt-filter-popup-overlay');
+		const filterModal = document.querySelector('.yt-filter-popup-modal');
+		if (filterOverlay && filterModal) {
+			// Start slide out animation
+			filterOverlay.classList.remove('visible');
+			filterModal.classList.remove('slide-in');
+			filterModal.classList.add('slide-out');
+
+			// Remove from DOM after animation completes
+			setTimeout(() => {
+				filterOverlay.remove();
+			}, 300);
+		}
+	}
+
+	_showSearchInput() {
+		const overlay = document.querySelector('.yt-favourites-dialog-overlay');
+		const dialog = overlay ? overlay.querySelector('.yt-favourites-dialog-modal') : null;
+		if (!dialog) return;
+
+		// Lock the current height to prevent jumping
+		const currentHeight = dialog.offsetHeight;
+		dialog.style.setProperty('--locked-height', `${currentHeight}px`);
+		dialog.classList.add('search-active');
+
+		const header = dialog.querySelector('.yt-favourites-dialog-header');
+		const searchContainer = dialog.querySelector('.yt-favourites-dialog-search-container');
+		const searchInput = dialog.querySelector('.yt-favourites-dialog-search-input');
+
+		if (header && searchContainer && searchInput) {
+			// Hide the normal header content
+			const title = header.querySelector('.yt-favourites-dialog-title');
+			const rightSection = header.querySelector('.yt-favourites-dialog-header-right');
+
+			if (title) title.style.display = 'none';
+			if (rightSection) rightSection.style.display = 'none';
+
+			// Show search container
+			searchContainer.style.display = 'flex';
+			searchInput.focus();
+		}
+	}
+
+	_hideSearchInput() {
+		const overlay = document.querySelector('.yt-favourites-dialog-overlay');
+		const dialog = overlay ? overlay.querySelector('.yt-favourites-dialog-modal') : null;
+		if (!dialog) return;
+
+		// Unlock the height to allow natural resizing
+		dialog.classList.remove('search-active');
+		dialog.style.removeProperty('--locked-height');
+
+		const header = dialog.querySelector('.yt-favourites-dialog-header');
+		const searchContainer = dialog.querySelector('.yt-favourites-dialog-search-container');
+		const searchInput = dialog.querySelector('.yt-favourites-dialog-search-input');
+
+		if (header && searchContainer && searchInput) {
+			// Show the normal header content
+			const title = header.querySelector('.yt-favourites-dialog-title');
+			const rightSection = header.querySelector('.yt-favourites-dialog-header-right');
+
+			if (title) title.style.display = 'block';
+			if (rightSection) rightSection.style.display = 'flex';
+
+			// Hide search container and clear input
+			searchContainer.style.display = 'none';
+			searchInput.value = '';
+
+			// Reset the favorites list to show all items
+			this._filterFavoritesBySearch('');
+		}
+	}
+
+	_filterFavoritesBySearch(searchTerm) {
+		const overlay = document.querySelector('.yt-favourites-dialog-overlay');
+		const dialog = overlay ? overlay.querySelector('.yt-favourites-dialog-modal') : null;
+		if (!dialog) return;
+
+		const items = dialog.querySelectorAll('.yt-favourites-dialog-item');
+		const lowerSearchTerm = searchTerm.toLowerCase().trim();
+
+		items.forEach((item) => {
+			// Get the original title and custom title from data attributes
+			const originalTitle = item.getAttribute('data-original-title') || '';
+			const customTitle = item.getAttribute('data-custom-title') || '';
+			const channel = item.getAttribute('data-channel') || '';
+
+			// Use custom title if available, otherwise use original title
+			const titleToSearch = customTitle || originalTitle;
+
+			const title = titleToSearch.toLowerCase();
+			const channelLower = channel.toLowerCase();
+
+			const matches =
+				!lowerSearchTerm ||
+				title.includes(lowerSearchTerm) ||
+				channelLower.includes(lowerSearchTerm);
+
+			item.style.display = matches ? 'flex' : 'none';
+		});
+
+		// Update empty state if needed
+		this._updateEmptyState();
+	}
+
+	_updateEmptyState() {
+		const overlay = document.querySelector('.yt-favourites-dialog-overlay');
+		const dialog = overlay ? overlay.querySelector('.yt-favourites-dialog-modal') : null;
+		if (!dialog) return;
+
+		const container = dialog.querySelector('.yt-favourites-dialog-list');
+		if (!container) return;
+
+		const items = container.querySelectorAll('.yt-favourites-dialog-item');
+		const visibleItems = Array.from(items).filter((item) => item.style.display !== 'none');
+
+		// Remove existing search empty state
+		const existingSearchEmpty = container.querySelector('.yt-favourites-dialog-search-empty');
+		if (existingSearchEmpty) {
+			existingSearchEmpty.remove();
+		}
+
+		// If no visible items and there are items in total (meaning search filtered them out)
+		if (visibleItems.length === 0 && items.length > 0) {
+			const searchEmptyMessage = document.createElement('div');
+			searchEmptyMessage.className =
+				'yt-favourites-dialog-search-empty yt-favourites-dialog-empty';
+
+			const boldText = document.createElement('strong');
+			boldText.textContent = 'No matches found.';
+			searchEmptyMessage.appendChild(boldText);
+
+			const lineBreak = document.createElement('br');
+			searchEmptyMessage.appendChild(lineBreak);
+
+			const instructionText = document.createTextNode('Try a different search term.');
+			searchEmptyMessage.appendChild(instructionText);
+
+			container.appendChild(searchEmptyMessage);
+		}
+	}
+
+	/**
 	 * @description Hides the favourites dialog with bottom sheet animation.
 	 */
 	_hideFavouritesDialog() {
 		this._hideAddToFavouritesDropdown();
+		this._hideFilterPopup();
+		this._hideSearchInput();
 
 		const overlay = document.querySelector('.yt-favourites-dialog-overlay');
 		const modal = document.querySelector('.yt-favourites-dialog-modal');
@@ -1022,7 +1331,10 @@ class YTCustomNavbar {
 	 * @description Renders the favourites list in the dialog.
 	 */
 	_renderFavouritesDialogList(container) {
-		container.innerHTML = '';
+		// Clear container content safely
+		while (container.firstChild) {
+			container.removeChild(container.firstChild);
+		}
 
 		const favourites = window.userSettings.favouriteMixes || [];
 		const currentFilter = window.userSettings.favouritesDialogFilter || 'all';
@@ -1201,7 +1513,7 @@ class YTCustomNavbar {
 
 			// Determine if this is a playlist/mix or individual video
 			const isPlaylist = !!favourite.playlistId;
-			
+
 			// Add stacked effect for playlists/mixes
 			if (isPlaylist) {
 				thumbnail.classList.add('stacked');
@@ -1211,7 +1523,7 @@ class YTCustomNavbar {
 			const videoId = favourite.videoId;
 			if (videoId) {
 				const thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
-				
+
 				// Create an actual img element instead of using background-image
 				const thumbnailImg = document.createElement('img');
 				thumbnailImg.src = thumbnailUrl;
@@ -1223,16 +1535,16 @@ class YTCustomNavbar {
 				thumbnailImg.style.position = 'relative';
 				thumbnailImg.style.zIndex = '9'; // Above the pseudo-elements but below play overlay
 				thumbnail.appendChild(thumbnailImg);
-				
+
 				// Extract adaptive colors for stacked effect if this is a playlist/mix
 				if (isPlaylist) {
 					ColorUtils.getAdaptiveColorFromThumbnail(thumbnailUrl)
-						.then(colors => {
+						.then((colors) => {
 							// Apply adaptive colors to the stacked effect
 							thumbnail.style.setProperty('--stack-color-1', colors.primary);
 							thumbnail.style.setProperty('--stack-color-2', colors.secondary);
 						})
-						.catch(error => {
+						.catch((error) => {
 							// Fallback to default colors if extraction fails
 							thumbnail.style.setProperty('--stack-color-1', '#666666');
 							thumbnail.style.setProperty('--stack-color-2', '#888888');
@@ -1284,6 +1596,11 @@ class YTCustomNavbar {
 
 			const titleText = document.createTextNode(displayTitle);
 			title.appendChild(titleText);
+
+			// Store original data for search functionality
+			item.setAttribute('data-original-title', favourite.title || '');
+			item.setAttribute('data-custom-title', favourite.customTitle || '');
+			item.setAttribute('data-channel', favourite.channelName || '');
 
 			const meta = document.createElement('div');
 			meta.className = 'yt-favourites-dialog-item-meta';

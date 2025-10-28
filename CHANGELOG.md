@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+### [1.2.3] - 2025-10-28
+
+### Added
+
+-   **Favourites Dialog Search** - Added search functionality to the favourites dialog.
+
+### Changed
+
+-   **Favourites Dialog Modal** - Improved modal styling.
+
+### Fixed
+
+-   **Download Debug Logs** - Fixed issue where download debug logs would fail in FireFox.
+
 ## [1.2.2] - 2025-10-27
 
 ### Added

@@ -69,7 +69,9 @@ window.logger = (() => {
 			location,
 			message,
 			args: args.length > 0 ? args : null,
-			formatted: `${timestamp} [YTEMC] [${location} - ${source}]${levelText} ${message}${args.length > 0 ? ' ' + JSON.stringify(args) : ''}`
+			formatted: `${timestamp} [YTEMC] [${location} - ${source}]${levelText} ${message}${
+				args.length > 0 ? ' ' + JSON.stringify(args) : ''
+			}`,
 		};
 
 		logHistory.push(logEntry);
@@ -96,7 +98,7 @@ window.logger = (() => {
 			if (shouldLog(alwaysPost)) {
 				const [label, style] = format(source, level);
 				console.log(label, style, message, ...args);
-				
+
 				// Store in history for mobile debugging
 				storeLogEntry(source, level, message, args);
 			}
@@ -108,50 +110,65 @@ window.logger = (() => {
 		error: logFn('ERROR'),
 		// Export log history for mobile debugging
 		getLogHistory: () => [...logHistory], // Return a copy to prevent external modification
-		clearLogHistory: () => logHistory.length = 0,
+		clearLogHistory: () => (logHistory.length = 0),
 		downloadLogs: () => {
 			if (logHistory.length === 0) {
 				console.warn('No debug logs to download');
-				alert('No debug logs available. Make sure debug logging is enabled and some activity has occurred.');
+				alert(
+					'No debug logs available. Make sure debug logging is enabled and some activity has occurred.'
+				);
 				return;
 			}
 
 			try {
-				const logContent = logHistory.map(entry => entry.formatted).join('\n');
+				const logContent = logHistory.map((entry) => entry.formatted).join('\n');
 				const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
 				const filename = `ytemc-debug-logs-${timestamp}.log`;
-				
+
 				// Use message passing to background script for downloads in extension environment
 				if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-					chrome.runtime.sendMessage({
-						action: 'downloadLogs',
-						logData: logContent,
-						filename: filename
-					}, (response) => {
-						if (chrome.runtime.lastError) {
-							console.error('Message passing failed:', chrome.runtime.lastError);
-							alert('Download failed: Unable to communicate with background script');
-						} else if (response && response.success) {
-							console.log(`Downloaded ${logHistory.length} debug log entries to ${filename}`);
-							logger.log('Logger', `Downloaded ${logHistory.length} debug log entries to ${filename}`);
-							alert(`Successfully downloaded ${logHistory.length} debug log entries`);
-						} else {
-							console.error('Download failed:', response?.error || 'Unknown error');
-							alert(`Download failed: ${response?.error || 'Unknown error'}`);
+					chrome.runtime.sendMessage(
+						{
+							action: 'downloadLogs',
+							logContent: logContent,
+							filename: filename,
+						},
+						(response) => {
+							if (chrome.runtime.lastError) {
+								console.error('Message passing failed:', chrome.runtime.lastError);
+								alert(
+									'Download failed: Unable to communicate with background script'
+								);
+							} else if (response && response.success) {
+								console.log(
+									'Logger',
+									`Downloaded ${logHistory.length} debug log entries to ${filename}`
+								);
+								alert(
+									`Successfully downloaded ${logHistory.length} debug log entries`
+								);
+							} else {
+								console.error(
+									'Download failed:',
+									response?.error || 'Unknown error'
+								);
+								alert(`Download failed: ${response?.error || 'Unknown error'}`);
+							}
 						}
-					});
+					);
 				} else {
 					// Non-extension environment - show logs in console instead
 					console.warn('Extension environment not detected. Debug logs:');
 					console.log(logContent);
-					alert('Extension environment not detected. Debug logs have been output to the browser console.');
+					alert(
+						'Extension environment not detected. Debug logs have been output to the browser console.'
+					);
 				}
-				
 			} catch (error) {
 				console.error('Failed to download logs:', error);
 				alert('Failed to download logs: ' + error.message);
 			}
-		}
+		},
 	};
 })();
 
@@ -524,16 +541,16 @@ class MediaUtils {
 		function splitRespectingBrackets(text, pattern) {
 			const matches = [];
 			let bracketDepth = 0;
-			
+
 			// Convert pattern to global regex if it isn't already
 			const globalPattern = new RegExp(pattern.source, 'g');
 			let match;
 			let validMatches = [];
-			
+
 			// First pass: find all valid matches (outside brackets)
 			let lastIndex = 0;
 			bracketDepth = 0;
-			
+
 			while ((match = globalPattern.exec(text)) !== null) {
 				// Count brackets before this match
 				const beforeMatch = text.substring(lastIndex, match.index);
@@ -541,52 +558,55 @@ class MediaUtils {
 					if (char === '(' || char === '[' || char === '{') bracketDepth++;
 					if (char === ')' || char === ']' || char === '}') bracketDepth--;
 				}
-				
+
 				// Only consider matches outside brackets
 				if (bracketDepth === 0) {
 					const hasSpaceBefore = match.index > 0 && /\s/.test(text[match.index - 1]);
-					const hasSpaceAfter = match.index + match[0].length < text.length && /\s/.test(text[match.index + match[0].length]);
-					
+					const hasSpaceAfter =
+						match.index + match[0].length < text.length &&
+						/\s/.test(text[match.index + match[0].length]);
+
 					// For dash patterns, check if this looks like a hyphenated name
 					let isHyphenatedName = false;
 					if (pattern.source.includes('-')) {
 						const beforeText = text.substring(0, match.index);
 						const afterText = text.substring(match.index + match[0].length);
-						
+
 						// Get the word before and after the dash
 						const wordBefore = beforeText.match(/\S+$/)?.[0] || '';
 						const wordAfter = afterText.match(/^\S+/)?.[0] || '';
-						
+
 						// Consider it a hyphenated name if:
 						// 1. Both parts are relatively short (likely names)
 						// 2. No spaces around the dash
 						// 3. The first part looks like a name (starts with capital)
-						isHyphenatedName = wordBefore.length <= 15 && 
-										  wordAfter.length <= 15 && 
-										  !hasSpaceBefore && 
-										  !hasSpaceAfter &&
-										  /^[A-Z]/.test(wordBefore) &&
-										  /^[A-Z]/.test(wordAfter);
+						isHyphenatedName =
+							wordBefore.length <= 15 &&
+							wordAfter.length <= 15 &&
+							!hasSpaceBefore &&
+							!hasSpaceAfter &&
+							/^[A-Z]/.test(wordBefore) &&
+							/^[A-Z]/.test(wordAfter);
 					}
-					
+
 					if (!isHyphenatedName) {
 						validMatches.push({
 							match: match,
 							index: match.index,
 							length: match[0].length,
 							hasSpaceBefore: hasSpaceBefore,
-							hasSpaceAfter: hasSpaceAfter
+							hasSpaceAfter: hasSpaceAfter,
 						});
 					}
 				}
-				
+
 				lastIndex = match.index + match[0].length;
 			}
-			
+
 			if (validMatches.length === 0) {
 				return [text]; // No valid matches found
 			}
-			
+
 			// Prioritize matches with spaces on both sides, then at least one space
 			let bestMatch = validMatches[0];
 			for (const validMatch of validMatches) {
@@ -598,12 +618,15 @@ class MediaUtils {
 					}
 				}
 				// If no perfect match yet, prefer matches with at least one space
-				else if ((validMatch.hasSpaceBefore || validMatch.hasSpaceAfter) && 
-						 (!bestMatch.hasSpaceBefore && !bestMatch.hasSpaceAfter)) {
+				else if (
+					(validMatch.hasSpaceBefore || validMatch.hasSpaceAfter) &&
+					!bestMatch.hasSpaceBefore &&
+					!bestMatch.hasSpaceAfter
+				) {
 					bestMatch = validMatch;
 				}
 			}
-			
+
 			const part1 = text.substring(0, bestMatch.index);
 			const part2 = text.substring(bestMatch.index + bestMatch.length);
 			return [part1, part2];
@@ -1106,10 +1129,10 @@ const StringUtils = {
 	stripMixPrefix: (title, isOriginalTitle = true) => {
 		// Only strip prefix from original titles, not edited ones
 		if (!isOriginalTitle || !title) return title;
-		
+
 		// Don't strip from "my mix" patterns
 		if (/^my\s+mix/i.test(title)) return title;
-		
+
 		// Strip "mix - " prefix (handles various dash types and spacing)
 		return title.replace(/^mix\s*[-–—]\s*/i, '');
 	},
