@@ -43,6 +43,7 @@
 		line-height: 1.5;
 		-webkit-font-smoothing: antialiased;
 		-moz-osx-font-smoothing: grayscale;
+		user-select: none;
 	}
 
 	.options-page {
@@ -1218,6 +1219,17 @@
 					</div>
 					<div class="description">How long to pause for when triggered. Default: 5 seconds.</div>
 				</div>
+				<div class="setting-item select-item" id="bufferDetectionEventCountContainer">
+					<label for="bufferDetectionEventCount">Buffer Events Required</label>
+					<div class="material-slider-wrapper">
+						<input type="range" id="bufferDetectionEventCount" class="material-slider"
+							data-increments="1,2,3"
+							data-labels="1,2,3"
+							min="1" max="3" step="1" value="2" />
+						<div class="slider-labels"></div>
+					</div>
+					<div class="description">Number of buffer events within the threshold window required to trigger auto-pause. 1 = trigger on first event, 3 = trigger on third.</div>
+				</div>
 			</fieldset>
 		</div>
 	</div>
@@ -1258,40 +1270,54 @@
 					<div class="toggle-label-main">Enable Debug Logging</div>
 					<div class="toggle-label-description">Show detailed diagnostic messages in the browser console, also adds a button to the navbar to download the logs. Useful for troubleshooting.</div>
 				</div>
-				<label class="toggle-switch">
-					<input type="checkbox" id="enableDebugLogging">
-					<span class="switch-slider"></span>
-				</label>
+			<label class="toggle-switch">
+				<input type="checkbox" id="enableDebugLogging">
+				<span class="switch-slider"></span>
+			</label>
+		</div>
+		<hr class="section-divider">
+		<div class="setting-item toggle-item">
+			<div class="toggle-label-group" data-target-id="hideEasterEggSpider">
+				<div class="toggle-label-main">Remove Easter Egg (Hide Spider)</div>
+				<div class="toggle-label-description">Hides the tiny spider easter egg on this page.</div>
 			</div>
-			<hr class="section-divider">
-						<div class="link-item">
-							<a href="https://github.com/92jackson/YouTube-Enhanced-Media-Controls-for-Mobile" target="_blank" rel="noopener noreferrer" class="github-link">
-								<svg height="24" aria-hidden="true" viewBox="0 0 24 24" version="1.1" width="24" class="github-logo">
-									<path d="M12 1C5.923 1 1 5.923 1 12c0 4.867 3.149 8.979 7.521 10.436.55.096.756-.233.756-.522 0-.262-.013-1.128-.013-2.049-2.764.509-3.479-.674-3.699-1.292-.124-.317-.66-1.293-1.127-1.554-.385-.207-.936-.715-.014-.729.866-.014 1.485.797 1.691 1.128.99 1.663 2.571 1.196 3.204.907.096-.715.385-1.196.701-1.471-2.448-.275-5.005-1.224-5.005-5.432 0-1.196.426-2.186 1.128-2.956-.111-.275-.496-1.402.11-2.915 0 0 .921-.288 3.024 1.128a10.193 10.193 0 0 1 2.75-.371c.936 0 1.871.123 2.75.371 2.104-1.43 3.025-1.128 3.025-1.128.605 1.513.221 2.64.111 2.915.701.77 1.127 1.747 1.127 2.956 0 4.222-2.571 5.157-5.019 5.432.399.344.743 1.004.743 2.035 0 1.471-.014 2.654-.014 3.025 0 .289.206.632.756.522C19.851 20.979 23 16.854 23 12c0-6.077-4.922-11-11-11Z"></path>
-								</svg>
-								<div class="toggle-label-group">
-									<div class="toggle-label-main">View on GitHub</div>
-									<div class="toggle-label-description">View source, report issues, or contribute.</div>
-								</div>
-							</a>
-						</div>
-						<div class="link-item">
-							<a href="https://discord.gg/e3eXGTJbjx" target="_blank" rel="noopener noreferrer" class="github-link">
-								<svg height="24" aria-hidden="true" viewBox="0 0 24 24" version="1.1" width="24" class="github-logo">
-									<path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0189 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1568 2.4189Z"></path>
-								</svg>
-								<div class="toggle-label-group">
-									<div class="toggle-label-main">Join Discord Server</div>
-									<div class="toggle-label-description">Get support and report bugs.</div>
-								</div>
-							</a>
-						</div>
+			<label class="toggle-switch">
+				<input type="checkbox" id="hideEasterEggSpider">
+				<span class="switch-slider"></span>
+			</label>
+		</div>
+				<div class="link-item">
+						<a href="https://github.com/92jackson/YouTube-Enhanced-Media-Controls-for-Mobile" target="_blank" rel="noopener noreferrer" class="github-link">
+							<svg height="24" aria-hidden="true" viewBox="0 0 24 24" version="1.1" width="24" class="github-logo">
+								<path d="M12 1C5.923 1 1 5.923 1 12c0 4.867 3.149 8.979 7.521 10.436.55.096.756-.233.756-.522 0-.262-.013-1.128-.013-2.049-2.764.509-3.479-.674-3.699-1.292-.124-.317-.66-1.293-1.127-1.554-.385-.207-.936-.715-.014-.729.866-.014 1.485.797 1.691 1.128.99 1.663 2.571 1.196 3.204.907.096-.715.385-1.196.701-1.471-2.448-.275-5.005-1.224-5.005-5.432 0-1.196.426-2.186 1.128-2.956-.111-.275-.496-1.402.11-2.915 0 0 .921-.288 3.024 1.128a10.193 10.193 0 0 1 2.75-.371c.936 0 1.871.123 2.75.371 2.104-1.43 3.025-1.128 3.025-1.128.605 1.513.221 2.64.111 2.915.701.77 1.127 1.747 1.127 2.956 0 4.222-2.571 5.157-5.019 5.432.399.344.743 1.004.743 2.035 0 1.471-.014 2.654-.014 3.025 0 .289.206.632.756.522C19.851 20.979 23 16.854 23 12c0-6.077-4.922-11-11-11Z"></path>
+							</svg>
+							<div class="toggle-label-group">
+								<div class="toggle-label-main">View on GitHub</div>
+								<div class="toggle-label-description">View source, report issues, or contribute.</div>
+							</div>
+						</a>
+					</div>
+					<div class="link-item">
+						<a href="https://discord.gg/e3eXGTJbjx" target="_blank" rel="noopener noreferrer" class="github-link">
+							<svg height="24" aria-hidden="true" viewBox="0 0 24 24" version="1.1" width="24" class="github-logo">
+								<path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0189 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1568 2.4189Z"></path>
+							</svg>
+							<div class="toggle-label-group">
+								<div class="toggle-label-main">Join Discord Server</div>
+								<div class="toggle-label-description">Get support and report bugs.</div>
+							</div>
+						</a>
+					</div>
 		</div>
 	</div>
 </main>
 </div>
 
 <div id="status-snackbar">Settings saved!</div>
+
+<!-- Easter egg - delete this section to remove -->
+<style id=easter-spider-styles>#easter-spider{touch-action:none;position:fixed;bottom:calc(10px + var(--spider-inset,0px));right:calc(10px + var(--spider-inset,0px));width:calc(12px * var(--spider-scale,1));height:calc(12px * var(--spider-scale,1));opacity:.5;color:var(--md-color-on-surface-medium);pointer-events:auto;touch-action:manipulation;will-change:transform;transform-origin:50% 60%;--spider-scale:1;transition:bottom 180ms ease,right 180ms ease,opacity 180ms ease;z-index:99}#easter-spider.message-visible{opacity:1}#easter-spider svg{width:100%;height:100%;display:block;transform-origin:50% 60%;transform-box:fill-box;transform:rotate(var(--spider-rotate,0deg));filter:drop-shadow(0 0 1px rgba(0,0,0,.22));transition:transform 180ms ease}#easter-spider-message{position:absolute;bottom:calc(100% + var(--spider-msg-offset,0px));right:20px;min-width:200px;max-width:280px;padding:6px 8px;border-radius:8px;border-bottom-right-radius:0;background:rgba(22,22,22,.92);color:#fff;font-size:12px;line-height:1.25;box-shadow:0 2px 6px rgba(0,0,0,.2);opacity:0;transform:translateY(4px);transition:opacity 180ms ease,transform 180ms ease;pointer-events:none}#easter-spider.message-visible #easter-spider-message{opacity:1;transform:translateY(0)}#easter-spider.dragging{opacity:1}</style><div id=easter-spider role=button aria-label="Tiny spider easter egg"tabindex=0><svg fill=#000000 height=200px id=_x32_ version=1.1 viewBox="0 0 512 512"width=200px xml:space=preserve xmlns=http://www.w3.org/2000/svg xmlns:xlink=http://www.w3.org/1999/xlink><g id=SVGRepo_bgCarrier stroke-width=0></g><g id=SVGRepo_tracerCarrier stroke-linecap=round stroke-linejoin=round></g><g id=SVGRepo_iconCarrier><style>.st0{fill:#000}</style><g><path class=st0 d="M253.39,252.844c67.84,0,122.858-54.508,122.858-121.732c0-67.232-55.019-121.731-122.858-121.731 c-67.858,0-122.858,54.499-122.858,121.731C130.532,198.336,185.533,252.844,253.39,252.844z"></path><path class=st0 d="M279.385,369.018c-11.782,0-21.838,7.282-25.994,17.576c-4.174-10.294-14.213-17.576-26.013-17.576 c-15.516,0-28.09,12.584-28.09,28.099c0,15.516,12.574,28.099,28.09,28.099c11.8,0,21.839-7.282,26.013-17.576 c4.156,10.294,14.213,17.576,25.994,17.576c15.516,0,28.108-12.583,28.108-28.099C307.493,381.602,294.901,369.018,279.385,369.018 z"></path><path class=st0 d="M2.583,195.993l52.148,61.165c12.152,14.265,28.566,24.251,46.848,28.478l86.014,19.928 c-0.37,1.646-0.616,3.319-0.758,5.019l-56.215,2.343c-21.927,0.915-42.709,10.03-58.225,25.554l-55.494,55.493 c-4.226,4.228-4.226,11.079,0,15.305c4.227,4.228,11.078,4.228,15.305,0L87.7,353.784c11.676-11.685,27.316-18.545,43.818-19.232 l59.879-2.492c0.405,0.757,0.845,1.498,1.303,2.237l-59.703,36.606l-0.669,0.58c-14.917,12.901-25.026,30.442-28.724,49.814 l-13.032,68.474c-1.127,5.873,2.73,11.536,8.594,12.654c5.882,1.118,11.536-2.729,12.663-8.603l13.033-68.474 c2.747-14.38,10.214-27.394,21.204-37.072l62.169-38.112c11.887,8.137,27.72,13.139,45.156,13.139 c18.633,0,35.47-5.689,47.586-14.847l64.97,39.82c10.972,9.678,18.457,22.692,21.186,37.072l13.051,68.474 c1.109,5.874,6.78,9.722,12.644,8.603c5.883-1.118,9.722-6.781,8.612-12.654l-13.05-68.474 c-3.681-19.372-13.807-36.914-28.706-49.814l-0.67-0.572l-63.577-38.974c0.017-0.035,0.035-0.062,0.052-0.097l64.986,2.712 c16.502,0.687,32.142,7.546,43.836,19.232l55.494,55.494c4.226,4.228,11.078,4.228,15.304,0c4.227-4.226,4.227-11.077,0-15.305 l-55.494-55.493c-15.533-15.525-36.315-24.639-58.241-25.554l-61.447-2.563c-0.106-1.224-0.282-2.439-0.511-3.636l91.016-21.09 c18.263-4.227,34.677-14.213,46.847-28.478l52.131-61.165c3.875-4.544,3.346-11.377-1.216-15.252 c-4.544-3.875-11.377-3.337-15.252,1.216l-52.13,61.165c-9.158,10.734-21.522,18.245-35.259,21.433l-92.056,21.328 c-1.321,0.299-2.466,0.899-3.522,1.603c-1.444-1.709-2.976-3.364-4.667-4.914l83.215-57.449 c15.252-10.515,26.77-25.625,32.881-43.114L460.82,69.356c1.973-5.644-1.004-11.817-6.64-13.789 c-5.654-1.973-11.818,1.004-13.79,6.639l-39.415,112.652c-4.597,13.174-13.262,24.542-24.745,32.459l-87.511,60.408 c-1.092,0.758-1.938,1.726-2.66,2.765c-9.668-4.042-20.799-6.375-32.669-6.375c-10.355,0-20.113,1.796-28.848,4.922 c-0.441-0.432-0.74-0.951-1.268-1.312l-87.495-60.408c-11.482-7.917-20.147-19.285-24.762-32.459L71.621,62.207 c-1.973-5.636-8.154-8.612-13.79-6.639c-5.636,1.972-8.612,8.145-6.639,13.789l39.397,112.653 c6.129,17.489,17.646,32.599,32.898,43.122l80.327,55.451c-2.008,1.655-3.927,3.382-5.618,5.23l-91.738-21.257 c-13.755-3.188-26.118-10.699-35.259-21.433L19.05,181.957c-3.875-4.545-10.708-5.09-15.252-1.216 C-0.745,184.616-1.29,191.449,2.583,195.993z"></path></g></g></svg><div id=easter-spider-message role=status aria-live=polite></div></div>
+<!--END of Easter egg -->
 
 <script src="options.js"></script>
 </body>

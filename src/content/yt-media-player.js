@@ -1738,6 +1738,8 @@ class YTMediaPlayer {
 			'.yt-seekbar-background',
 			'.yt-drawer-close-button',
 			'[data-action]',
+			'ytm-related-chip-cloud-renderer',
+			'.ytm-infocards-creator-custom-url-buttons',
 		];
 
 		for (const selector of interactiveSelectors) {

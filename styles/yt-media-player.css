@@ -2824,10 +2824,6 @@ body.theme-dark .yt-drawer-full .yt-custom-navbar {
 
 /* Mobile responsiveness for filter popup */
 @media (max-width: 480px) {
-	.yt-filter-popup-overlay {
-		padding: 10px;
-	}
-
 	.yt-filter-popup-modal {
 		max-width: none;
 		width: 100%;
@@ -2897,11 +2893,39 @@ body.theme-dark .yt-drawer-full .yt-custom-navbar {
 	font-size: calc(12px * var(--yt-font-size-multiplier));
 	font-weight: 500;
 	cursor: pointer;
-	transition: background-color 0.2s ease;
+	transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	line-height: 1;
+	height: calc(32px * var(--yt-font-size-multiplier));
 }
 
 .yt-favourites-dialog-add-btn:hover {
 	background: var(--yt-player-accent-secondary);
+}
+
+/* Add button feedback states */
+.yt-favourites-dialog-add-btn.success {
+	background: rgba(0, 255, 0, 0.12);
+}
+
+.yt-favourites-dialog-add-btn.info {
+	background: var(--yt-player-bg-secondary);
+	color: var(--yt-player-text-primary);
+	border: 1px solid var(--yt-player-bg-tertiary);
+}
+
+.yt-favourites-dialog-add-btn.error {
+	background: rgba(255, 0, 0, 0.12);
+	color: #ff4444;
+	border: 1px solid rgba(255, 68, 68, 0.35);
+}
+
+.yt-favourites-dialog-add-btn:disabled {
+	opacity: 0.85;
+	cursor: default;
+	filter: saturate(0.9);
 }
 
 .yt-favourites-dialog-close {
@@ -2929,6 +2953,55 @@ body.theme-dark .yt-drawer-full .yt-custom-navbar {
 	padding: 16px 24px 24px;
 	overflow-y: auto;
 	flex: 1;
+}
+
+/* Actions bar below header */
+.yt-favourites-dialog-actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+/* Inline feedback message */
+.yt-favourites-feedback {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	border-radius: 8px;
+	font-size: calc(12px * var(--yt-font-size-multiplier));
+	background: var(--yt-player-bg-secondary);
+	color: var(--yt-player-text-primary);
+	border: 1px solid var(--yt-player-bg-tertiary);
+	animation: ytFadeSlideIn 0.2s ease;
+}
+
+.yt-favourites-feedback.success {
+	border-color: var(--yt-player-accent-primary);
+}
+
+.yt-favourites-feedback.info {
+	color: var(--yt-player-text-secondary);
+	border-color: var(--yt-player-border);
+}
+
+.yt-favourites-feedback.error {
+	color: #ff4444;
+	background: rgba(255, 0, 0, 0.08);
+	border-color: rgba(255, 68, 68, 0.35);
+}
+
+@keyframes ytFadeSlideIn {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 /* Favourites list */
@@ -3263,14 +3336,25 @@ bottom-sheet-container {
 
 ytm-related-chip-cloud-renderer {
 	position: unset !important;
+	display: block !important;
+	opacity: 1 !important;
+	height: auto !important;
+	pointer-events: auto !important;
+	transform: translateY(0) !important;
+	transition: none !important;
 }
 
 .below-the-player-cinematic-container {
 	display: none;
 }
 
-body.chip-cloud-present .related-chips-slot-wrapper {
+/*body.chip-cloud-present .related-chips-slot-wrapper {
 	margin-top: 48px !important;
+}*/
+
+.related-chips-slot-wrapper.slot-open {
+	transform: translateY(0) !important;
+	transition: none !important;
 }
 
 body.yt-custom-controls-drawn .player-size {
@@ -3285,8 +3369,28 @@ body.yt-custom-controls-drawn ytm-engagement-panel {
 	height: calc(var(--yt-player-mid-drawer-height) + 70px);
 }
 
-body.yt-custom-controls-drawn ytm-engagement-panel:has(.engagement-panel-comments-section) {
+body.yt-custom-controls-drawn ytm-engagement-panel:not(:has(.engagement-panel-playlis)) {
 	z-index: 1000;
+}
+
+ytm-engagement-panel .ytWebScrimHostModernOverlay {
+	pointer-events: none !important;
+}
+
+ytm-structured-description-content-renderer {
+	overflow-y: auto !important;
+}
+
+bottom-sheet-container[role='dialog'] {
+	z-index: 1000;
+}
+
+.page-container {
+	padding-top: 48px;
+}
+
+body.yt-custom-navbar-active .page-container {
+	padding-top: 0;
 }
 
 body.yt-custom-controls-drawn ytm-playlist-panel-entry-point {
@@ -3298,7 +3402,99 @@ body.yt-custom-controls-drawn ytm-playlist-panel-entry-point {
 	cursor: pointer;
 }
 
+body.yt-custom-playlist-active ytm-playlist-panel-entry-point {
+	opacity: 0 !important;
+	pointer-events: none !important;
+}
+
 .dragging:not(.yt-drawer-drag-handle),
 .dragging *:not(.yt-drawer-drag-handle *) {
 	transition: none !important;
+}
+
+/* Limit video title to 2 lines to make height of
+	meta data section consistant- more visually pleasing when
+	using the hide video option */
+.slim-video-metadata-header .slim-video-information-title .yt-core-attributed-string {
+	display: -webkit-box !important;
+	-webkit-line-clamp: 2 !important;
+	line-clamp: 2 !important;
+	-webkit-box-orient: vertical !important;
+	overflow: hidden !important;
+	text-overflow: ellipsis !important;
+
+	height: 2.4em !important; /* 2 × line-height */
+	line-height: 1.2em !important;
+
+	display: flex !important;
+	/*align-items: center; /* vertically centers content */
+}
+
+/* Improve the styling of the default engagement panels to
+	align better with the styling of the extension */
+.engagement-panel-section-list-background {
+	background-color: white !important;
+}
+
+.engagement-panel-container {
+	border-radius: 0 !important;
+}
+
+.engagement-panel-section-list-header-wrapper {
+	background-color: var(--yt-player-handle-bg) !important;
+	color: var(--yt-player-handle-text-primary) !important;
+	padding: 10px 16px !important;
+	cursor: grab !important;
+	pointer-events: auto !important;
+	user-select: none !important;
+	box-shadow: 0 -2px 10px var(--yt-player-shadow-light) !important;
+	position: relative !important;
+	opacity: 1 !important;
+}
+
+.engagement-panel-section-list-header {
+	padding: 0 !important;
+	position: relative !important;
+	border: 0 !important;
+}
+
+.engagement-panel-drag-line {
+	width: 40px !important;
+	height: 4px !important;
+	background: var(--yt-player-handle-cue-bg) !important;
+	opacity: 1 !important;
+	margin-bottom: -6px !important;
+	flex-shrink: 0 !important;
+	position: absolute !important;
+	top: 10px !important;
+	left: 50% !important;
+	transform: translateX(-50%) !important;
+	border-radius: 2px !important;
+}
+
+ytm-engagement-panel-section-list-renderer .engagement-panel-section-list-header-title {
+	font-size: calc(15px * var(--yt-font-size-multiplier)) !important;
+	font-weight: 500 !important;
+	color: var(--yt-player-handle-text-primary) !important;
+	text-overflow: ellipsis !important;
+	text-align: left !important;
+	transition: font-size 0.1s ease-out !important;
+	white-space: nowrap !important;
+	overflow: hidden !important;
+}
+
+.engagement-panel-section-list-header ytm-button-renderer.close-button {
+	transform: scale(0.8);
+}
+
+.engagement-panel-section-list-header ytm-button-renderer.close-button button {
+	color: var(--yt-player-handle-text-primary) !important;
+}
+
+.engagement-panel-content-wrapper ytm-comment-simplebox-renderer {
+	transform: scale(0.9) !important;
+}
+
+ytm-structured-description-content-renderer .yt-core-attributed-string {
+	font-size: calc(14px * var(--yt-font-size-multiplier)) !important;
 }

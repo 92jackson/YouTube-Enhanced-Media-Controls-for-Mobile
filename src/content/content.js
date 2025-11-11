@@ -65,6 +65,7 @@ const CSS_SELECTORS = {
 
 	// Search elements
 	searchSuggestions: '.yt-searchbox-suggestions-container',
+	resultsPageTextSearchButton: 'button.search-bar-text',
 
 	// Loading and buffering indicators
 	playerSpinner: '.player-controls-spinner .spinner',
@@ -147,20 +148,24 @@ let gettingLateVideoDetails = false;
 let observedVideoElement = null;
 
 // --- Buffer Detection Auto-Pause Variables ---
-/** @type {number|null} Timestamp of the last buffering event for rapid detection */
-let lastBufferingTimestamp = null;
-/** @type {number|null} Timeout ID for the auto-pause resume functionality */
-let bufferAutoPauseTimeout = null;
-/** @type {boolean} Flag to track if auto-pause is currently active */
-let isBufferAutoPauseActive = false;
-/** @type {number|null} Timestamp of the last user seek operation */
-let lastSeekTimestamp = null;
-/** @type {number|null} Timestamp of the last play event */
-let lastPlayTimestamp = null;
-/** @type {boolean} Whether the player has played since the last buffer event */
-let hasPlayedSinceLastBuffer = false;
-/** @type {number} Grace period after seek to ignore buffer events (in milliseconds) */
-const SEEK_BUFFER_GRACE_PERIOD = 2000; // 2 seconds
+	/** @type {number|null} Timestamp of the last buffering event for rapid detection */
+	let lastBufferingTimestamp = null;
+	/** @type {string|null} Video ID associated with the last buffer event */
+	let lastBufferVideoId = null;
+	/** @type {number[]} Timestamps of buffer events within the current detection window */
+	let bufferEventTimestamps = [];
+	/** @type {number|null} Timeout ID for the auto-pause resume functionality */
+	let bufferAutoPauseTimeout = null;
+	/** @type {boolean} Flag to track if auto-pause is currently active */
+	let isBufferAutoPauseActive = false;
+	/** @type {number|null} Timestamp of the last user seek operation */
+	let lastSeekTimestamp = null;
+	/** @type {number|null} Timestamp of the last play event */
+	let lastPlayTimestamp = null;
+	/** @type {boolean} Whether the player has played since the last buffer event */
+	let hasPlayedSinceLastBuffer = false;
+	/** @type {number} Grace period after seek to ignore buffer events (in milliseconds) */
+	const SEEK_BUFFER_GRACE_PERIOD = 2000; // 2 seconds
 
 // --- Utility Classes & Helper Functions ---
 
@@ -168,101 +173,145 @@ const SEEK_BUFFER_GRACE_PERIOD = 2000; // 2 seconds
  * Handles experimental buffer detection and auto-pause functionality
  * @param {HTMLVideoElement} videoElement - The video element
  */
-async function handleBufferDetectionAutoPause(videoElement) {
-	// Only proceed if experimental buffer detection is enabled
-	if (!window.userSettings.rapidBufferDetection) {
-		return;
-	}
-
-	const currentTime = Date.now();
-	const bufferThreshold = (window.userSettings.bufferDetectionThreshold || 3) * 1000;
-
-	// Check if we're within the grace period after a user seek
-	if (lastSeekTimestamp && currentTime - lastSeekTimestamp < SEEK_BUFFER_GRACE_PERIOD) {
-		logger.log(
-			'BufferDetection',
-			`Ignoring buffer event - within ${SEEK_BUFFER_GRACE_PERIOD}ms grace period after seek`
-		);
-		// Update timestamp but don't trigger auto-pause
-		lastBufferingTimestamp = currentTime;
-		hasPlayedSinceLastBuffer = false; // Reset play tracking on new buffer event
-		return;
-	}
-
-	// Check if this is a rapid buffering event AND the player has played since the last buffer
-	if (lastBufferingTimestamp && currentTime - lastBufferingTimestamp < bufferThreshold) {
-		// Only trigger auto-pause if the player has actually played since the last buffer event
-		// This prevents auto-pause during new video loads where buffering occurs without play events
-		if (!hasPlayedSinceLastBuffer) {
-			logger.log(
-				'BufferDetection',
-				'Ignoring buffer event - no play event occurred since last buffer (likely new video load)'
-			);
-			lastBufferingTimestamp = currentTime;
+	async function handleBufferDetectionAutoPause(videoElement) {
+		// Only proceed if experimental buffer detection is enabled
+		if (!window.userSettings.rapidBufferDetection) {
 			return;
 		}
 
-		// Rapid buffering detected after playing - trigger auto-pause
-		if (!isBufferAutoPauseActive && !videoElement.paused) {
-			isBufferAutoPauseActive = true;
-			const pauseDuration = (window.userSettings.bufferDetectionPauseDuration || 5) * 1000;
+		const currentTime = Date.now();
+		const bufferThreshold = (window.userSettings.bufferDetectionThreshold || 3) * 1000;
+		const requiredBufferEvents = Math.min(
+			3,
+			Math.max(1, parseInt(window.userSettings.bufferDetectionEventCount ?? 2))
+		);
+		const currentVideoIdNow = PageUtils.getCurrentVideoIdFromUrl() || null;
 
+		logger.log(
+			'BufferDetection',
+			`Buffer event received. videoId=${currentVideoIdNow}, lastVideoId=${lastBufferVideoId}, required=${requiredBufferEvents}, thresholdMs=${bufferThreshold}`
+		);
+
+		// Check if we're within the grace period after a user seek
+		if (lastSeekTimestamp && currentTime - lastSeekTimestamp < SEEK_BUFFER_GRACE_PERIOD) {
 			logger.log(
 				'BufferDetection',
-				`Rapid buffering detected after play event. Auto-pausing for ${
-					pauseDuration / 1000
-				}s`
+				`Ignoring buffer event - within ${SEEK_BUFFER_GRACE_PERIOD}ms grace period after seek`
 			);
+			// Update timestamp but don't trigger auto-pause
+			lastBufferingTimestamp = currentTime;
+			// Do not count this buffer event in the window
+			// Keep window timestamps unchanged
+			hasPlayedSinceLastBuffer = false; // Reset legacy tracking on new buffer event
+			return;
+		}
 
-			// Start countdown in custom player if available
-			if (ytPlayerInstance && ytPlayerInstance.startBufferCountdown) {
-				ytPlayerInstance.startBufferCountdown(Math.ceil(pauseDuration / 1000));
+		// If video changed since the last buffer event, ignore carryover
+		if (lastBufferVideoId && currentVideoIdNow && currentVideoIdNow !== lastBufferVideoId) {
+			logger.log(
+				'BufferDetection',
+				`Ignoring buffer event - video changed from ${lastBufferVideoId} to ${currentVideoIdNow} (carryover prevented)`
+			);
+			// Reset baseline without counting this event
+			lastBufferingTimestamp = currentTime;
+			lastBufferVideoId = currentVideoIdNow;
+			bufferEventTimestamps = [];
+			return;
+		}
+
+		// Maintain window of buffer events and prune old entries
+		bufferEventTimestamps = bufferEventTimestamps.filter(
+			(ts) => currentTime - ts <= bufferThreshold
+		);
+		bufferEventTimestamps.push(currentTime);
+
+		const windowStart = bufferEventTimestamps[0];
+		const playedSinceWindowStart =
+			!!lastPlayTimestamp && !!windowStart && lastPlayTimestamp >= windowStart;
+
+		logger.log(
+			'BufferDetection',
+			`Window count=${bufferEventTimestamps.length}, playedSinceWindowStart=${playedSinceWindowStart}`
+		);
+
+		if (
+			bufferEventTimestamps.length >= requiredBufferEvents
+		) {
+			// Only trigger auto-pause if the player has played since the detection window started
+			if (!playedSinceWindowStart) {
+				logger.log(
+					'BufferDetection',
+					'Ignoring buffer event - no play event occurred since window start (likely new video load)'
+				);
+				lastBufferingTimestamp = currentTime;
+				lastBufferVideoId = currentVideoIdNow;
+				return;
 			}
 
-			// Pause the video using native method
-			await native_handlePlayPause(window.PlayState.PAUSED, true);
+			// Rapid buffering detected after playing - trigger auto-pause
+			if (!isBufferAutoPauseActive && !videoElement.paused) {
+				isBufferAutoPauseActive = true;
+				const pauseDuration = (window.userSettings.bufferDetectionPauseDuration || 5) * 1000;
 
-			// Set timeout to resume playback
-			bufferAutoPauseTimeout = setTimeout(async () => {
-				if (isBufferAutoPauseActive && videoElement.paused) {
-					logger.log('BufferDetection', 'Resuming playback after auto-pause');
-					try {
-						await native_handlePlayPause(window.PlayState.PLAYING, true);
-					} catch (err) {
-						logger.warn('BufferDetection', 'Failed to resume playback:', err);
-					}
+				logger.log(
+					'BufferDetection',
+					`Buffering threshold hit (${requiredBufferEvents} events). Auto-pausing for ${
+						pauseDuration / 1000
+					}s`
+				);
+
+				// Start countdown in custom player if available
+				if (ytPlayerInstance && ytPlayerInstance.startBufferCountdown) {
+					ytPlayerInstance.startBufferCountdown(Math.ceil(pauseDuration / 1000));
 				}
 
-				cleanupBufferDetectionAutoPause();
-			}, pauseDuration);
-		}
-	}
+				// Pause the video using native method
+				await native_handlePlayPause(window.PlayState.PAUSED, true);
 
-	// Update the last buffering timestamp and reset play tracking
-	lastBufferingTimestamp = currentTime;
-	hasPlayedSinceLastBuffer = false;
-}
+				// Set timeout to resume playback
+				bufferAutoPauseTimeout = setTimeout(async () => {
+					if (isBufferAutoPauseActive && videoElement.paused) {
+						logger.log('BufferDetection', 'Resuming playback after auto-pause');
+						try {
+							await native_handlePlayPause(window.PlayState.PLAYING, true);
+						} catch (err) {
+							logger.warn('BufferDetection', 'Failed to resume playback:', err);
+						}
+					}
+
+					cleanupBufferDetectionAutoPause();
+				}, pauseDuration);
+			}
+		}
+
+		// Update the last buffering timestamp and reset play tracking
+		lastBufferingTimestamp = currentTime;
+		lastBufferVideoId = currentVideoIdNow;
+		hasPlayedSinceLastBuffer = false;
+	}
 
 /**
  * Cleans up buffer detection auto-pause state
  */
-function cleanupBufferDetectionAutoPause() {
-	if (bufferAutoPauseTimeout) {
-		clearTimeout(bufferAutoPauseTimeout);
-		bufferAutoPauseTimeout = null;
-	}
+	function cleanupBufferDetectionAutoPause() {
+		if (bufferAutoPauseTimeout) {
+			clearTimeout(bufferAutoPauseTimeout);
+			bufferAutoPauseTimeout = null;
+		}
 
 	// Stop countdown in custom player if available
 	if (ytPlayerInstance && ytPlayerInstance.stopBufferCountdown) {
 		ytPlayerInstance.stopBufferCountdown();
 	}
 
-	isBufferAutoPauseActive = false;
-	lastBufferingTimestamp = null;
-	lastSeekTimestamp = null;
-	lastPlayTimestamp = null;
-	hasPlayedSinceLastBuffer = false;
-}
+		isBufferAutoPauseActive = false;
+		lastBufferingTimestamp = null;
+		lastBufferVideoId = null;
+		lastSeekTimestamp = null;
+		lastPlayTimestamp = null;
+		hasPlayedSinceLastBuffer = false;
+		bufferEventTimestamps = [];
+	}
 
 /**
  * Checks if an ad is currently playing by inspecting #movie_player classes
@@ -1957,6 +2006,11 @@ function handleStuckPlaylist(playlistContainer, itemsFound = false, forceReload 
 	}
 }
 
+// Guard to prevent recursive auto-reopen loops on playlist pages
+let playlistAutoReopenInProgress = false;
+let playlistAutoReopenAttempts = 0;
+const PLAYLIST_AUTO_REOPEN_MAX_ATTEMPTS = 3;
+
 function handleNativePlaylistChanges() {
 	const playlistContainer = DOMUtils.getElement(CSS_SELECTORS.playlistPanel);
 	const playlistEntryPoint = DOMUtils.getElement(CSS_SELECTORS.playlistEntryPointButton);
@@ -1964,7 +2018,21 @@ function handleNativePlaylistChanges() {
 
 	// Check if playlist is minimized (entry point exists but panel doesn't)
 	if (!playlistContainer && playlistEntryPoint && isOnPlaylistPage) {
-		logger.log('Observers', 'Playlist is minimized, reopening automatically');
+		// Avoid spamming clicks; cap auto-reopen attempts
+		if (playlistAutoReopenInProgress && playlistAutoReopenAttempts >= PLAYLIST_AUTO_REOPEN_MAX_ATTEMPTS) {
+			logger.warn(
+				'Observers',
+				`Playlist minimized; auto-reopen attempts exhausted (${playlistAutoReopenAttempts}). Skipping.`
+			);
+			return;
+		}
+
+		playlistAutoReopenInProgress = true;
+		playlistAutoReopenAttempts++;
+		logger.log(
+			'Observers',
+			`Playlist is minimized, reopening automatically (attempt ${playlistAutoReopenAttempts})`
+		);
 
 		// Clean up existing observer since the element will be recreated
 		if (observerManager.get('playlist')) {
@@ -2018,6 +2086,10 @@ function handleNativePlaylistChanges() {
 				},
 				'Observers'
 			);
+
+			// Playlist panel is present and observer attached; clear auto-reopen guard
+			playlistAutoReopenInProgress = false;
+			playlistAutoReopenAttempts = 0;
 		}
 	} else if (!playlistContainer && observerManager.get('playlist')) {
 		// Only clear if we're not on a playlist page or entry point doesn't exist

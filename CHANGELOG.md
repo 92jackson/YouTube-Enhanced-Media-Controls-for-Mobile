@@ -2,7 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
-### [1.2.3] - 2025-10-28
+## [1.2.4.2] - 2025-11-11
+
+### Added
+
+-   Tiny easter egg subtly placed on the Options page in honor of my son's birthday today (:
+
+### Changes
+
+-   **Improved rapid buffer detection** - Reduced false positives by adding checks for current video ID and added option to fine-tune the number of concurrent buffer events to trigger on (def 2).
+-   **Improved positioning and feedback of Add to favourites button**.
+-   **Styling improvements to the engagement panels** - (Stock YouTube comments and video details panels) Aligned better with the styling of the extension.
+-   Other minor tweaks to styling.
+
+### Fixed
+
+-   **Navbar Text Search Button** - Fixed the text search button not working on the results page.
+-   **Playlist load bug** - Fixed issue where the script would sometimes attempt to re-open the playlist recursively on the inital page load.
+-   **Issue causing related chips to jump** - Hopefully fixed an issue where the chips above the related videos area would sometimes jump in and out of view if you have the video area set to hidden.
+
+## [1.2.3] - 2025-10-28
 
 ### Added
 

@@ -651,15 +651,32 @@ class YTCustomNavbar {
 	 * @description Handles text search button click.
 	 */
 	_handleTextSearchClick() {
-		const searchButton = document.querySelector(
-			'button.topbar-menu-button-avatar-button[aria-label="Search YouTube"]'
-		);
-		if (searchButton) {
-			logger.log('Navbar', 'Clicking text search button');
-			searchButton.click();
-		} else {
-			logger.warn('Navbar', 'Text search button not found');
-		}
+		const selectors = {
+			headerSearchButton: CSS_SELECTORS.headerSearchButton,
+			resultsPageSearchButton: CSS_SELECTORS.resultsPageTextSearchButton,
+		};
+
+		(async () => {
+			// Choose appropriate target based on page type
+			let targetSelector = PageUtils.isResultsPage()
+				? selectors.resultsPageSearchButton
+				: selectors.headerSearchButton;
+
+			let success = await DOMUtils.clickElement(targetSelector);
+			// Fallback: if results button not found, try header button
+			if (!success && targetSelector === selectors.resultsPageSearchButton) {
+				success = await DOMUtils.clickElement(selectors.headerSearchButton);
+			}
+
+			if (success) {
+				logger.log(
+					'Navbar',
+					`Clicking text search button (${PageUtils.isResultsPage() ? 'results' : 'header'})`
+				);
+			} else {
+				logger.warn('Navbar', 'Text search button not found');
+			}
+		})();
 	}
 
 	/**
@@ -813,32 +830,6 @@ class YTCustomNavbar {
 		const hasVideoId = !!urlParams.get('v');
 		const hasPlaylistId = !!urlParams.get('list');
 
-		if (hasVideoId) {
-			const addToFavBtn = document.createElement('button');
-			addToFavBtn.className = 'yt-favourites-dialog-add-btn';
-			addToFavBtn.textContent = '+ Add';
-
-			if (hasPlaylistId) {
-				// For mix/playlist context, create dropdown functionality
-				addToFavBtn.addEventListener('click', (e) => {
-					// Check if dropdown is already visible and toggle it
-					const existingDropdown = document.getElementById(
-						'yt-add-to-favourites-dropdown'
-					);
-					if (existingDropdown) {
-						this._hideAddToFavouritesDropdown();
-					} else {
-						this._showAddToFavouritesDropdown(e, addToFavBtn);
-					}
-				});
-			} else {
-				// For standalone video, add directly
-				addToFavBtn.addEventListener('click', () => this._addCurrentMixToFavourites());
-			}
-
-			rightSection.appendChild(addToFavBtn);
-		}
-
 		const filterButton = document.createElement('button');
 		filterButton.className = 'yt-favourites-dialog-filter-toggle';
 		filterButton.setAttribute('aria-label', 'Filter');
@@ -946,6 +937,35 @@ class YTCustomNavbar {
 		// Create content area
 		const content = document.createElement('div');
 		content.className = 'yt-favourites-dialog-content';
+
+		// Add actions bar under header to prevent cramped layout
+		const actionsBar = document.createElement('div');
+		actionsBar.className = 'yt-favourites-dialog-actions';
+
+		if (hasVideoId) {
+			const addToFavBtn = document.createElement('button');
+			addToFavBtn.className = 'yt-favourites-dialog-add-btn';
+			addToFavBtn.textContent = '+ Add';
+
+			if (hasPlaylistId) {
+				addToFavBtn.addEventListener('click', (e) => {
+					const existingDropdown = document.getElementById(
+						'yt-add-to-favourites-dropdown'
+					);
+					if (existingDropdown) {
+						this._hideAddToFavouritesDropdown();
+					} else {
+						this._showAddToFavouritesDropdown(e, addToFavBtn);
+					}
+				});
+			} else {
+				addToFavBtn.addEventListener('click', () => this._addCurrentMixToFavourites());
+			}
+
+			actionsBar.appendChild(addToFavBtn);
+		}
+
+		content.appendChild(actionsBar);
 
 		// Add favourites list container
 		const favouritesList = document.createElement('div');
@@ -1862,6 +1882,7 @@ class YTCustomNavbar {
 
 		if (!videoId) {
 			logger.warn('Navbar', 'Cannot add to favourites: missing video ID');
+			this._flashAddButtonFeedback('✕ Cannot add', 'error');
 			return;
 		}
 
@@ -1927,6 +1948,7 @@ class YTCustomNavbar {
 				'Navbar',
 				isPlaylist ? 'Mix already in favourites' : 'Video already in favourites'
 			);
+			this._flashAddButtonFeedback('ⓘ Already saved', 'info');
 			return;
 		}
 
@@ -1938,7 +1960,40 @@ class YTCustomNavbar {
 		if (success) {
 			logger.log('Navbar', `${isPlaylist ? 'Mix' : 'Video'} added to favourites`, favourite);
 			this._updateFavouritesDialog(); // Refresh the dialog
+			this._flashAddButtonFeedback('✓ Added', 'success');
+		} else {
+			this._flashAddButtonFeedback('✕ Failed', 'error');
 		}
+	}
+
+	/**
+	 * @description Temporarily changes the add button label/icon to show feedback.
+	 * @param {string} message - The message to display on the button.
+	 * @param {'success'|'info'|'error'} [type='success'] - The feedback type for styling.
+	 */
+	_flashAddButtonFeedback(message, type = 'success') {
+		const btn = document.querySelector('.yt-favourites-dialog-add-btn');
+		if (!btn) {
+			return;
+		}
+
+		// Preserve original label only once
+		if (!btn.dataset.originalLabel) {
+			btn.dataset.originalLabel = btn.textContent || '+ Add';
+		}
+
+		// Apply temporary state
+		btn.textContent = message;
+		btn.classList.remove('success', 'info', 'error');
+		btn.classList.add(type);
+		btn.disabled = true;
+
+		// Revert after delay
+		setTimeout(() => {
+			btn.textContent = btn.dataset.originalLabel;
+			btn.classList.remove('success', 'info', 'error');
+			btn.disabled = false;
+		}, 2000);
 	}
 
 	/**
@@ -1993,12 +2048,29 @@ class YTCustomNavbar {
 		// Add to DOM
 		document.body.appendChild(dropdown);
 
-		// Add click outside listener to close dropdown
-		setTimeout(() => {
-			document.addEventListener('click', this._handleDropdownOutsideClick.bind(this), {
-				once: true,
-			});
-		}, 0);
+		// Track active button for outside-click logic
+		this._activeAddToFavouritesButton = button;
+
+		// Add capture-phase outside listener to close dropdown on any click elsewhere
+		this._dropdownOutsideHandler = (e) => {
+			const currentDropdown = document.getElementById('yt-add-to-favourites-dropdown');
+			if (!currentDropdown) {
+				return;
+			}
+			// Ignore clicks inside the dropdown
+			if (currentDropdown.contains(e.target)) {
+				return;
+			}
+			// Ignore clicks on the active add button (toggle handled separately)
+			if (
+				this._activeAddToFavouritesButton &&
+				this._activeAddToFavouritesButton.contains(e.target)
+			) {
+				return;
+			}
+			this._hideAddToFavouritesDropdown();
+		};
+		document.addEventListener('pointerdown', this._dropdownOutsideHandler, true);
 	}
 
 	/**
@@ -2009,6 +2081,12 @@ class YTCustomNavbar {
 		if (dropdown) {
 			dropdown.remove();
 		}
+		// Clean up outside listener and active button reference
+		if (this._dropdownOutsideHandler) {
+			document.removeEventListener('pointerdown', this._dropdownOutsideHandler, true);
+			this._dropdownOutsideHandler = null;
+		}
+		this._activeAddToFavouritesButton = null;
 	}
 
 	/**

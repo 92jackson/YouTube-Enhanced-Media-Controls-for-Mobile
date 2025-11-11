@@ -1074,6 +1074,11 @@ const PageUtils = {
 		const urlParams = new URLSearchParams(window.location.search);
 		return urlParams.has('list');
 	},
+	isResultsPage: () => {
+		const url = new URL(window.location.href);
+		const path = url.pathname || '';
+		return path === '/results' || path.startsWith('/results');
+	},
 	getCurrentVideoIdFromUrl: () => {
 		if (!PageUtils.isVideoWatchPage()) return null;
 		const urlParams = new URLSearchParams(window.location.search);

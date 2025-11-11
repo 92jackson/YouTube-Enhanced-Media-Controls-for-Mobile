@@ -66,6 +66,7 @@ window.userSettings = {
 	gestureSensitivity: 'normal',
 	rapidBufferDetection: false,
 	bufferDetectionThreshold: 3,
+	bufferDetectionEventCount: 2,
 	bufferDetectionPauseDuration: 5,
 };
 
