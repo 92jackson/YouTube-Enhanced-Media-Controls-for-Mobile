@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.5] - 2025-11-12
+
+### Changes
+
+-   Improvements to "Bidey" (:
+
 ## [1.2.4.2] - 2025-11-11
 
 ### Added
