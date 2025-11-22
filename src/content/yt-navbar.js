@@ -671,7 +671,9 @@ class YTCustomNavbar {
 			if (success) {
 				logger.log(
 					'Navbar',
-					`Clicking text search button (${PageUtils.isResultsPage() ? 'results' : 'header'})`
+					`Clicking text search button (${
+						PageUtils.isResultsPage() ? 'results' : 'header'
+					})`
 				);
 			} else {
 				logger.warn('Navbar', 'Text search button not found');
@@ -2097,6 +2099,59 @@ class YTCustomNavbar {
 		const dropdown = document.getElementById('yt-add-to-favourites-dropdown');
 		if (dropdown && !dropdown.contains(event.target)) {
 			this._hideAddToFavouritesDropdown();
+		}
+	}
+
+	/**
+	 * @description Handles actions from external sources like the FAB.
+	 * @param {string} action - The action to handle.
+	 */
+	handleAction(action) {
+		logger.log('Navbar', 'handleAction called with:', action);
+		switch (action) {
+			case 'home':
+				logger.log('Navbar', 'Calling _handleLogoClick');
+				this._handleLogoClick();
+				break;
+			case 'mixes':
+				logger.log('Navbar', 'Calling _handleMixesClick');
+				this._handleMixesClick();
+				break;
+			case 'playlists':
+				logger.log('Navbar', 'Calling _handlePlaylistsClick');
+				this._handlePlaylistsClick();
+				break;
+			case 'live':
+				logger.log('Navbar', 'Calling _handleLiveClick');
+				this._handleLiveClick();
+				break;
+			case 'music':
+				logger.log('Navbar', 'Calling _handleMusicClick');
+				this._handleMusicClick();
+				break;
+			case 'text-search':
+				logger.log('Navbar', 'Calling _handleTextSearchClick');
+				this._handleTextSearchClick();
+				break;
+			case 'voice-search':
+				logger.log('Navbar', 'Calling _handleVoiceSearchClick');
+				this._handleVoiceSearchClick();
+				break;
+			case 'favourites':
+				logger.log('Navbar', 'Calling _handleFavouritesClick');
+				this._handleFavouritesClick();
+				break;
+			case 'video-toggle':
+				logger.log('Navbar', 'Calling _handleVideoToggleClick');
+				this._handleVideoToggleClick();
+				break;
+			case 'debug-logs':
+				logger.log('Navbar', 'Calling _handleDebugLogsClick');
+				this._handleDebugLogsClick();
+				break;
+			default:
+				logger.warn('Navbar', `Unknown action: ${action}`);
+				break;
 		}
 	}
 

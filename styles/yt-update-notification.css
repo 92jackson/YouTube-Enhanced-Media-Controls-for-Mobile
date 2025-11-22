@@ -1,0 +1,239 @@
+/*
+YTEMC Update Notification CSS
+*/
+.yt-update-notification {
+	position: fixed;
+	top: 48px; /* Below navbar */
+	left: 0;
+	z-index: 9999;
+	width: 100%;
+	background-color: var(--yt-player-bg-primary);
+	box-shadow: 0 2px 8px var(--yt-player-shadow-light);
+	transform: translateY(-100%);
+	opacity: 0;
+	transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+	pointer-events: auto;
+	overflow: hidden;
+}
+
+.yt-update-notification.show {
+	transform: translateY(0);
+	opacity: 1;
+}
+
+/* Progress bar for auto-dismiss countdown */
+.yt-update-notification-progress {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: 100%;
+	height: 4px;
+	background-color: transparent;
+	overflow: hidden;
+}
+
+.yt-update-notification-progress-fill {
+	height: 100%;
+	background: linear-gradient(
+		90deg,
+		var(--yt-player-accent-primary),
+		var(--yt-player-accent-secondary)
+	);
+	animation: progressFill 30s linear forwards;
+	transform-origin: left;
+	transform: scaleX(0);
+	box-shadow: 0 0 4px var(--yt-player-accent-primary);
+}
+
+.yt-update-notification-content {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 16px;
+	min-height: 60px;
+}
+
+.yt-update-notification-logo {
+	flex-shrink: 0;
+	width: 40px;
+	height: 40px;
+}
+
+.yt-update-notification-logo-img {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	border-radius: 8px;
+}
+
+.yt-update-notification-text {
+	flex: 1;
+	min-width: 0;
+}
+
+.yt-update-notification-title {
+	color: var(--yt-player-text-primary);
+	font-size: 14px;
+	font-weight: 500;
+	margin-bottom: 2px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.yt-update-notification-notice {
+	color: var(--yt-player-text-secondary);
+	font-size: 12px;
+	opacity: 0.8;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.yt-update-notification-buttons {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
+.yt-update-notification-github {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 8px 16px;
+	background-color: var(--yt-player-accent-primary);
+	color: var(--yt-player-accent-text);
+	border: none;
+	border-radius: 20px;
+	font-size: 12px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	-webkit-tap-highlight-color: transparent;
+	white-space: nowrap;
+}
+
+.yt-update-notification-github:active {
+	transform: scale(0.95);
+	opacity: 0.8;
+}
+
+.yt-update-notification-external-icon {
+	flex-shrink: 0;
+	opacity: 0.8;
+}
+
+.yt-update-notification-close {
+	width: 32px;
+	height: 32px;
+	background: none;
+	border: none;
+	color: var(--yt-player-text-secondary);
+	font-size: 18px;
+	line-height: 1;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	-webkit-tap-highlight-color: transparent;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+}
+
+.yt-update-notification-close:active {
+	background-color: var(--yt-player-bg-pressed);
+	transform: scale(0.9);
+}
+
+/* Light theme adjustments */
+body.yt-theme-light .yt-update-notification-github {
+	background-color: var(--yt-player-accent-primary);
+	color: var(--yt-player-accent-text);
+}
+
+body.yt-theme-light .yt-update-notification-close {
+	color: var(--yt-player-text-secondary);
+}
+
+body.yt-theme-light .yt-update-notification-close:active {
+	background-color: var(--yt-player-bg-pressed);
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 480px) {
+	.yt-update-notification-content {
+		padding: 12px;
+		gap: 10px;
+	}
+
+	.yt-update-notification-logo {
+		width: 32px;
+		height: 32px;
+	}
+
+	.yt-update-notification-title {
+		font-size: 13px;
+	}
+
+	.yt-update-notification-notice {
+		font-size: 11px;
+	}
+
+	.yt-update-notification-github {
+		padding: 6px 12px;
+		font-size: 11px;
+		gap: 3px;
+	}
+
+	.yt-update-notification-external-icon {
+		width: 10px;
+		height: 10px;
+	}
+
+	.yt-update-notification-close {
+		width: 28px;
+		height: 28px;
+		font-size: 16px;
+	}
+}
+
+/* Animation for smooth appearance */
+@keyframes slideDown {
+	from {
+		transform: translateY(-100%);
+		opacity: 0;
+	}
+	to {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}
+
+@keyframes slideUp {
+	from {
+		transform: translateY(0);
+		opacity: 1;
+	}
+	to {
+		transform: translateY(-100%);
+		opacity: 0;
+	}
+}
+
+@keyframes progressFill {
+	from {
+		transform: scaleX(0);
+	}
+	to {
+		transform: scaleX(1);
+	}
+}
+
+.yt-update-notification {
+	animation: slideUp 0.3s ease-out forwards;
+}
+
+.yt-update-notification.show {
+	animation: slideDown 0.3s ease-out forwards;
+}

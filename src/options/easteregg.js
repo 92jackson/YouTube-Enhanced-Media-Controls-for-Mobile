@@ -8,18 +8,19 @@ document.addEventListener('DOMContentLoaded', () => {
 			max_px_per_second: 180, // movement speed cap; higher = faster cap, lower = slower cap
 		},
 		follow: {
-			spring_k: 0.3, // follow spring toward finger; higher = tighter, lower = looser
-			damping: 0.86, // follow damping; higher = smoother, lower = wobblier
-			orbit_expand_ms: 120, // expand time; higher = slower expand, lower = quicker expand
-			orbit_shrink_ms: 400, // shrink time; higher = slower shrink, lower = quicker shrink
-			orbit_ease: 0.15, // radius smoothing; higher = smoother, lower = snappier
-			swirl_factor: 0.15, // swirl intensity; higher = more swirl, lower = more direct
-			swirl_when_still_factor: 0.35, // extra swirl when still; higher = wigglier
-			wander_when_still_factor: 1.0, // idle scuttle; higher = more wander, lower = calmer
-			pointer_vel_min_px: 0.75, // min pointer delta; higher = less sensitive, lower = more sensitive
-			direction_change_hold_ms: 140, // pause length; higher = longer pause, lower = shorter
-			direction_change_angle_deg: 75, // turn threshold; higher = bigger turn, lower = smaller
-			direction_change_min_speed_px: 1.0, // speed threshold; higher = needs faster motion, lower = easier to trigger
+			spring_k: 0.24, // follow spring toward finger; higher = tighter snap, lower = floatier
+			damping: 0.865, // follow damping; higher = smoother glide, lower = wobblier
+			orbit_expand_ms: 100, // time to expand orbit when moving; higher = slower expand
+			orbit_shrink_ms: 520, // time to shrink orbit when still; higher = slower shrink
+			orbit_ease: 0.18, // smoothing of orbit radius; higher = smoother, lower = snappier
+			swirl_factor: 0.16, // swirl intensity while moving; higher = more playful wobble
+			swirl_when_still_factor: 0.45, // extra swirl when still; higher = more orbiting flair
+			wander_when_still_factor: 4.0, // idle drift while still; higher = roams more, lower = calmer
+			move_deadzone_px: 4.0, // ignore tiny finger jitters; higher = less sensitive
+			pointer_vel_min_px: 1.0, // min finger delta to use velocity; higher = less sensitive
+			direction_change_hold_ms: 180, // brief pause on sharp turns; higher = longer pause
+			direction_change_angle_deg: 60, // turn threshold to trigger pause; higher = needs bigger turn
+			direction_change_min_speed_px: 0.8, // min speed for pause; higher = needs faster motion
 		},
 		peek: {
 			duration_ms: 3000, // linger time; higher = longer peek, lower = shorter
@@ -50,34 +51,48 @@ document.addEventListener('DOMContentLoaded', () => {
 			interval_ms: 500, // shrink tick interval; higher = slower ticks, lower = quicker
 			step: 0.05, // shrink per tick; higher = faster shrink, lower = gentler
 		},
+		growth: {
+			feed: {
+				first_activation_scale: 2.0, // scale set on first-ever feed; higher = larger start
+				crumb_min_px: 4, // minimum crumb width considered for growth mapping
+				crumb_max_px: 24, // maximum crumb width considered for growth mapping
+				delta_min: 0.22, // minimum growth per feed for smallest crumbs
+				delta_max: 0.6, // maximum growth per feed for largest crumbs
+			},
+		},
 		trail: {
 			fade_alpha: 0.005, // trail fade; higher = fades quicker, lower = persists longer
 			width_factor: 0.04, // trail thickness; higher = thicker, lower = thinner
 		},
 		fingers: {
-			touch_px: 100, // touch radius; higher = larger influence, lower = tighter control
+			touch_px: 60, // touch radius; higher = larger influence, lower = tighter control
 		},
 		hit: {
-			expand_px: 20, // invisible padding around spider; higher = larger touch target
+			expand_px: 50, // invisible padding around spider; higher = larger touch target
 		},
 		drag: {
 			start_threshold_px: 8, // movement needed to start drag; higher = harder to drag
 		},
 		boop: {
 			enabled: true, // toggle boop animation on click/tap
-			expand_ms: 90, // expansion phase duration; higher = slower rise, lower = snappier
-			compress_ms: 120, // compression phase duration; higher = slower dip, lower = snappier
-			settle_ms: 160, // settle duration; higher = slower return, lower = quicker settle
-			wiggle_ms: 520, // wiggle duration after bounce; higher = longer wiggle, lower = shorter
+			expand_ms: 90, // expansion duration; lower = snappier pop, higher = slower rise
+			compress_ms: 110, // compression duration; lower = snappier dip, higher = slower dip
+			settle_ms: 180, // settle duration; higher = clearer return, lower = quicker settle
+			wiggle_ms: 600, // wiggle duration after bounce; higher = longer flourish, lower = shorter
 			up_amp: {
-				base: 0.22, // base expansion amount; higher = larger boop
-				scale_factor: 0.06, // extra expansion per current scale; higher = more reactive when large
-				max: 0.35, // expansion cap; higher = bigger peak, lower = safer ceiling
+				base: 0.18, // base expansion amount; higher = larger pop, lower = subtler
+				scale_factor: 0.08, // extra expansion per current scale; higher = more reactive when large
+				max: 0.32, // expansion cap; higher = bigger peak, lower = safer ceiling
 			},
-			down_amp_ratio: 0.55, // compression depth relative to expansion; higher = deeper dip
-			wiggle_amp_deg: 18, // max rotational wiggle in degrees; higher = wobblier
-			wiggle_freq: 3.2, // wiggle frequency; higher = faster oscillation, lower = smoother
-			hold_amp: 0.12, // scale increase while holding without dragging; higher = larger hold
+			down_amp_ratio: 0.6, // compression depth relative to expansion; higher = deeper dip
+			wiggle_amp_deg: 22, // max rotational wiggle in degrees; higher = more defined wiggle
+			wiggle_freq: 3.0, // wiggle frequency; lower = smoother, higher = faster oscillation
+			hold_amp: 0.14, // scale increase while holding without dragging; higher = larger hold
+		},
+		jail: {
+			width_px: 100,
+			height_px: 80,
+			top_offset_px: 12,
 		},
 	};
 
@@ -143,6 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					decayInterval = null;
 				}
 				hideTrail();
+				hideJailOverlay();
 			} else {
 				spider.style.display = '';
 				// restart scuttle loop and (maybe) peek scheduling
@@ -150,6 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				pickParams();
 				scuttleRAF = requestAnimationFrame(stepScuttle);
 				if (userInteracted) schedulePeek();
+				if (jailActive) showJailOverlay();
 			}
 		});
 	}
@@ -164,6 +181,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	let boopActive = false;
 	let boopRAF = null;
 	let boopHoldActive = false;
+	let boopSvgTransitionOrig = '';
+	let boopTransitionDisabled = false;
 	let holdBaseScale = 1;
 	let dragCandidate = false;
 	let pressStartX = 0;
@@ -250,6 +269,25 @@ document.addEventListener('DOMContentLoaded', () => {
 	let trailCanvas = null,
 		trailCtx = null,
 		trailActive = false;
+
+	function getViewportSize() {
+		const vv = window.visualViewport;
+		if (vv && typeof vv.width === 'number' && typeof vv.height === 'number') {
+			return { w: Math.round(vv.width), h: Math.round(vv.height) };
+		}
+		return {
+			w:
+				window.innerWidth ||
+				document.documentElement.clientWidth ||
+				document.body?.clientWidth ||
+				0,
+			h:
+				window.innerHeight ||
+				document.documentElement.clientHeight ||
+				document.body?.clientHeight ||
+				0,
+		};
+	}
 	let peekTimeout = null,
 		peekActive = false,
 		peekTargetX = 0,
@@ -262,6 +300,60 @@ document.addEventListener('DOMContentLoaded', () => {
 		settleTargetX = 0,
 		settleTargetY = 0;
 	let userInteracted = false;
+
+	let jailActive = false,
+		jailedCenterX = 0,
+		jailedCenterY = 0;
+
+	let suppressFollowUntil = 0;
+
+	let jailOverlayEl = null;
+
+	function ensureJailOverlay() {
+		if (jailOverlayEl) return;
+		jailOverlayEl = document.createElement('div');
+		jailOverlayEl.style.position = 'fixed';
+		jailOverlayEl.style.pointerEvents = 'none';
+		jailOverlayEl.style.zIndex = '102';
+		jailOverlayEl.style.opacity = '0';
+		jailOverlayEl.style.transition = 'opacity 200ms ease';
+		jailOverlayEl.style.borderRadius = '10px';
+		jailOverlayEl.style.boxShadow =
+			'0 1px 6px rgba(0,0,0,0.25), inset 0 0 0 2px rgba(255,255,255,0.15)';
+		document.body.appendChild(jailOverlayEl);
+		updateJailOverlay();
+	}
+
+	function updateJailOverlay() {
+		if (!jailOverlayEl) return;
+		const r = getJailRect();
+		jailOverlayEl.style.left = r.left + 'px';
+		jailOverlayEl.style.top = r.top + 'px';
+		jailOverlayEl.style.width = r.right - r.left + 'px';
+		jailOverlayEl.style.height = r.bottom - r.top + 'px';
+		jailOverlayEl.style.backgroundImage = [
+			'radial-gradient(circle at center, rgba(255,255,255,0.28) 1px, rgba(255,255,255,0.0) 2px)',
+			'linear-gradient(45deg, rgba(255,255,255,0.18) 1px, rgba(255,255,255,0.0) 1px)',
+			'linear-gradient(-45deg, rgba(255,255,255,0.18) 1px, rgba(255,255,255,0.0) 1px)',
+		].join(',');
+		jailOverlayEl.style.backgroundSize = '18px 18px, 22px 22px, 22px 22px';
+		jailOverlayEl.style.backgroundPosition = 'center';
+		jailOverlayEl.style.border = '2px dashed rgba(255,255,255,0.35)';
+	}
+
+	function showJailOverlay() {
+		ensureJailOverlay();
+		updateJailOverlay();
+		jailOverlayEl.style.opacity = '1';
+	}
+
+	function hideJailOverlay() {
+		if (jailActive) {
+			showJailOverlay();
+			return;
+		}
+		if (jailOverlayEl) jailOverlayEl.style.opacity = '0';
+	}
 
 	// Anchor physics (scurry motion)
 	let velRight = 0,
@@ -283,10 +375,9 @@ document.addEventListener('DOMContentLoaded', () => {
 		trailCanvas.style.position = 'fixed';
 		trailCanvas.style.left = '0';
 		trailCanvas.style.top = '0';
-		trailCanvas.style.width = '100vw';
-		trailCanvas.style.height = '100vh';
+		// Width/height are set dynamically in resizeTrailCanvas to match the visual viewport
 		trailCanvas.style.pointerEvents = 'none';
-		trailCanvas.style.zIndex = '10';
+		trailCanvas.style.zIndex = '101';
 		trailCanvas.style.opacity = '0';
 		document.body.appendChild(trailCanvas);
 		trailCtx = trailCanvas.getContext('2d');
@@ -296,10 +387,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	function resizeTrailCanvas() {
 		if (!trailCanvas) return;
 		const dpr = window.devicePixelRatio || 1;
-		trailCanvas.width = Math.floor(window.innerWidth * dpr);
-		trailCanvas.height = Math.floor(window.innerHeight * dpr);
+		const { w, h } = getViewportSize();
+		trailCanvas.width = Math.floor(w * dpr);
+		trailCanvas.height = Math.floor(h * dpr);
+		trailCanvas.style.width = w + 'px';
+		trailCanvas.style.height = h + 'px';
+		trailCanvas.style.left = '0px';
+		trailCanvas.style.top = '0px';
 		trailCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-		trailCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+		trailCtx.clearRect(0, 0, w, h);
 	}
 
 	function showTrail() {
@@ -317,7 +413,8 @@ document.addEventListener('DOMContentLoaded', () => {
 				// Clear the canvas to remove any existing trail lines after the 3000ms transition
 				setTimeout(() => {
 					if (trailActive) return;
-					trailCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+					const { w, h } = getViewportSize();
+					trailCtx.clearRect(0, 0, w, h);
 				}, 3000);
 			}
 		}
@@ -326,8 +423,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	function drawTrail(x1, y1, x2, y2, widthPx) {
 		if (!trailActive || !trailCtx) return;
 		// gentle fade each frame
+		const { w, h } = getViewportSize();
 		trailCtx.fillStyle = 'rgba(255,255,255,' + SPIDER_TUNE.trail.fade_alpha + ')';
-		trailCtx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+		trailCtx.fillRect(0, 0, w, h);
 		trailCtx.beginPath();
 		trailCtx.moveTo(x1, y1);
 		trailCtx.lineTo(x2, y2);
@@ -355,6 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		el.style.transition = 'opacity 300ms ease';
 		el.style.pointerEvents = 'none';
 		el.style.willChange = 'transform, opacity';
+		el.style.zIndex = '100';
 		document.body.appendChild(el);
 		return el;
 	}
@@ -382,7 +481,30 @@ document.addEventListener('DOMContentLoaded', () => {
 		return best;
 	}
 
+	function getJailRect() {
+		const vw = window.innerWidth || document.documentElement.clientWidth;
+		const width = Number(SPIDER_TUNE.jail?.width_px ?? 220);
+		const height = Number(SPIDER_TUNE.jail?.height_px ?? 140);
+		const top = Math.max(0, Number(SPIDER_TUNE.jail?.top_offset_px ?? 12));
+		const left = Math.round(vw * 0.5 - width * 0.5);
+		const right = left + width;
+		const bottom = top + height;
+		return { left, right, top, bottom, cx: left + width * 0.5, cy: top + height * 0.5 };
+	}
+
+	function clampToJail(x, y, halfW, halfH) {
+		const r = getJailRect();
+		const minX = r.left + halfW;
+		const maxX = r.right - halfW;
+		const minY = r.top + halfH;
+		const maxY = r.bottom - halfH;
+		const cx = Math.max(minX, Math.min(maxX, x));
+		const cy = Math.max(minY, Math.min(maxY, y));
+		return { x: cx, y: cy };
+	}
+
 	function startRushToNearestCrumb() {
+		if (jailActive) return false;
 		const rect = spider.getBoundingClientRect();
 		const cx = rect.left + rect.width * 0.5;
 		const cy = rect.top + rect.height * 0.5;
@@ -416,6 +538,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	function triggerPeek() {
 		if (!userInteracted) {
 			return; // hard gate: do not peek before interaction
+		}
+		if (jailActive) {
+			schedulePeek();
+			return;
 		}
 		// Only peek when idle
 		if (dragging || followActive || rushActive || summonActive || scale > 1.25) {
@@ -490,7 +616,14 @@ document.addEventListener('DOMContentLoaded', () => {
 		posY += (targetY - posY) * params.damping;
 
 		// Scurry anchor motion based on interactive states
-		if (rushActive || summonActive || followActive || peekActive || settleActive) {
+		if (
+			rushActive ||
+			summonActive ||
+			followActive ||
+			peekActive ||
+			settleActive ||
+			jailActive
+		) {
 			const rect = spider.getBoundingClientRect();
 			const halfW = rect.width * 0.5;
 			const halfH = rect.height * 0.5;
@@ -505,7 +638,20 @@ document.addEventListener('DOMContentLoaded', () => {
 			const nowMs = performance.now();
 			const cX = rect.left + halfW;
 			const cY = rect.top + halfH;
-			if (rushActive) {
+			if (jailActive && !dragging) {
+				const r = getJailRect();
+				const baseX = jailedCenterX || r.cx;
+				const baseY = jailedCenterY || r.cy;
+				const wiggleX = posX * 0.6;
+				const wiggleY = posY * 0.6;
+				const desiredX = baseX + wiggleX;
+				const desiredY = baseY + wiggleY;
+				const clamped = clampToJail(desiredX, desiredY, halfW, halfH);
+				centerTargetX = clamped.x;
+				centerTargetY = clamped.y;
+				k = SPIDER_TUNE.settle.scurry_k;
+				damping = SPIDER_TUNE.settle.scurry_damping;
+			} else if (rushActive) {
 				// Approach food with a randomized side offset informed by facing direction
 				if (!rushOffsetSet) {
 					const dx0 = crumbX - cX;
@@ -661,10 +807,25 @@ document.addEventListener('DOMContentLoaded', () => {
 					dirX = cX - pointerX;
 					dirY = cY - pointerY;
 				}
-				const len = Math.hypot(dirX, dirY) || 1;
+				let len = Math.hypot(dirX, dirY);
+				// Touch edge case: when the finger is centered on the spider,
+				// the away vector can be zero. Fall back to a rotating unit
+				// vector to establish a proper orbit around the finger.
+				if (len < 1e-3) {
+					dirX = Math.cos(t);
+					dirY = Math.sin(t);
+					len = 1;
+				}
 				dirX /= len;
 				dirY /= len;
 				const still = sinceMove > SPIDER_TUNE.follow.orbit_shrink_ms;
+				// When the pointer is still, switch to a rotating direction
+				// so the spider actively orbits around the finger instead of
+				// parking in a fixed offset.
+				if (still) {
+					dirX = Math.cos(t);
+					dirY = Math.sin(t);
+				}
 				const swirlFactor = still
 					? SPIDER_TUNE.follow.swirl_when_still_factor
 					: SPIDER_TUNE.follow.swirl_factor;
@@ -772,7 +933,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (
 			prevCenterX != null &&
 			prevCenterY != null &&
-			(followActive || rushActive || summonActive || peekActive)
+			(followActive || rushActive || summonActive || peekActive || jailActive)
 		) {
 			mvX = centerX - prevCenterX;
 			mvY = centerY - prevCenterY;
@@ -786,7 +947,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		const headingOffset = -90;
 		const angleWithWalk = angleTarget + headingOffset + walkOsc;
 		rot += (angleWithWalk - rot) * params.rotDamping;
-		const anchorDriven = followActive || rushActive || summonActive || peekActive;
+		const anchorDriven = followActive || rushActive || summonActive || peekActive || jailActive;
 		const transformX = anchorDriven ? 0 : Math.round(posX);
 		const transformY = anchorDriven ? 0 : Math.round(posY);
 		spider.style.transform = `translate(${transformX}px, ${transformY}px)`;
@@ -834,50 +995,28 @@ document.addEventListener('DOMContentLoaded', () => {
 		}, SPIDER_TUNE.decay.interval_ms);
 	};
 
-	const grow = () => {
-		if (!spider.classList.contains('active')) {
-			spider.classList.add('active');
-			// First activation: start larger
-			scale = 2.0;
-			clickCount = 0;
-		} else {
-			// Subsequent taps: grow steadily
-			scale += 0.25;
-			clickCount += 1;
-		}
-		apply();
-
-		// Show message on tap/click; will be hidden on actual drag movement
-		spider.classList.add('message-visible');
-		if (messageTimer) clearTimeout(messageTimer);
-		messageTimer = setTimeout(() => {
-			spider.classList.remove('message-visible');
-		}, SPIDER_TUNE.decay.delay_ms);
-
-		// Reset and schedule decay after message phase
-		stopDecay();
-		if (!decayPaused) {
-			decayTimeout = setTimeout(startDecay, SPIDER_TUNE.decay.delay_ms);
-		}
-	};
-
 	// Feed-based growth: increase size when a crumb is eaten.
 	// The bigger the crumb, the more growth is applied.
 	const growFromCrumbSize = (crumbW) => {
+		// Pull tuning constants
+		const feedTune = SPIDER_TUNE.growth?.feed || {};
+		const minW = Number(feedTune.crumb_min_px ?? 4);
+		const maxW = Number(feedTune.crumb_max_px ?? 24);
+		const deltaMin = Number(feedTune.delta_min ?? 0.18);
+		const deltaMax = Number(feedTune.delta_max ?? 0.5);
+		const firstScale = Number(feedTune.first_activation_scale ?? 1.8);
 		// Normalize crumb width to expected range
-		const w = Math.max(4, Math.min(24, Number(crumbW) || 8));
+		const wRaw = Number(crumbW) || minW;
+		const w = Math.max(minW, Math.min(maxW, wRaw));
+		const range = Math.max(1, maxW - minW);
+		const factor = (w - minW) / range; // 0..1
+		const delta = +(deltaMin + (deltaMax - deltaMin) * factor).toFixed(3);
 		// Activate if not yet active
 		if (!spider.classList.contains('active')) {
 			spider.classList.add('active');
-			// Start slightly larger on first feed
-			scale = 1.6;
-			clickCount = 0;
+			scale = firstScale; // first-ever feed scale per tuning
 		} else {
-			// Map width to growth delta: 4–24px => ~0.10–0.50
-			const factor = (w - 4) / 20; // 0..1
-			const delta = 0.1 + 0.4 * factor;
 			scale = +(scale + delta).toFixed(3);
-			clickCount += 1;
 		}
 		apply();
 		// Reset and schedule decay after feed
@@ -903,6 +1042,10 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (boopActive) return;
 		if (SPIDER_TUNE.boop && SPIDER_TUNE.boop.enabled === false) return;
 		boopActive = true;
+		boopTransitionDisabled = false;
+		try {
+			if (svgEl) boopSvgTransitionOrig = window.getComputedStyle(svgEl).transition || '';
+		} catch {}
 		const baseScale = scale;
 		const startTs = performance.now();
 		const expandMs = SPIDER_TUNE.boop?.expand_ms ?? 110;
@@ -939,6 +1082,11 @@ document.addEventListener('DOMContentLoaded', () => {
 				apply();
 				boopRAF = requestAnimationFrame(step);
 			} else if (t <= totalBounceMs + wiggleMs) {
+				// Disable transform transition during wiggle to make it crisp
+				if (svgEl && !boopTransitionDisabled) {
+					svgEl.style.transition = 'transform 0ms';
+					boopTransitionDisabled = true;
+				}
 				const tw = t - totalBounceMs;
 				const p = tw / wiggleMs;
 				const wigAmp = wigAmpDeg * (1 - p);
@@ -951,6 +1099,10 @@ document.addEventListener('DOMContentLoaded', () => {
 				scale = Math.max(baseScale, scale);
 				apply();
 				if (svgEl) svgEl.style.setProperty('--spider-rot-wiggle', '0deg');
+				// Restore original transition after wiggle
+				try {
+					if (svgEl) svgEl.style.transition = '';
+				} catch {}
 				boopActive = false;
 			}
 		};
@@ -993,7 +1145,10 @@ document.addEventListener('DOMContentLoaded', () => {
 			fingerRadiusPx = SPIDER_TUNE.fingers.touch_px;
 			crumbX = ev.clientX;
 			crumbY = ev.clientY;
-			createCrumbAt(crumbX, crumbY);
+			// Create and track this crumb so post-nibble logic can remove it
+			const el = createCrumbAt(crumbX, crumbY);
+			crumbEl = el;
+			crumbs.push({ x: crumbX, y: crumbY, el });
 			rushActive = true;
 			followActive = false;
 			dragging = false;
@@ -1018,6 +1173,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		velRight = 0;
 		velBottom = 0;
 		followActive = false; // enable on move
+		blockPageScroll();
 		decayPaused = true;
 		stopDecay();
 		try {
@@ -1028,12 +1184,42 @@ document.addEventListener('DOMContentLoaded', () => {
 	});
 
 	spider.addEventListener('pointermove', (ev) => {
+		// Always update pointer coordinates; only treat as movement if beyond deadzone
+		const nowMove = performance.now();
+		if (nowMove < suppressFollowUntil && !dragging) {
+			pointerPrevX = pointerX;
+			pointerPrevY = pointerY;
+			pointerX = ev.clientX;
+			pointerY = ev.clientY;
+			pointerVelX = 0;
+			pointerVelY = 0;
+			return;
+		}
+		const dx = ev.clientX - pointerX;
+		const dy = ev.clientY - pointerY;
+		const moveMag = Math.hypot(dx, dy);
+		const deadzone = SPIDER_TUNE.follow?.move_deadzone_px ?? 3.0;
+		pointerPrevX = pointerX;
+		pointerPrevY = pointerY;
+		pointerX = ev.clientX;
+		pointerY = ev.clientY;
+		if (moveMag >= deadzone) {
+			pointerVelX = dx;
+			pointerVelY = dy;
+			lastPointerMoveTS = nowMove;
+		} else {
+			// micro jitter: treat as still
+			pointerVelX = 0;
+			pointerVelY = 0;
+		}
+		followActive = true;
+
 		if (!dragging) {
 			if (!dragCandidate) return;
 			const dist = Math.hypot(ev.clientX - pressStartX, ev.clientY - pressStartY);
 			const threshold = SPIDER_TUNE.drag?.start_threshold_px ?? 8;
 			if (dist < threshold) {
-				// still holding, keep boop hold active
+				// still holding, keep boop hold active; do not start drag
 				return;
 			}
 			// start dragging after surpassing threshold
@@ -1043,6 +1229,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			spider.classList.add('dragging');
 			boopHoldEnd();
 			showTrail();
+			showJailOverlay();
 			// Hide the message upon starting drag
 			if (spider.classList.contains('message-visible')) {
 				if (messageTimer) clearTimeout(messageTimer);
@@ -1050,17 +1237,6 @@ document.addEventListener('DOMContentLoaded', () => {
 				spider.classList.remove('message-visible');
 			}
 		}
-		const nowMove = performance.now();
-		const dx = ev.clientX - pointerX;
-		const dy = ev.clientY - pointerY;
-		pointerPrevX = pointerX;
-		pointerPrevY = pointerY;
-		pointerX = ev.clientX;
-		pointerY = ev.clientY;
-		pointerVelX = dx;
-		pointerVelY = dy;
-		followActive = true;
-		lastPointerMoveTS = nowMove;
 
 		// Hide the message while dragging (redundant safety)
 		if (dragging && spider.classList.contains('message-visible')) {
@@ -1098,18 +1274,40 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 		pointerVelX = 0;
 		pointerVelY = 0;
-		// scurry to home (CSS anchor) after release
 		const rect = spider.getBoundingClientRect();
 		const halfW = rect.width * 0.5;
 		const halfH = rect.height * 0.5;
-		const vw = window.innerWidth || document.documentElement.clientWidth || rect.right + halfW;
-		const vh =
-			window.innerHeight || document.documentElement.clientHeight || rect.bottom + halfH;
-		const insetStr = getComputedStyle(spider).getPropertyValue('--spider-inset') || '0px';
-		const insetPx = parseFloat(insetStr) || 0;
-		settleTargetX = vw - insetPx - halfW;
-		settleTargetY = vh - insetPx - halfH;
-		settleActive = true;
+		const centerX = rect.left + halfW;
+		const centerY = rect.top + halfH;
+		const jr = getJailRect();
+		if (
+			centerX >= jr.left &&
+			centerX <= jr.right &&
+			centerY >= jr.top &&
+			centerY <= jr.bottom
+		) {
+			const clamped = clampToJail(centerX, centerY, halfW, halfH);
+			jailedCenterX = clamped.x;
+			jailedCenterY = clamped.y;
+			jailActive = true;
+			settleTargetX = jailedCenterX;
+			settleTargetY = jailedCenterY;
+			settleActive = true;
+			showJailOverlay();
+		} else {
+			const vw =
+				window.innerWidth || document.documentElement.clientWidth || rect.right + halfW;
+			const vh =
+				window.innerHeight || document.documentElement.clientHeight || rect.bottom + halfH;
+			const insetStr = getComputedStyle(spider).getPropertyValue('--spider-inset') || '0px';
+			const insetPx = parseFloat(insetStr) || 0;
+			settleTargetX = vw - insetPx - halfW;
+			settleTargetY = vh - insetPx - halfH;
+			settleActive = true;
+			jailActive = false;
+			hideJailOverlay();
+			suppressFollowUntil = performance.now() + 900;
+		}
 		velRight = 0;
 		velBottom = 0;
 		followHoldUntil = 0;
@@ -1140,18 +1338,40 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 		pointerVelX = 0;
 		pointerVelY = 0;
-		// scurry to home if interaction cancels
 		const rect = spider.getBoundingClientRect();
 		const halfW = rect.width * 0.5;
 		const halfH = rect.height * 0.5;
-		const vw = window.innerWidth || document.documentElement.clientWidth || rect.right + halfW;
-		const vh =
-			window.innerHeight || document.documentElement.clientHeight || rect.bottom + halfH;
-		const insetStr = getComputedStyle(spider).getPropertyValue('--spider-inset') || '0px';
-		const insetPx = parseFloat(insetStr) || 0;
-		settleTargetX = vw - insetPx - halfW;
-		settleTargetY = vh - insetPx - halfH;
-		settleActive = true;
+		const centerX = rect.left + halfW;
+		const centerY = rect.top + halfH;
+		const jr = getJailRect();
+		if (
+			centerX >= jr.left &&
+			centerX <= jr.right &&
+			centerY >= jr.top &&
+			centerY <= jr.bottom
+		) {
+			const clamped = clampToJail(centerX, centerY, halfW, halfH);
+			jailedCenterX = clamped.x;
+			jailedCenterY = clamped.y;
+			jailActive = true;
+			settleTargetX = jailedCenterX;
+			settleTargetY = jailedCenterY;
+			settleActive = true;
+			showJailOverlay();
+		} else {
+			const vw =
+				window.innerWidth || document.documentElement.clientWidth || rect.right + halfW;
+			const vh =
+				window.innerHeight || document.documentElement.clientHeight || rect.bottom + halfH;
+			const insetStr = getComputedStyle(spider).getPropertyValue('--spider-inset') || '0px';
+			const insetPx = parseFloat(insetStr) || 0;
+			settleTargetX = vw - insetPx - halfW;
+			settleTargetY = vh - insetPx - halfH;
+			settleActive = true;
+			jailActive = false;
+			hideJailOverlay();
+			suppressFollowUntil = performance.now() + 900;
+		}
 		velRight = 0;
 		velBottom = 0;
 		followHoldUntil = 0;
@@ -1174,6 +1394,19 @@ document.addEventListener('DOMContentLoaded', () => {
 	document.addEventListener('dblclick', (ev) => {
 		if (!spider || spiderHidden) return;
 		if (spider.contains(ev.target)) return;
+
+		// Don't trigger spider if an input element is focused
+		const activeElement = document.activeElement;
+		if (
+			activeElement &&
+			(activeElement.tagName === 'INPUT' ||
+				activeElement.tagName === 'SELECT' ||
+				activeElement.tagName === 'TEXTAREA' ||
+				activeElement.contentEditable === 'true')
+		) {
+			return;
+		}
+
 		const x = ev.clientX;
 		const y = ev.clientY;
 		const el = createCrumbAt(x, y);
@@ -1195,6 +1428,14 @@ document.addEventListener('DOMContentLoaded', () => {
 	});
 
 	window.addEventListener('resize', resizeTrailCanvas);
+	window.addEventListener('resize', updateJailOverlay);
+
+	if (window.visualViewport) {
+		window.visualViewport.addEventListener('resize', resizeTrailCanvas);
+		window.visualViewport.addEventListener('scroll', resizeTrailCanvas);
+		window.visualViewport.addEventListener('resize', updateJailOverlay);
+		window.visualViewport.addEventListener('scroll', updateJailOverlay);
+	}
 
 	// Start scuttle (deferred until stored visibility resolves)
 	function startSpiderLoops() {
@@ -1215,10 +1456,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	const storageLocal = storageApi ? storageApi.local : null;
 	// Fallback default independent of options.js load order
 	const defaultHideSpider =
-		typeof defaultSettings !== 'undefined' &&
-		defaultSettings &&
-		typeof defaultSettings.hideEasterEggSpider !== 'undefined'
-			? !!defaultSettings.hideEasterEggSpider
+		typeof window.userSettings !== 'undefined' &&
+		window.userSettings &&
+		typeof window.userSettings.hideEasterEggSpider !== 'undefined'
+			? !!window.userSettings.hideEasterEggSpider
 			: false;
 	if (storageLocal && typeof storageLocal.get === 'function' && storageLocal.get.length === 1) {
 		storageLocal

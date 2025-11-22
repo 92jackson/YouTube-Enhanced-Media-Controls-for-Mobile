@@ -2,6 +2,55 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2025-11-21
+
+### Added
+
+#### **Enhanced Playlist**
+
+-   **Horizontal Playlist** - New horizontal layout option with scrollable thumbnails (disables swipe gestures in playlist area when active)
+-   **Limited Height Mode** - Auto-switches to compact layout when viewport height is below threshold (landscape/splitscreen mode)
+    -- Combines Horizontal Playlist with Compact bottom controls
+
+#### **Content Filtering & Customization**
+
+-   **Homepage Content Filtering** - Hide unwanted sections:
+    -- "Shorts" section removal
+    -- "YouTube Playable" section removal
+-   **Christmas Music Filter** - Smart filtering options:
+    -- Date-based filtering
+    -- Always-on filtering mode
+
+#### **Enhanced Options Page**
+
+-   **Search Functionality** - Quick-find settings with instant results
+-   **Navigation Improvements**:
+    -- Jump-to-section menu for faster navigation
+    -- Collapse-all-sections button for cleaner view
+    -- New options badge to highlight recent additions
+
+#### **Development Tools**
+
+-   **Build Script** - Automated PowerShell build system:
+    -- Creates Chrome and Firefox .zip packages
+    -- Generates .crx files for Edge testing
+
+#### **Other**
+
+-   **Fxed Video Height** - Option to fix video height to 30% of viewport height (prevents video element changing height per video, disabled by default)
+-   **Hide Player for Active Panels** - Option to hide the player controls when active engagement panels (comments, video details) are open
+-   **Update Notification** - New notification to inform users of extension updates (excludes patch updates)
+
+### Changes
+
+-   Minor improvements to the music title parser
+-   Replaced play-next indicator icon with one more relevant
+-   Other fixes and improvements
+
+### Deleted
+
+-   **.me Manifest merged with Chrome Manifest** - The Chrome manifest is now used for both Chrome and Edge.
+
 ## [1.2.5] - 2025-11-12
 
 ### Changes
@@ -46,22 +95,22 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 -   **Favourites Dialog Sorting** - New options for sorting favourites in the dialog:
-    -   Newest First
-    -   Oldest First
-    -   A-Z
-    -   Z-A
-    -   Type (Playlists first, then Videos)
+    -- Newest First
+    -- Oldest First
+    -- A-Z
+    -- Z-A
+    -- Type (Playlists first, then Videos)
 -   **Favourites Dialog Filter** - New option for filtering favourites in the dialog:
-    -   All (Show all favourites)
-    -   Mixes (Show only saved mixes)
-    -   Playlists (Show only saved playlists)
-    -   Videos (Show only saved videos)
+    -- All (Show all favourites)
+    -- Mixes (Show only saved mixes)
+    -- Playlists (Show only saved playlists)
+    -- Videos (Show only saved videos)
 
 ### Fixed
 
 -   **YouTube Comment Section**
-    -   Fixed issue were trying to open the comments section would trigger the playlist area to generate.
-    -   Improved positioning based on the size of the custom player controls.
+    -- Fixed issue were trying to open the comments section would trigger the playlist area to generate.
+    -- Improved positioning based on the size of the custom player controls.
 -   **Playlist Repopulation** - Fixed issue where the playlist would not be repopulated when changing settings.
 
 ### Changes
@@ -80,8 +129,8 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 -   **Playback with Video Hidden**
-    -   Fixed bug where a few seconds of the last video would play at the start of a new video when Hide Video Player option was used.
-    -   Fixed bug which would trigger the Buffer Detection at the start of the video playback when Hide Video Player option was used.
+    -- Fixed bug where a few seconds of the last video would play at the start of a new video when Hide Video Player option was used.
+    -- Fixed bug which would trigger the Buffer Detection at the start of the video playback when Hide Video Player option was used.
 -   **Show Favourite Mixes gesture** - The Favourite Mixes popup can now be shown via a settable gesture.
 
 ### Changed
@@ -95,16 +144,16 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 -   **Favourite Mixes** - New feature to save and manage favourite YouTube mixes/playlists
-    -   Added favourites button to navbar for quick access
-    -   Modal dialog to view, add, and remove favourite mixes
-    -   Gesture support for toggling favourites dialog
+    -- Added favourites button to navbar for quick access
+    -- Modal dialog to view, add, and remove favourite mixes
+    -- Gesture support for toggling favourites dialog
 -   **Hide Video Player** - New option to completely hide the video player area to maximize space for metadata, comments, and suggested videos
-    -   Ideal for audio-only content consumption
-    -   Optional navbar toggle button for quick video visibility switching (disabled by default)
+    -- Ideal for audio-only content consumption
+    -- Optional navbar toggle button for quick video visibility switching (disabled by default)
 -   **Buffer Detection Feedback** - Added visual countdown indicator for buffer auto-pause feature
-    -   Displays countdown timer next to play button when auto-pause is triggered
+    -- Displays countdown timer next to play button when auto-pause is triggered
 -   **Debug Logging for Mobile** - Enhanced debugging capabilities for mobile browsers
-    -   New debug button in navbar (visible only when debugging enabled) to download logs, most recent 500 entries
+    -- New debug button in navbar (visible only when debugging enabled) to download logs, most recent 500 entries
 
 ### Fixed
 

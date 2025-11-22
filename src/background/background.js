@@ -35,6 +35,20 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 // Listen for messages from content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+	if (message.action === 'openOptionsPage') {
+		// Open the extension options page
+		chrome.runtime.openOptionsPage((result) => {
+			if (chrome.runtime.lastError) {
+				console.error('[YT-EMC] Failed to open options page:', chrome.runtime.lastError);
+				sendResponse({ success: false, error: chrome.runtime.lastError.message });
+			} else {
+				console.log('[YT-EMC] Options page opened successfully');
+				sendResponse({ success: true });
+			}
+		});
+		return true; // Indicate we will send a response asynchronously
+	}
+	
 	if (message.action === 'downloadLogs') {
 		try {
 			// Detect browser type and use appropriate method

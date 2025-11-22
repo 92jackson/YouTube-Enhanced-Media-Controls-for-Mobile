@@ -6,8 +6,17 @@
  *              upon successful loading.
  */
 window.userSettings = {
+	lastKnownVersion: '0.0.0',
+	showUpdateNotifications: true,
 	enableCustomPlayer: true,
 	defaultPlayerLayout: 'normal',
+	enableLimitedHeightMode: true,
+	hideNavbarInLimitedHeightMode: false,
+	enableHorizontalPlaylistBelowVideo: false,
+	horizontalPlaylistDetailsInHeaderControls: false,
+	enableFixedVideoHeight: false,
+	autoHidePlayerOnScroll: false,
+	hidePlayerForPanelActive: false,
 	customPlaylistMode: 'below-video',
 	returnToDefaultModeOnVideoSelect: false,
 	autoClickContinueWatching: true,
@@ -29,6 +38,7 @@ window.userSettings = {
 	playlistItemDensity: 'comfortable',
 	allowMultilinePlaylistTitles: false,
 	keepPlaylistFocused: false,
+	playlistScrollDebounceDelay: 2.5,
 	playlistColorMode: 'theme',
 	enableGestures: true,
 	gestureSingleSwipeLeftAction: 'previousVideoOnly',
@@ -68,6 +78,14 @@ window.userSettings = {
 	bufferDetectionThreshold: 3,
 	bufferDetectionEventCount: 2,
 	bufferDetectionPauseDuration: 5,
+	bufferDetectionMinDuration: 1,
+	hideEasterEggSpider: false,
+	hideShorts: false,
+	hidePlayables: true,
+	christmasMusicFilter: 'disabled', // 'disabled', 'always', 'dates'
+	christmasStartDate: '01/12',
+	christmasEndDate: '01/01',
+	christmasBypassOnPlaylistTitle: true,
 };
 
 /**
@@ -78,7 +96,9 @@ window.storageApi = typeof browser !== 'undefined' ? browser.storage : chrome.st
 
 window.loadUserSettings = async function () {
 	const storageLocal = window.storageApi?.local;
-	logger.log('Settings', 'Loading user settings. Storage API:', storageLocal);
+	if (window.logger) {
+		logger.log('Settings', 'Loading user settings. Storage API:', storageLocal);
+	}
 
 	if (storageLocal) {
 		try {
@@ -92,14 +112,20 @@ window.loadUserSettings = async function () {
 				);
 			}
 			window.userSettings = Object.assign({}, window.userSettings, items);
-			logger.log('Settings', 'User settings loaded from storage', window.userSettings);
+			if (window.logger) {
+				logger.log('Settings', 'User settings loaded from storage', window.userSettings);
+			}
 		} catch (err) {
-			logger.error('Settings', 'Failed to load user settings', err);
+			if (window.logger) {
+				logger.error('Settings', 'Failed to load user settings', err);
+			}
 		}
 		return;
 	}
 
-	logger.warn('Settings', 'Storage API not available, using default settings', true);
+	if (window.logger) {
+		logger.warn('Settings', 'Storage API not available, using default settings', true);
+	}
 };
 
 /**
@@ -110,10 +136,14 @@ window.loadUserSettings = async function () {
  */
 window.saveUserSetting = async function (key, value) {
 	const storageLocal = window.storageApi?.local;
-	logger.log('Settings', `Saving user setting: ${key} = ${value}`);
+	if (window.logger) {
+		logger.log('Settings', `Saving user setting: ${key} = ${value}`);
+	}
 
 	if (!storageLocal) {
-		logger.warn('Settings', 'Storage API not available, cannot save setting', true);
+		if (window.logger) {
+			logger.warn('Settings', 'Storage API not available, cannot save setting', true);
+		}
 		return false;
 	}
 
@@ -139,10 +169,14 @@ window.saveUserSetting = async function (key, value) {
 			});
 		}
 
-		logger.log('Settings', `Successfully saved setting: ${key}`);
+		if (window.logger) {
+			logger.log('Settings', `Successfully saved setting: ${key}`);
+		}
 		return true;
 	} catch (err) {
-		logger.error('Settings', `Failed to save setting ${key}:`, err);
+		if (window.logger) {
+			logger.error('Settings', `Failed to save setting ${key}:`, err);
+		}
 		return false;
 	}
 };

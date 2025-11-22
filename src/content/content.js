@@ -81,6 +81,11 @@ const CSS_SELECTORS = {
 
 	pageContainerInert: '.page-container[inert]',
 	chipCloudRenderer: 'ytm-related-chip-cloud-renderer',
+
+	// Content filtering
+	contentSection: 'ytm-rich-section-renderer',
+	shortsTitle: 'h2.yt-shelf-header-layout__title',
+	playableTitle: 'h2.rich-shelf-title',
 };
 
 /** @const {Object} Map of color names to their respective primary and secondary colors */
@@ -148,24 +153,28 @@ let gettingLateVideoDetails = false;
 let observedVideoElement = null;
 
 // --- Buffer Detection Auto-Pause Variables ---
-	/** @type {number|null} Timestamp of the last buffering event for rapid detection */
-	let lastBufferingTimestamp = null;
-	/** @type {string|null} Video ID associated with the last buffer event */
-	let lastBufferVideoId = null;
-	/** @type {number[]} Timestamps of buffer events within the current detection window */
-	let bufferEventTimestamps = [];
-	/** @type {number|null} Timeout ID for the auto-pause resume functionality */
-	let bufferAutoPauseTimeout = null;
-	/** @type {boolean} Flag to track if auto-pause is currently active */
-	let isBufferAutoPauseActive = false;
-	/** @type {number|null} Timestamp of the last user seek operation */
-	let lastSeekTimestamp = null;
-	/** @type {number|null} Timestamp of the last play event */
-	let lastPlayTimestamp = null;
-	/** @type {boolean} Whether the player has played since the last buffer event */
-	let hasPlayedSinceLastBuffer = false;
-	/** @type {number} Grace period after seek to ignore buffer events (in milliseconds) */
-	const SEEK_BUFFER_GRACE_PERIOD = 2000; // 2 seconds
+/** @type {number|null} Timestamp of the last buffering event for rapid detection */
+let lastBufferingTimestamp = null;
+/** @type {string|null} Video ID associated with the last buffer event */
+let lastBufferVideoId = null;
+/** @type {number|null} Video playback time (in seconds) at the last buffer event */
+let lastBufferVideoTime = null;
+/** @type {number[]} Timestamps of buffer events within the current detection window */
+let bufferEventTimestamps = [];
+/** @type {number|null} Timestamp when the current buffer event started */
+let currentBufferStartTime = null;
+/** @type {number|null} Timeout ID for the auto-pause resume functionality */
+let bufferAutoPauseTimeout = null;
+/** @type {boolean} Flag to track if auto-pause is currently active */
+let isBufferAutoPauseActive = false;
+/** @type {number|null} Timestamp of the last user seek operation */
+let lastSeekTimestamp = null;
+/** @type {number|null} Timestamp of the last play event */
+let lastPlayTimestamp = null;
+/** @type {boolean} Whether the player has played since the last buffer event */
+let hasPlayedSinceLastBuffer = false;
+/** @type {number} Grace period after seek to ignore buffer events (in milliseconds) */
+const SEEK_BUFFER_GRACE_PERIOD = 2000; // 2 seconds
 
 // --- Utility Classes & Helper Functions ---
 
@@ -173,145 +182,197 @@ let observedVideoElement = null;
  * Handles experimental buffer detection and auto-pause functionality
  * @param {HTMLVideoElement} videoElement - The video element
  */
-	async function handleBufferDetectionAutoPause(videoElement) {
-		// Only proceed if experimental buffer detection is enabled
-		if (!window.userSettings.rapidBufferDetection) {
-			return;
-		}
+async function handleBufferDetectionAutoPause(videoElement) {
+	// Only proceed if experimental buffer detection is enabled
+	if (!window.userSettings.rapidBufferDetection) {
+		return;
+	}
 
-		const currentTime = Date.now();
-		const bufferThreshold = (window.userSettings.bufferDetectionThreshold || 3) * 1000;
-		const requiredBufferEvents = Math.min(
-			3,
-			Math.max(1, parseInt(window.userSettings.bufferDetectionEventCount ?? 2))
-		);
-		const currentVideoIdNow = PageUtils.getCurrentVideoIdFromUrl() || null;
+	const currentTime = Date.now();
+	const minBufferDuration = (window.userSettings.bufferDetectionMinDuration || 0.5) * 1000;
 
+	// Calculate how long the current buffer event has been running
+	let currentBufferDuration = 0;
+
+	// If this is a new buffer event (no start time recorded), record the start time
+	if (currentBufferStartTime === null) {
+		currentBufferStartTime = currentTime;
 		logger.log(
 			'BufferDetection',
-			`Buffer event received. videoId=${currentVideoIdNow}, lastVideoId=${lastBufferVideoId}, required=${requiredBufferEvents}, thresholdMs=${bufferThreshold}`
+			`Buffer event started at ${currentTime}, minimum duration: ${minBufferDuration}ms`
 		);
+	} else {
+		// Calculate duration for ongoing buffer event
+		currentBufferDuration = currentTime - currentBufferStartTime;
+	}
 
-		// Check if we're within the grace period after a user seek
-		if (lastSeekTimestamp && currentTime - lastSeekTimestamp < SEEK_BUFFER_GRACE_PERIOD) {
-			logger.log(
-				'BufferDetection',
-				`Ignoring buffer event - within ${SEEK_BUFFER_GRACE_PERIOD}ms grace period after seek`
-			);
-			// Update timestamp but don't trigger auto-pause
-			lastBufferingTimestamp = currentTime;
-			// Do not count this buffer event in the window
-			// Keep window timestamps unchanged
-			hasPlayedSinceLastBuffer = false; // Reset legacy tracking on new buffer event
-			return;
-		}
-
-		// If video changed since the last buffer event, ignore carryover
-		if (lastBufferVideoId && currentVideoIdNow && currentVideoIdNow !== lastBufferVideoId) {
-			logger.log(
-				'BufferDetection',
-				`Ignoring buffer event - video changed from ${lastBufferVideoId} to ${currentVideoIdNow} (carryover prevented)`
-			);
-			// Reset baseline without counting this event
-			lastBufferingTimestamp = currentTime;
-			lastBufferVideoId = currentVideoIdNow;
-			bufferEventTimestamps = [];
-			return;
-		}
-
-		// Maintain window of buffer events and prune old entries
-		bufferEventTimestamps = bufferEventTimestamps.filter(
-			(ts) => currentTime - ts <= bufferThreshold
-		);
-		bufferEventTimestamps.push(currentTime);
-
-		const windowStart = bufferEventTimestamps[0];
-		const playedSinceWindowStart =
-			!!lastPlayTimestamp && !!windowStart && lastPlayTimestamp >= windowStart;
-
+	// If the buffer event hasn't met the minimum duration, ignore it
+	if (currentBufferDuration < minBufferDuration) {
 		logger.log(
 			'BufferDetection',
-			`Window count=${bufferEventTimestamps.length}, playedSinceWindowStart=${playedSinceWindowStart}`
+			`Ignoring buffer event - duration ${currentBufferDuration}ms is less than minimum ${minBufferDuration}ms`
 		);
+		return;
+	}
 
-		if (
-			bufferEventTimestamps.length >= requiredBufferEvents
-		) {
-			// Only trigger auto-pause if the player has played since the detection window started
-			if (!playedSinceWindowStart) {
-				logger.log(
-					'BufferDetection',
-					'Ignoring buffer event - no play event occurred since window start (likely new video load)'
-				);
-				lastBufferingTimestamp = currentTime;
-				lastBufferVideoId = currentVideoIdNow;
-				return;
-			}
+	// Buffer event has met minimum duration, proceed with normal processing
+	logger.log(
+		'BufferDetection',
+		`Buffer event qualified - duration: ${currentBufferDuration}ms >= minimum: ${minBufferDuration}ms`
+	);
 
-			// Rapid buffering detected after playing - trigger auto-pause
-			if (!isBufferAutoPauseActive && !videoElement.paused) {
-				isBufferAutoPauseActive = true;
-				const pauseDuration = (window.userSettings.bufferDetectionPauseDuration || 5) * 1000;
+	// If current video time is less than the last recorded buffer video time, assume a rewind and ignore.
+	if (lastBufferVideoTime !== null && videoElement.currentTime < lastBufferVideoTime) {
+		logger.log(
+			'BufferDetection',
+			`Ignoring buffer event - video rewound. Current time: ${videoElement.currentTime}, Last buffer time: ${lastBufferVideoTime}`
+		);
+		lastBufferingTimestamp = Date.now(); // Update timestamp to prevent immediate re-trigger
+		lastBufferVideoId = currentVideoId;
+		lastBufferVideoTime = videoElement.currentTime;
+		bufferEventTimestamps = [];
+		currentBufferStartTime = null; // Reset buffer start time
+		return;
+	}
 
-				logger.log(
-					'BufferDetection',
-					`Buffering threshold hit (${requiredBufferEvents} events). Auto-pausing for ${
-						pauseDuration / 1000
-					}s`
-				);
+	const bufferThreshold = (window.userSettings.bufferDetectionThreshold || 3) * 1000;
+	const requiredBufferEvents = Math.min(
+		3,
+		Math.max(1, parseInt(window.userSettings.bufferDetectionEventCount ?? 2))
+	);
+	const currentVideoIdNow = currentVideoId;
 
-				// Start countdown in custom player if available
-				if (ytPlayerInstance && ytPlayerInstance.startBufferCountdown) {
-					ytPlayerInstance.startBufferCountdown(Math.ceil(pauseDuration / 1000));
-				}
+	logger.log(
+		'BufferDetection',
+		`Buffer event received. videoId=${currentVideoIdNow}, lastVideoId=${lastBufferVideoId}, required=${requiredBufferEvents}, thresholdMs=${bufferThreshold}`
+	);
 
-				// Pause the video using native method
-				await native_handlePlayPause(window.PlayState.PAUSED, true);
+	// Check if we're within the grace period after a user seek
+	if (lastSeekTimestamp && currentTime - lastSeekTimestamp < SEEK_BUFFER_GRACE_PERIOD) {
+		logger.log(
+			'BufferDetection',
+			`Ignoring buffer event - within ${SEEK_BUFFER_GRACE_PERIOD}ms grace period after seek`
+		);
+		// Update timestamp but don't trigger auto-pause
+		lastBufferingTimestamp = currentTime;
+		// Do not count this buffer event in the window
+		// Keep window timestamps unchanged
+		hasPlayedSinceLastBuffer = false; // Reset legacy tracking on new buffer event
+		currentBufferStartTime = null; // Reset buffer start time
+		return;
+	}
 
-				// Set timeout to resume playback
-				bufferAutoPauseTimeout = setTimeout(async () => {
-					if (isBufferAutoPauseActive && videoElement.paused) {
-						logger.log('BufferDetection', 'Resuming playback after auto-pause');
-						try {
-							await native_handlePlayPause(window.PlayState.PLAYING, true);
-						} catch (err) {
-							logger.warn('BufferDetection', 'Failed to resume playback:', err);
-						}
-					}
-
-					cleanupBufferDetectionAutoPause();
-				}, pauseDuration);
-			}
-		}
-
-		// Update the last buffering timestamp and reset play tracking
+	// If video changed since the last buffer event, ignore carryover
+	if (lastBufferVideoId && currentVideoIdNow && currentVideoIdNow !== lastBufferVideoId) {
+		logger.log(
+			'BufferDetection',
+			`Ignoring buffer event - video changed from ${lastBufferVideoId} to ${currentVideoIdNow} (carryover prevented)`
+		);
+		// Reset baseline without counting this event
 		lastBufferingTimestamp = currentTime;
 		lastBufferVideoId = currentVideoIdNow;
-		hasPlayedSinceLastBuffer = false;
+		bufferEventTimestamps = [];
+		currentBufferStartTime = null; // Reset buffer start time
+		return;
 	}
+
+	// Update lastBufferVideoTime with the current video time
+	lastBufferVideoTime = videoElement.currentTime;
+
+	// Maintain window of buffer events and prune old entries
+	bufferEventTimestamps = bufferEventTimestamps.filter(
+		(ts) => currentTime - ts <= bufferThreshold
+	);
+	bufferEventTimestamps.push(currentTime);
+
+	const windowStart = bufferEventTimestamps[0];
+	const playedSinceWindowStart =
+		!!lastPlayTimestamp && !!windowStart && lastPlayTimestamp >= windowStart;
+
+	logger.log(
+		'BufferDetection',
+		`Window count=${bufferEventTimestamps.length}, playedSinceWindowStart=${playedSinceWindowStart}`
+	);
+
+	if (bufferEventTimestamps.length >= requiredBufferEvents) {
+		// Only trigger auto-pause if the player has played since the detection window started
+		if (!playedSinceWindowStart) {
+			logger.log(
+				'BufferDetection',
+				'Ignoring buffer event - no play event occurred since window start (likely new video load)'
+			);
+			lastBufferingTimestamp = currentTime;
+			lastBufferVideoId = currentVideoIdNow;
+			currentBufferStartTime = null; // Reset buffer start time
+			return;
+		}
+
+		// Rapid buffering detected after playing - trigger auto-pause
+		if (!isBufferAutoPauseActive && !videoElement.paused) {
+			isBufferAutoPauseActive = true;
+			const pauseDuration = (window.userSettings.bufferDetectionPauseDuration || 5) * 1000;
+
+			logger.log(
+				'BufferDetection',
+				`Buffering threshold hit (${requiredBufferEvents} events). Auto-pausing for ${
+					pauseDuration / 1000
+				}s`
+			);
+
+			// Start countdown in custom player if available
+			if (ytPlayerInstance && ytPlayerInstance.startBufferCountdown) {
+				ytPlayerInstance.startBufferCountdown(Math.ceil(pauseDuration / 1000));
+			}
+
+			// Pause the video using native method
+			await native_handlePlayPause(window.PlayState.PAUSED, true);
+
+			// Set timeout to resume playback
+			bufferAutoPauseTimeout = setTimeout(async () => {
+				if (isBufferAutoPauseActive && videoElement.paused) {
+					logger.log('BufferDetection', 'Resuming playback after auto-pause');
+					try {
+						await native_handlePlayPause(window.PlayState.PLAYING, true);
+					} catch (err) {
+						logger.warn('BufferDetection', 'Failed to resume playback:', err);
+					}
+				}
+
+				cleanupBufferDetectionAutoPause();
+			}, pauseDuration);
+		}
+	}
+
+	// Update the last buffering timestamp and reset play tracking
+	lastBufferingTimestamp = currentTime;
+	lastBufferVideoId = currentVideoIdNow;
+	hasPlayedSinceLastBuffer = false;
+	currentBufferStartTime = null; // Reset for next buffer event
+}
 
 /**
  * Cleans up buffer detection auto-pause state
  */
-	function cleanupBufferDetectionAutoPause() {
-		if (bufferAutoPauseTimeout) {
-			clearTimeout(bufferAutoPauseTimeout);
-			bufferAutoPauseTimeout = null;
-		}
+function cleanupBufferDetectionAutoPause() {
+	if (bufferAutoPauseTimeout) {
+		clearTimeout(bufferAutoPauseTimeout);
+		bufferAutoPauseTimeout = null;
+	}
 
 	// Stop countdown in custom player if available
 	if (ytPlayerInstance && ytPlayerInstance.stopBufferCountdown) {
 		ytPlayerInstance.stopBufferCountdown();
 	}
 
-		isBufferAutoPauseActive = false;
-		lastBufferingTimestamp = null;
-		lastBufferVideoId = null;
-		lastSeekTimestamp = null;
-		lastPlayTimestamp = null;
-		hasPlayedSinceLastBuffer = false;
-		bufferEventTimestamps = [];
-	}
+	isBufferAutoPauseActive = false;
+	lastBufferingTimestamp = null;
+	lastBufferVideoId = null;
+	lastSeekTimestamp = null;
+	lastPlayTimestamp = null;
+	hasPlayedSinceLastBuffer = false;
+	bufferEventTimestamps = [];
+	currentBufferStartTime = null;
+}
 
 /**
  * Checks if an ad is currently playing by inspecting #movie_player classes
@@ -1377,6 +1438,9 @@ function customPlayer_onPlaylistItemClick(itemId, manualClick = false) {
 		clearRepeatMode();
 	}
 
+	// Reset any buffer detection
+	cleanupBufferDetectionAutoPause();
+
 	const playlistItemEl = DOMUtils.getElement(
 		`${CSS_SELECTORS.playlistItems} a[href*="v=${itemId}"]`
 	);
@@ -1865,6 +1929,9 @@ async function setupCustomPlayerPageObservers() {
 			lastPlayTimestamp = Date.now();
 			hasPlayedSinceLastBuffer = true;
 
+			// Reset buffer start time when playback resumes (buffering ended)
+			currentBufferStartTime = null;
+
 			handlePreemptiveAdMuting();
 		},
 		onPause: () => {
@@ -2006,6 +2073,84 @@ function handleStuckPlaylist(playlistContainer, itemsFound = false, forceReload 
 	}
 }
 
+/**
+ * Hides a content section by setting its display style to 'none'.
+ * @param {HTMLElement} section - The content section to hide.
+ */
+function hideContentSection(section) {
+	if (section && section.style.display !== 'none') {
+		section.style.display = 'none';
+		logger.log('ContentFilter', 'Hidden section:', section);
+	}
+}
+
+/**
+ * Checks a given content section for "Shorts" or "YouTube Playable" titles and hides it if the corresponding setting is enabled.
+ * @param {HTMLElement} section - The content section to check.
+ */
+function checkAndHideContent(section) {
+	if (!section) return;
+
+	logger.log('ContentFilter', 'Checking section:', section);
+
+	const shortsTitle = DOMUtils.getElement(CSS_SELECTORS.shortsTitle, section);
+	const playablesTitle = DOMUtils.getElement(CSS_SELECTORS.playableTitle, section);
+
+	if (
+		shortsTitle &&
+		shortsTitle.textContent.includes('Shorts') &&
+		window.userSettings.hideShorts
+	) {
+		logger.log('ContentFilter', 'Hiding Shorts section:', section);
+		hideContentSection(section);
+	} else if (
+		playablesTitle &&
+		playablesTitle.textContent.includes('YouTube Playable') &&
+		window.userSettings.hidePlayables
+	) {
+		logger.log('ContentFilter', 'Hiding Playable section:', section);
+		hideContentSection(section);
+	} else {
+		logger.log('ContentFilter', 'Not hiding section:', section);
+	}
+}
+
+/**
+ * Initializes content filtering by observing for new content sections and hiding them based on user settings.
+ */
+function initContentFiltering() {
+	logger.log('ContentFilter', 'Initializing content filtering.');
+
+	// Initial check for existing sections
+	const sections = DOMUtils.getElement(CSS_SELECTORS.contentSection, document, true);
+	if (sections) {
+		sections.forEach(checkAndHideContent);
+	}
+
+	// Observe for new sections being added to the DOM
+	observerManager.createWithRetry(
+		'contentFilter',
+		'body', // Observe the body for changes
+		(mutations) => {
+			mutations.forEach((mutation) => {
+				mutation.addedNodes.forEach((node) => {
+					if (node.nodeType === 1 && node.matches(CSS_SELECTORS.contentSection)) {
+						checkAndHideContent(node);
+					} else if (node.nodeType === 1) {
+						// Check for ytm-rich-section-renderer within added nodes
+						const childSections = node.querySelectorAll(CSS_SELECTORS.contentSection);
+						if (childSections) {
+							childSections.forEach(checkAndHideContent);
+						}
+					}
+				});
+			});
+		},
+		{ childList: true, subtree: true },
+		'ContentFilter'
+	);
+}
+
 // Guard to prevent recursive auto-reopen loops on playlist pages
 let playlistAutoReopenInProgress = false;
 let playlistAutoReopenAttempts = 0;
@@ -2019,7 +2164,10 @@ function handleNativePlaylistChanges() {
 	// Check if playlist is minimized (entry point exists but panel doesn't)
 	if (!playlistContainer && playlistEntryPoint && isOnPlaylistPage) {
 		// Avoid spamming clicks; cap auto-reopen attempts
-		if (playlistAutoReopenInProgress && playlistAutoReopenAttempts >= PLAYLIST_AUTO_REOPEN_MAX_ATTEMPTS) {
+		if (
+			playlistAutoReopenInProgress &&
+			playlistAutoReopenAttempts >= PLAYLIST_AUTO_REOPEN_MAX_ATTEMPTS
+		) {
 			logger.warn(
 				'Observers',
 				`Playlist minimized; auto-reopen attempts exhausted (${playlistAutoReopenAttempts}). Skipping.`
@@ -2465,6 +2613,8 @@ async function manageCustomNavbarLifecycle() {
 			logger.log('Lifecycle', 'Custom navbar disabled. DESTROYING navbar.');
 			ytNavbarInstance.destroy();
 			ytNavbarInstance = null;
+			// Clean up window.customNavbar reference
+			window.customNavbar = null;
 		}
 		return;
 	}
@@ -2472,6 +2622,8 @@ async function manageCustomNavbarLifecycle() {
 	if (!ytNavbarInstance) {
 		logger.log('Lifecycle', 'CREATING new custom navbar.');
 		ytNavbarInstance = new window.YTCustomNavbar({});
+		// Assign to window.customNavbar for FAB integration
+		window.customNavbar = ytNavbarInstance;
 	} else {
 		ytNavbarInstance.updateLinks({
 			showMixes: window.userSettings.navbarShowMixes,
@@ -2832,6 +2984,7 @@ function initializeEventListenersAndObservers() {
 				let playerRebuildNeeded = false;
 				let settingsUpdated = false;
 				let themeUpdateNeeded = false;
+				let playlistNeedsReloading = false;
 				const changedSettings = {};
 
 				for (const key in changes) {
@@ -2841,7 +2994,11 @@ function initializeEventListenersAndObservers() {
 						key === 'customPlayerAccentColor' ||
 						key === 'playlistColorMode' ||
 						key === 'applyThemeColorToBrowser' ||
-						key === 'hideVideoPlayer'
+						key === 'hideVideoPlayer' ||
+						key === 'enableLimitedHeightMode' ||
+						key === 'hideNavbarInLimitedHeightMode' ||
+						key === 'enableHorizontalPlaylistBelowVideo' ||
+						key === 'enableFixedVideoHeight'
 					) {
 						themeUpdateNeeded = true;
 					}
@@ -2865,6 +3022,11 @@ function initializeEventListenersAndObservers() {
 								'enableCustomNavbar',
 								'showRepeatButton',
 								'hideVideoPlayer',
+								'enableLimitedHeightMode',
+								'hideNavbarInLimitedHeightMode',
+								'enableHorizontalPlaylistBelowVideo',
+								'horizontalPlaylistDetailsInHeaderControls',
+								'enableFixedVideoHeight',
 							];
 							if (rebuildSettings.includes(key)) {
 								playerRebuildNeeded = true;
@@ -2882,6 +3044,40 @@ function initializeEventListenersAndObservers() {
 							} else {
 								// Handle non-rebuild settings
 								const settingHandlers = {
+									autoHidePlayerOnScroll: () => {
+										if (ytPlayerInstance && ytPlayerInstance.options) {
+											ytPlayerInstance.options.autoHidePlayerOnScroll =
+												newValue;
+											// Manage yt-auto-hide-active class based on setting
+											if (newValue) {
+												document.body.classList.add('yt-auto-hide-active');
+											} else {
+												document.body.classList.remove(
+													'yt-auto-hide-active'
+												);
+											}
+											// If disabling auto-hide, ensure player is visible
+											if (!newValue && ytPlayerInstance.isAutoHidden) {
+												ytPlayerInstance._autoShowPlayer();
+											}
+										}
+									},
+									hidePlayerForPanelActive: () => {
+										if (ytPlayerInstance && ytPlayerInstance.options) {
+											ytPlayerInstance.options.hidePlayerForPanelActive =
+												newValue;
+											// Manage yt-player-hide-for-panel-active class based on setting
+											if (newValue) {
+												document.body.classList.add(
+													'yt-player-hide-for-panel-active'
+												);
+											} else {
+												document.body.classList.remove(
+													'yt-player-hide-for-panel-active'
+												);
+											}
+										}
+									},
 									returnToDefaultModeOnVideoSelect: () => {
 										if (ytPlayerInstance && ytPlayerInstance.options) {
 											ytPlayerInstance.options.returnToDefaultModeOnVideoSelect =
@@ -2913,6 +3109,24 @@ function initializeEventListenersAndObservers() {
 										ytPlayerInstance.setMultilinePlaylistTitles(newValue),
 									keepPlaylistFocused: () =>
 										ytPlayerInstance.setKeepPlaylistFocused(newValue),
+									playlistScrollDebounceDelay: () =>
+										ytPlayerInstance.setPlaylistScrollDebounceDelay(newValue),
+									christmasMusicFilter: () => {
+										playlistNeedsReloading = true;
+									},
+									christmasStartDate: () => {
+										playlistNeedsReloading = true;
+									},
+									christmasEndDate: () => {
+										playlistNeedsReloading = true;
+									},
+									christmasBypassOnPlaylistTitle: () => {
+										playlistNeedsReloading = true;
+									},
+									bufferDetectionMinDuration: () => {
+										// Buffer detection min duration changed - no immediate action needed
+										// The new setting will be used on the next buffer event
+									},
 									showGestureFeedback: () =>
 										ytPlayerInstance.setShowGestureFeedback(newValue),
 									enableGestures: () =>
@@ -2930,26 +3144,14 @@ function initializeEventListenersAndObservers() {
 									},
 									playlistRemoveSame: () => {
 										ytPlayerInstance.options.playlistRemoveSame = newValue;
-										const data = getPlaylistItemsFromPage();
-										ytPlayerInstance.updatePlaylist(
-											data.items,
-											PageUtils.getCurrentPlaylistIdFromUrl()
-										);
+										playlistNeedsReloading = true;
 									},
 									allowDifferentVersions: () => {
 										ytPlayerInstance.options.allowDifferentVersions = newValue;
-										const data = getPlaylistItemsFromPage();
-										ytPlayerInstance.updatePlaylist(
-											data.items,
-											PageUtils.getCurrentPlaylistIdFromUrl()
-										);
+										playlistNeedsReloading = true;
 									},
 									videoBlacklist: () => {
-										const data = getPlaylistItemsFromPage();
-										ytPlayerInstance.updatePlaylist(
-											data.items,
-											PageUtils.getCurrentPlaylistIdFromUrl()
-										);
+										playlistNeedsReloading = true;
 									},
 								};
 
@@ -3036,6 +3238,22 @@ function initializeEventListenersAndObservers() {
 						currentVideoId = null;
 						initialAutoplayDoneForCurrentVideo = false;
 					}
+
+					// Handle playlist reloading for Christmas filter settings
+					if (playlistNeedsReloading && ytPlayerInstance) {
+						logger.log(
+							'Settings',
+							'Reloading playlist to apply Christmas filter changes'
+						);
+						const data = getPlaylistItemsFromPage();
+						ytPlayerInstance.updatePlaylist(
+							data.items,
+							PageUtils.getCurrentPlaylistIdFromUrl(),
+							ytPlayerInstance.options.currentPlaylist.title
+						);
+					}
+
+					initContentFiltering();
 					await manageFeatures();
 				}
 			}
@@ -3082,7 +3300,13 @@ async function main() {
 	await loadUserSettings();
 	registerFeatures();
 	initializeEventListenersAndObservers();
+	initContentFiltering();
 	applyTheme();
+
+	// Initialize update notification system
+	if (window.updateNotification) {
+		window.updateNotification.init();
+	}
 
 	if (document.readyState === 'complete' || document.readyState === 'interactive') {
 		setTimeout(() => manageFeatures(), 500);

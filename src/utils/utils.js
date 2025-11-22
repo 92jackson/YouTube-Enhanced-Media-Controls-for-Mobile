@@ -532,9 +532,35 @@ class MediaUtils {
 		}
 
 		function isSimilarToChannel(text, channel) {
-			const cleanText = text.toLowerCase().replace(/[^a-z0-9]/g, '');
-			const cleanChannel = channel.toLowerCase().replace(/[^a-z0-9]/g, '');
-			return cleanText && cleanChannel && cleanText.includes(cleanChannel);
+			// Remove content within brackets for cleaner comparison
+			const cleanTextRaw = text.replace(/\([^)]*\)|\[[^]]*\]/g, '').trim();
+			const cleanChannelRaw = channel.replace(/\([^)]*\)|\[[^]]*\]/g, '').trim();
+
+			const cleanText = cleanTextRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
+			const cleanChannel = cleanChannelRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+			if (!cleanText || !cleanChannel) return false;
+
+			// If the text is exactly the channel name
+			if (cleanText === cleanChannel) return true;
+
+			// If the text starts with the channel name and is not too much longer
+			// e.g., "Scooter Official" vs "Scooter"
+			if (
+				cleanText.startsWith(cleanChannel) &&
+				cleanText.length <= cleanChannel.length + 10
+			) {
+				return true;
+			}
+
+			// If the channel name is a significant part of the text and the text is not too long
+			// This is to catch cases like "Official Scooter" where the channel name is embedded
+			if (cleanText.includes(cleanChannel) && cleanChannel.length / cleanText.length > 0.7) {
+				// Channel is at least 70% of the text
+				return true;
+			}
+
+			return false;
 		}
 
 		// Helper function to split text while respecting brackets and prioritizing spaced delimiters
@@ -657,32 +683,25 @@ class MediaUtils {
 						// Heuristic to guess which is artist and which is track
 						const part1IsTrack = looksLikeTrack(part1);
 						const part2IsTrack = looksLikeTrack(part2);
+						const part1IsChannel = isSimilarToChannel(part1, channel);
+						const part2IsChannel = isSimilarToChannel(part2, channel);
 
-						if (part1IsTrack && !part2IsTrack) {
+						if (part1IsChannel && !part2IsChannel) {
+							artist = part1;
+							track = part2;
+						} else if (!part1IsChannel && part2IsChannel) {
+							artist = part2;
+							track = part1;
+						} else if (part1IsTrack && !part2IsTrack) {
 							track = part1;
 							artist = part2;
 						} else if (!part1IsTrack && part2IsTrack) {
 							artist = part1;
 							track = part2;
 						} else {
-							// fallback to channel similarity check
-							if (
-								isSimilarToChannel(part1, channel) &&
-								!isSimilarToChannel(part2, channel)
-							) {
-								artist = part1;
-								track = part2;
-							} else if (
-								!isSimilarToChannel(part1, channel) &&
-								isSimilarToChannel(part2, channel)
-							) {
-								artist = part2;
-								track = part1;
-							} else {
-								// default assignment if no clear indicator
-								artist = part1;
-								track = part2;
-							}
+							// default assignment if no clear indicator
+							artist = part1;
+							track = part2;
 						}
 					}
 					parsed = true;
@@ -1095,6 +1114,93 @@ const PageUtils = {
 			.replace(/[?&]$/, '') // Remove trailing & or ?
 			.replace(/#.*$/, ''); // Remove fragment/hash
 	},
+};
+
+/**
+ * Version comparison utilities for update notifications
+ */
+const VersionUtils = {
+	/**
+	 * Compares two semantic versions
+	 * @param {string} version1 - First version (e.g., "2.0.0")
+	 * @param {string} version2 - Second version (e.g., "2.1.0")
+	 * @returns {number} -1 if version1 < version2, 0 if equal, 1 if version1 > version2
+	 */
+	compareVersions: (version1, version2) => {
+		const v1Parts = version1.split('.').map(Number);
+		const v2Parts = version2.split('.').map(Number);
+		
+		for (let i = 0; i < Math.max(v1Parts.length, v2Parts.length); i++) {
+			const v1Part = v1Parts[i] || 0;
+			const v2Part = v2Parts[i] || 0;
+			
+			if (v1Part < v2Part) return -1;
+			if (v1Part > v2Part) return 1;
+		}
+		
+		return 0;
+	},
+
+	/**
+	 * Determines if an update is a patch update (only third number changed)
+	 * @param {string} oldVersion - Previous version
+	 * @param {string} newVersion - New version
+	 * @returns {boolean} True if only patch version changed
+	 */
+	isPatchUpdate: (oldVersion, newVersion) => {
+		const oldParts = oldVersion.split('.').map(Number);
+		const newParts = newVersion.split('.').map(Number);
+		
+		// Major and minor versions must be the same, only patch can differ
+		return oldParts[0] === newParts[0] && 
+		       oldParts[1] === newParts[1] && 
+		       oldParts[2] < newParts[2];
+	},
+
+	/**
+	 * Determines if an update is worth notifying about (major/minor changes)
+	 * @param {string} oldVersion - Previous version
+	 * @param {string} newVersion - New version
+	 * @returns {boolean} True if major or minor version changed
+	 */
+	isSignificantUpdate: (oldVersion, newVersion) => {
+		const oldParts = oldVersion.split('.').map(Number);
+		const newParts = newVersion.split('.').map(Number);
+		
+		// Major or minor version changed
+		return oldParts[0] !== newParts[0] || oldParts[1] !== newParts[1];
+	},
+
+	/**
+	 * Gets the current extension version from manifest
+	 * @returns {Promise<string>} Current version string
+	 */
+	getCurrentVersion: async () => {
+		try {
+			if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest) {
+				// Chrome extension environment
+				return chrome.runtime.getManifest().version;
+			} else if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.getManifest) {
+				// Firefox extension environment
+				return browser.runtime.getManifest().version;
+			} else {
+				// Fallback: fetch from manifest.json
+				const response = await fetch(chrome.runtime.getURL('manifest.json'));
+				const manifest = await response.json();
+				return manifest.version;
+			}
+		} catch (error) {
+			logger.error('VersionUtils', 'Failed to get current version:', error);
+			return '0.0.0';
+		}
+	},
+
+	/**
+	 * Opens the GitHub releases page for the extension
+	 */
+	openReleasesPage: () => {
+		window.open('https://github.com/92jackson/YouTube-Enhanced-Media-Controls-for-Mobile/releases/', '_blank');
+	}
 };
 
 /**

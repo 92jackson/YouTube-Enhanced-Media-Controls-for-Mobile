@@ -37,11 +37,23 @@ class YTMediaPlayer {
 
 			// Layout & Core Functionality
 			initialLayout: window.userSettings.defaultPlayerLayout,
+			enableLimitedHeightMode: window.userSettings.enableLimitedHeightMode,
+			hideNavbarInLimitedHeightMode: window.userSettings.hideNavbarInLimitedHeightMode,
+			enableFixedVideoHeight: window.userSettings.enableFixedVideoHeight,
+			autoHidePlayerOnScroll: window.userSettings.autoHidePlayerOnScroll,
+			hidePlayerForPanelActive: window.userSettings.hidePlayerForPanelActive,
+			enableHorizontalPlaylistBelowVideo:
+				window.userSettings.enableHorizontalPlaylistBelowVideo,
 			customPlaylistMode: window.userSettings.customPlaylistMode,
 			returnToDefaultModeOnVideoSelect: window.userSettings.returnToDefaultModeOnVideoSelect,
 			showBottomControls: window.userSettings.showBottomControls,
 			showVoiceButton: window.userSettings.showVoiceSearchButton,
 			previousButtonBehavior: window.userSettings.previousButtonBehavior,
+			navbarShowHomeButton: window.userSettings.navbarShowHomeButton,
+			navbarShowFavourites: window.userSettings.navbarShowFavourites,
+			navbarShowVideoToggle: window.userSettings.navbarShowVideoToggle,
+			navbarShowTextSearch: window.userSettings.navbarShowTextSearch,
+			navbarShowVoiceSearch: window.userSettings.navbarShowVoiceSearch,
 
 			// Appearance
 			customPlayerTheme: window.userSettings.customPlayerTheme,
@@ -53,6 +65,8 @@ class YTMediaPlayer {
 			playlistItemDensity: window.userSettings.playlistItemDensity,
 			allowMultilinePlaylistTitles: window.userSettings.allowMultilinePlaylistTitles,
 			keepPlaylistFocused: window.userSettings.keepPlaylistFocused,
+			horizontalPlaylistDetailsInHeaderControls:
+				window.userSettings.horizontalPlaylistDetailsInHeaderControls,
 
 			// Playlist Duplicate Handling
 			playlistRemoveSame: window.userSettings.playlistRemoveSame,
@@ -108,6 +122,16 @@ class YTMediaPlayer {
 		this.isPlayerVisible = true;
 		this.hasPlaylist = false;
 
+		// Auto-hide scroll tracking
+		this.lastScrollY = 0;
+		this.lastScrollContainer = window;
+		this.scrollVelocity = 0;
+		this.scrollDirection = 0; // 0 = none, 1 = up, -1 = down
+		this.autoHideTimer = null;
+		this.isAutoHidden = false;
+		this.watchBelowPlayerElement = null;
+		this.scrollEventCount = 0; // Debug counter
+
 		// Playback state
 		this.trackTime = this.options.nowPlayingVideoDetails.currentTime;
 		this.totalTime = this.options.nowPlayingVideoDetails.totalTime;
@@ -152,7 +176,12 @@ class YTMediaPlayer {
 
 		// Configuration constants
 		this.MIN_MEANINGFUL_SNAP_DIFFERENCE = 40;
-		this.playlistScrollDebounceDelay = 2500;
+		this.playlistScrollDebounceDelay =
+			(window.userSettings.playlistScrollDebounceDelay || 2.5) * 1000;
+
+		// Limited height mode configuration
+		this.COMPACT_VIEWPORT_HEIGHT_THRESHOLD = 400;
+		this._isLimitedHeightActive = false;
 
 		// Initialize gesture thresholds based on sensitivity
 		this._updateGestureThresholds();
@@ -234,6 +263,7 @@ class YTMediaPlayer {
 		this._injectHTML();
 		this._cacheDOMElements();
 		this._applyAppearanceSettings();
+		this._applyLimitedHeightMode();
 		this._setupEventListeners();
 		this._initializeState();
 
@@ -263,6 +293,13 @@ class YTMediaPlayer {
 		// Playlist handlers
 		this._handlePlaylistScroll_bound = this._handlePlaylistScroll.bind(this);
 		this._performAutoScrollFocus_bound = this._performAutoScrollFocus.bind(this);
+
+		// Centered overlay handlers
+		this._updateCenteredOverlayOnScroll_bound = this._updateCenteredOverlayOnScroll.bind(this);
+
+		// Auto-hide scroll handlers
+		this._handleScroll_bound = this._handleScroll.bind(this);
+		this._handleScrollThrottled_bound = this._throttle(this._handleScroll_bound, 16); // ~60fps
 	}
 
 	/**
@@ -272,6 +309,7 @@ class YTMediaPlayer {
 		const tempDiv = document.createElement('div');
 		tempDiv.appendChild(this._createPlayerElement());
 		this.playerWrapper = tempDiv.firstElementChild;
+		logger.log('AutoHide', 'Player wrapper created:', !!this.playerWrapper);
 	}
 
 	/**
@@ -403,6 +441,17 @@ class YTMediaPlayer {
 		if (this.options.showVoiceButton) {
 			rightSection.appendChild(this._createVoiceButton());
 		}
+
+		// Add FAB for limited height mode
+		if (this.options.enableLimitedHeightMode && this.options.hideNavbarInLimitedHeightMode) {
+			// Add body class for limited height mode with hidden navbar IF we're currently in reduced height mode
+			if (this._isLimitedHeightActive)
+				document.body.classList.add('yt-limited-height-mode-navbar-hidden');
+			rightSection.appendChild(this._createLimitedHeightFAB());
+		} else {
+			document.body.classList.remove('yt-limited-height-mode-navbar-hidden');
+		}
+
 		mainControls.appendChild(rightSection);
 
 		playerControls.appendChild(mainControls);
@@ -412,6 +461,23 @@ class YTMediaPlayer {
 		const gestureOverlay = document.createElement('div');
 		gestureOverlay.className = 'yt-gesture-feedback-overlay';
 		wrapper.appendChild(gestureOverlay);
+
+		// Create centered item overlay (shown while scrolling)
+		const centeredOverlay = document.createElement('div');
+		centeredOverlay.className = 'yt-horizontal-centered-item-popup';
+		const coThumb = document.createElement('div');
+		coThumb.className = 'yt-centered-thumb';
+		const coText = document.createElement('div');
+		coText.className = 'yt-centered-text';
+		const coTitle = document.createElement('div');
+		coTitle.className = 'yt-centered-title';
+		const coArtist = document.createElement('div');
+		coArtist.className = 'yt-centered-artist';
+		coText.appendChild(coTitle);
+		coText.appendChild(coArtist);
+		centeredOverlay.appendChild(coThumb);
+		centeredOverlay.appendChild(coText);
+		wrapper.appendChild(centeredOverlay);
 
 		return wrapper;
 	}
@@ -443,6 +509,280 @@ class YTMediaPlayer {
 		}
 
 		return classes.join(' ');
+	}
+
+	/**
+	 * Create FAB for limited height mode
+	 */
+	_createLimitedHeightFAB() {
+		const fabContainer = document.createElement('div');
+		fabContainer.className = 'yt-limited-height-fab';
+
+		// Create speed dial container
+		const speedDial = document.createElement('div');
+		speedDial.className = 'yt-speed-dial';
+
+		// Create main FAB button
+		const mainFab = document.createElement('button');
+		mainFab.className = 'yt-limited-height-fab-main';
+		mainFab.setAttribute('aria-label', 'More options');
+
+		// Create main button SVG using DOM APIs - match original voice search button size
+		const mainSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		mainSvg.setAttribute('viewBox', '-10 -3 44 30');
+		mainSvg.setAttribute('width', '30');
+		mainSvg.setAttribute('height', '30');
+
+		const mainPath1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		mainPath1.setAttribute('d', 'M3 18h18v-2H3v2z');
+		mainSvg.appendChild(mainPath1);
+
+		const mainPath2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		mainPath2.setAttribute('d', 'M3 13h18v-2H3v2z');
+		mainSvg.appendChild(mainPath2);
+
+		const mainPath3 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		mainPath3.setAttribute('d', 'M3 8h18V6H3z');
+		mainSvg.appendChild(mainPath3);
+		mainFab.appendChild(mainSvg);
+
+		// Create speed dial actions container
+		const speedDialActions = document.createElement('div');
+		speedDialActions.className = 'yt-limited-height-fab-actions';
+
+		// Add conditional buttons based on navbar settings
+		if (this.options.navbarShowHomeButton) {
+			const homeButton = document.createElement('button');
+			homeButton.className = 'yt-limited-height-fab-action';
+			homeButton.setAttribute('data-action', 'home');
+			homeButton.setAttribute('aria-label', 'YouTube home');
+
+			// Create YouTube logo SVG
+			const homeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			homeSvg.setAttribute('id', 'yt-ringo2-svg_yt1');
+			homeSvg.setAttribute('viewBox', '0 0 30 20');
+			homeSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+			homeSvg.setAttribute('focusable', 'false');
+			homeSvg.setAttribute('aria-hidden', 'true');
+
+			const logoGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+			// Background path
+			const bgPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			bgPath.setAttribute(
+				'd',
+				'M14.4848 20C14.4848 20 23.5695 20 25.8229 19.4C27.0917 19.06 28.0459 18.08 28.3808 16.87C29 14.65 29 9.98 29 9.98C29 9.98 29 5.34 28.3808 3.14C28.0459 1.9 27.0917 0.94 25.8229 0.61C23.5695 0 14.4848 0 14.4848 0C14.4848 0 5.42037 0 3.17711 0.61C1.9286 0.94 0.954148 1.9 0.59888 3.14C0 5.34 0 9.98 0 9.98C0 9.98 0 14.65 0.59888 16.87C0.954148 18.08 1.9286 19.06 3.17711 19.4C5.42037 20 14.4848 20 14.4848 20Z'
+			);
+			logoGroup.appendChild(bgPath);
+
+			// Play button path
+			const playPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			playPath.setAttribute('d', 'M19 10L11.5 5.75V14.25L19 10Z');
+			playPath.setAttribute('fill', 'white');
+			logoGroup.appendChild(playPath);
+
+			homeSvg.appendChild(logoGroup);
+			homeButton.appendChild(homeSvg);
+
+			speedDialActions.appendChild(homeButton);
+		}
+
+		if (this.options.navbarShowTextSearch) {
+			const textSearchButton = document.createElement('button');
+			textSearchButton.className = 'yt-limited-height-fab-action';
+			textSearchButton.setAttribute('data-action', 'text-search');
+			textSearchButton.setAttribute('aria-label', 'Text search');
+
+			const textSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			textSvg.setAttribute('viewBox', '0 0 24 24');
+			textSvg.setAttribute('width', '20');
+			textSvg.setAttribute('height', '20');
+
+			const textPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			textPath.setAttribute(
+				'd',
+				'M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'
+			);
+			textSvg.appendChild(textPath);
+			textSearchButton.appendChild(textSvg);
+
+			speedDialActions.appendChild(textSearchButton);
+		}
+
+		if (this.options.navbarShowFavourites) {
+			const favouritesButton = document.createElement('button');
+			favouritesButton.className = 'yt-limited-height-fab-action';
+			favouritesButton.setAttribute('data-action', 'favourites');
+			favouritesButton.setAttribute('aria-label', 'Favorites');
+
+			const favSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			favSvg.setAttribute('viewBox', '0 0 24 24');
+			favSvg.setAttribute('width', '20');
+			favSvg.setAttribute('height', '20');
+
+			const favPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			favPath.setAttribute(
+				'd',
+				'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'
+			);
+			favSvg.appendChild(favPath);
+			favouritesButton.appendChild(favSvg);
+
+			speedDialActions.appendChild(favouritesButton);
+		}
+
+		if (this.options.navbarShowVideoToggle) {
+			const videoToggleButton = document.createElement('button');
+			videoToggleButton.className = 'yt-limited-height-fab-action';
+			videoToggleButton.setAttribute('data-action', 'video-toggle');
+			videoToggleButton.setAttribute('aria-label', 'Toggle Video Player');
+
+			const videoSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			videoSvg.setAttribute('viewBox', '0 0 24 24');
+			videoSvg.setAttribute('width', '20');
+			videoSvg.setAttribute('height', '20');
+			const videoPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+			// Use different icons based on current state
+			const isVideoHidden = document.body.classList.contains('yt-hide-video-player');
+			if (isVideoHidden) {
+				// Show video icon (when video is currently hidden)
+				videoPath.setAttribute(
+					'd',
+					'M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM14 13h-3v3H9v-3H6v-2h3V8h2v3h3v2z'
+				);
+			} else {
+				// Hide video icon (when video is currently visible)
+				videoPath.setAttribute(
+					'd',
+					'M21 6.5l-4 4V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11zM9.5 16L8 14.5 10.5 12 8 9.5 9.5 8 12 10.5 14.5 8 16 9.5 13.5 12 16 14.5 14.5 16 12 13.5 9.5 16z'
+				);
+			}
+
+			videoSvg.appendChild(videoPath);
+			videoToggleButton.appendChild(videoSvg);
+
+			speedDialActions.appendChild(videoToggleButton);
+		}
+
+		if (this.options.navbarShowVoiceSearch || this.options.showVoiceButton) {
+			const voiceButton = document.createElement('button');
+			voiceButton.className = 'yt-limited-height-fab-action';
+			voiceButton.setAttribute('data-action', 'voice-search');
+			voiceButton.setAttribute('aria-label', 'Voice search');
+
+			const voiceSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			voiceSvg.setAttribute('viewBox', '0 0 24 24');
+			voiceSvg.setAttribute('width', '20');
+			voiceSvg.setAttribute('height', '20');
+
+			const voicePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			voicePath.setAttribute(
+				'd',
+				'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z'
+			);
+			voiceSvg.appendChild(voicePath);
+			voiceButton.appendChild(voiceSvg);
+
+			speedDialActions.appendChild(voiceButton);
+		}
+
+		speedDial.appendChild(speedDialActions);
+		speedDial.appendChild(mainFab);
+		fabContainer.appendChild(speedDial);
+
+		// Add event listeners - fix click target issue with proper event handling
+		mainFab.addEventListener('click', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			console.log('Main FAB clicked');
+			speedDial.classList.toggle('yt-speed-dial-open');
+		});
+
+		// Handle speed dial actions - fix event delegation
+		speedDialActions.addEventListener('click', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			const button = e.target.closest('.yt-limited-height-fab-action');
+			if (button) {
+				console.log('Action button clicked:', button.getAttribute('data-action'));
+				const action = button.getAttribute('data-action');
+				this._handleSpeedDialAction(action);
+				speedDial.classList.remove('yt-speed-dial-open');
+			}
+		});
+
+		// Close speed dial when clicking outside
+		document.addEventListener('click', (e) => {
+			if (!fabContainer.contains(e.target)) {
+				speedDial.classList.remove('yt-speed-dial-open');
+			}
+		});
+
+		return fabContainer;
+	}
+
+	/**
+	 * Handle speed dial actions by delegating to yt-navbar.js
+	 */
+	_handleSpeedDialAction(action) {
+		console.log('Speed dial action triggered:', action);
+
+		// Get the custom navbar instance from window
+		if (window.customNavbar && typeof window.customNavbar.handleAction === 'function') {
+			console.log('Using handleAction method');
+			window.customNavbar.handleAction(action);
+		} else {
+			console.log('Using fallback method calls');
+			// Fallback: try to call the individual methods directly
+			switch (action) {
+				case 'voice-search':
+					if (
+						window.customNavbar &&
+						typeof window.customNavbar._handleVoiceSearchClick === 'function'
+					) {
+						console.log('Calling _handleVoiceSearchClick');
+						window.customNavbar._handleVoiceSearchClick();
+					}
+					break;
+				case 'text-search':
+					if (
+						window.customNavbar &&
+						typeof window.customNavbar._handleTextSearchClick === 'function'
+					) {
+						console.log('Calling _handleTextSearchClick');
+						window.customNavbar._handleTextSearchClick();
+					}
+					break;
+				case 'home':
+					if (
+						window.customNavbar &&
+						typeof window.customNavbar._handleLogoClick === 'function'
+					) {
+						console.log('Calling _handleLogoClick');
+						window.customNavbar._handleLogoClick();
+					}
+					break;
+				case 'favourites':
+					if (
+						window.customNavbar &&
+						typeof window.customNavbar._handleFavouritesClick === 'function'
+					) {
+						console.log('Calling _handleFavouritesClick');
+						window.customNavbar._handleFavouritesClick();
+					}
+					break;
+				case 'video-toggle':
+					if (
+						window.customNavbar &&
+						typeof window.customNavbar._handleVideoToggleClick === 'function'
+					) {
+						console.log('Calling _handleVideoToggleClick');
+						window.customNavbar._handleVideoToggleClick();
+					}
+					break;
+			}
+		}
 	}
 
 	/**
@@ -805,6 +1145,14 @@ class YTMediaPlayer {
 		this.gestureFeedbackOverlay = this.playerWrapper.querySelector(
 			'.yt-gesture-feedback-overlay'
 		);
+
+		// Centered item overlay
+		this.centeredOverlayElement = this.playerWrapper.querySelector(
+			'.yt-horizontal-centered-item-popup'
+		);
+		this.centeredOverlayTitle = this.playerWrapper.querySelector('.yt-centered-title');
+		this.centeredOverlayArtist = this.playerWrapper.querySelector('.yt-centered-artist');
+		this.centeredOverlayThumb = this.playerWrapper.querySelector('.yt-centered-thumb');
 	}
 
 	/**
@@ -827,6 +1175,16 @@ class YTMediaPlayer {
 		}
 		if (!this.options.showSkipButton) {
 			this.playerWrapper.classList.add('hide-skip-button');
+		}
+
+		// Auto-hide setting class - add to body when auto-hide is enabled
+		if (this.options.autoHidePlayerOnScroll) {
+			document.body.classList.add('yt-auto-hide-active');
+		}
+
+		// Hide player for panel active setting - add to body when enabled
+		if (this.options.hidePlayerForPanelActive) {
+			document.body.classList.add('yt-player-hide-for-panel-active');
 		}
 
 		// Repeat button visibility
@@ -1053,8 +1411,21 @@ class YTMediaPlayer {
 		// Set transition
 		this.playerDrawer.style.transition = shouldAnimate ? 'height 0.3s ease-out' : 'none';
 
-		// Set height
-		this.playerDrawer.style.height = `${targetHeight}px`;
+		// Set CSS custom property for dynamic calculations (CSS will handle the height)
+		if (this._isLimitedHeightActive) {
+			const viewport =
+				window.visualViewport && window.visualViewport.height
+					? window.visualViewport.height
+					: window.innerHeight;
+			const navbarHidden =
+				!!document.body &&
+				document.body.classList.contains('yt-limited-height-mode-navbar-hidden');
+			const baseHeight = navbarHidden ? viewport : Math.max(0, viewport - 48);
+			const limitedDrawerHeight = Math.max(0, Math.round(baseHeight * 0.6));
+			this.playerWrapper.style.setProperty('--drawer-height-px', `${limitedDrawerHeight}px`);
+		} else {
+			this.playerWrapper.style.setProperty('--drawer-height-px', `${targetHeight}px`);
+		}
 
 		// Update state
 		this._setDrawerStateFromHeight(targetHeight);
@@ -1340,6 +1711,13 @@ class YTMediaPlayer {
 		if (!document.body) return;
 
 		document.body.classList.remove('yt-drawer-closed', 'yt-drawer-mid', 'yt-drawer-full');
+		document.body.classList.remove('yt-horizontal-playlist');
+		document.body.classList.remove('yt-fixed-video-height');
+
+		// Apply fixed video height class if enabled
+		if (this.options.enableFixedVideoHeight) {
+			document.body.classList.add('yt-fixed-video-height');
+		}
 
 		if (
 			//this.isDrawerDragging ||
@@ -1347,7 +1725,27 @@ class YTMediaPlayer {
 			this.options.customPlaylistMode === DrawerMode.DISABLED
 		) {
 			document.body.classList.add('yt-drawer-closed');
+			// Ensure wrapper horizontal class is cleared when drawer is closed/disabled
+			if (this.playlistWrapper) {
+				this.playlistWrapper.classList.remove('horizontal-playlist');
+			}
 			return;
+		}
+
+		// Determine horizontal playlist activation
+		const horizontalActive =
+			this._isLimitedHeightActive ||
+			(!!this.options?.enableHorizontalPlaylistBelowVideo &&
+				this.drawerState !== DrawerState.FULL);
+
+		// Toggle horizontal playlist classes on body and wrapper
+		if (horizontalActive) {
+			document.body.classList.add('yt-horizontal-playlist');
+			if (this.playlistWrapper) {
+				this.playlistWrapper.classList.add('horizontal-playlist');
+			}
+		} else if (this.playlistWrapper) {
+			this.playlistWrapper.classList.remove('horizontal-playlist');
 		}
 
 		switch (this.drawerState) {
@@ -1360,6 +1758,22 @@ class YTMediaPlayer {
 			case DrawerState.FULL:
 				document.body.classList.add('yt-drawer-full');
 				break;
+		}
+
+		// Update centered overlay and edge padding depending on horizontal state
+		if (horizontalActive) {
+			this._updatePlaylistEdgePaddingForCentering();
+		} else {
+			this._hideCenteredOverlay(true);
+			if (this.playlistWrapper) {
+				this.playlistWrapper.style.paddingLeft = '0px';
+				this.playlistWrapper.style.paddingRight = '0px';
+			}
+		}
+
+		// Add immediate auto-scroll focus after layout change
+		if (this.options.keepPlaylistFocused && this.hasPlaylist) {
+			this._performAutoScrollFocus(true);
 		}
 	}
 
@@ -1521,6 +1935,7 @@ class YTMediaPlayer {
 			'--yt-drag-handle-height': `${dragHandleHeight}px`,
 			'--yt-max-voice-button-width': `${maxVoiceButtonWidth}px`,
 			'--yt-font-size-multiplier': fontMultiplier,
+			'--yt-viewport-width': `${wrapperWidth}px`,
 		};
 
 		Object.entries(vars).forEach(([prop, value]) => {
@@ -1541,9 +1956,95 @@ class YTMediaPlayer {
 		// Debounce resize handling
 		clearTimeout(this.resizeTimeout);
 		this.resizeTimeout = setTimeout(() => {
+			this._applyLimitedHeightMode();
 			this._invalidateAndRecalculateMeasurements();
 			this._updateDrawerVisualState();
+			this._updatePlaylistEdgePaddingForCentering();
+			if (this.playerDrawer && this.cachedMeasurements.valid) {
+				const currentHeight = this.playerDrawer.offsetHeight;
+				const clampedHeight = Math.max(
+					0,
+					Math.min(currentHeight, this.cachedMeasurements.maxDrawerHeight)
+				);
+				const target = this._getNearestSnapPoint(clampedHeight);
+				this._setDrawerHeight(target, false, false);
+			}
 		}, 100);
+	}
+
+	/**
+	 * Apply or remove compact split-screen mode based on viewport height and setting
+	 */
+	_applyLimitedHeightMode() {
+		const enabled = !!this.options.enableLimitedHeightMode;
+		const shouldCompact =
+			enabled && window.innerHeight <= this.COMPACT_VIEWPORT_HEIGHT_THRESHOLD;
+
+		if (shouldCompact && !this._isLimitedHeightActive) {
+			this._isLimitedHeightActive = true;
+			document.body.classList.add('yt-limited-height-mode');
+			// Add navbar-hidden class if hideNavbarInLimitedHeightMode is enabled
+			if (this.options.hideNavbarInLimitedHeightMode) {
+				document.body.classList.add('yt-limited-height-mode-navbar-hidden');
+			}
+			// Switch controls to compact layout
+			this.setLayout('compact');
+			// Tighten playlist items for horizontal mode
+			this.setPlaylistItemDensity('compact');
+			// Ensure bottom controls remain visible in compact
+			this.setBottomControlsVisibility(true);
+			// Ensure first/last items can be centered in horizontal scrolling
+			this._updatePlaylistEdgePaddingForCentering();
+			logger.log('Layout', 'Limited height mode enabled');
+			return;
+		}
+
+		if (!shouldCompact && this._isLimitedHeightActive) {
+			this._isLimitedHeightActive = false;
+			document.body.classList.remove(
+				'yt-limited-height-mode',
+				'yt-limited-height-mode-navbar-hidden'
+			);
+			// Restore default layout
+			this.setLayout(this.options.initialLayout || 'normal');
+			// Restore playlist density from settings
+			this.setPlaylistItemDensity(window.userSettings.playlistItemDensity);
+			// Clear edge padding when leaving horizontal mode
+			if (this.playlistWrapper) {
+				this.playlistWrapper.style.paddingLeft = '0px';
+				this.playlistWrapper.style.paddingRight = '0px';
+			}
+			logger.log('Layout', 'Limited height mode disabled');
+		}
+	}
+
+	/**
+	 * Compute and apply horizontal edge padding so first/last item can be centered
+	 */
+	_updatePlaylistEdgePaddingForCentering() {
+		if (!this._isHorizontalPlaylistActive() || !this.playlistWrapper || !this.hasPlaylist)
+			return;
+
+		// Collect current visible playlist items
+		const items = Array.from(this.playlistWrapper.querySelectorAll('.yt-playlist-item'));
+		if (!items.length) {
+			this.playlistWrapper.style.paddingLeft = '0px';
+			this.playlistWrapper.style.paddingRight = '0px';
+			return;
+		}
+
+		const first = items[0];
+		const last = items[items.length - 1];
+		const wrapperWidth = this.playlistWrapper.clientWidth;
+
+		// Calculate padding so item centers align with wrapper center
+		const firstWidth = first.offsetWidth;
+		const lastWidth = last.offsetWidth || firstWidth;
+		const leftPad = Math.max(0, Math.round(wrapperWidth / 2 - firstWidth / 2));
+		const rightPad = Math.max(0, Math.round(wrapperWidth / 2 - lastWidth / 2));
+
+		this.playlistWrapper.style.paddingLeft = `${leftPad}px`;
+		this.playlistWrapper.style.paddingRight = `${rightPad}px`;
 	}
 
 	/**
@@ -1551,6 +2052,217 @@ class YTMediaPlayer {
 	 */
 	_handlePlayerControlsMutation() {
 		this._handleResize();
+	}
+
+	/**
+	 * AUTO-HIDE SCROLL HANDLERS
+	 */
+
+	/**
+	 * Throttle function for smooth scroll performance
+	 */
+	_throttle(func, limit) {
+		let lastCall = 0;
+		return function () {
+			const now =
+				typeof performance !== 'undefined' && performance.now
+					? performance.now()
+					: Date.now();
+			if (now - lastCall >= limit) {
+				lastCall = now;
+				func.apply(this, arguments);
+			} else {
+				logger.log('AutoHide', 'Scroll throttled');
+			}
+		};
+	}
+
+	/**
+	 * Handle scroll events for auto-hide functionality
+	 */
+	_handleScroll(event) {
+		if (!this.options.autoHidePlayerOnScroll || !this.isPlayerVisible) {
+			logger.log(
+				'AutoHide',
+				'Scroll handler skipped - autoHide:',
+				this.options.autoHidePlayerOnScroll,
+				'visible:',
+				this.isPlayerVisible,
+				'wrapper:',
+				!!this.playerWrapper
+			);
+			return;
+		}
+
+		logger.log(
+			'AutoHide',
+			'Scroll event fired! Player wrapper exists:',
+			!!this.playerWrapper,
+			'count:',
+			++this.scrollEventCount
+		);
+
+		let scrollContainer = event && event.currentTarget ? event.currentTarget : window;
+		let currentScrollY =
+			scrollContainer === window
+				? window.scrollY || document.documentElement.scrollTop || 0
+				: scrollContainer.scrollTop;
+
+		let scrollDelta = currentScrollY - this.lastScrollY;
+		if (this.lastScrollContainer !== scrollContainer) {
+			scrollDelta = 0;
+		}
+
+		// Update scroll velocity (smoothed)
+		this.scrollVelocity = this.scrollVelocity * 0.8 + scrollDelta * 0.2;
+
+		// Determine scroll direction - even more sensitive detection
+		let newDirection = 0;
+		if (scrollDelta > 0.1) {
+			newDirection = -1; // Scrolling down
+		} else if (scrollDelta < -0.1) {
+			newDirection = 1; // Scrolling up
+		}
+
+		// Only update direction if it's a meaningful change
+		if (newDirection !== 0) {
+			this.scrollDirection = newDirection;
+		}
+
+		// Safety zone: always show player when near top of page, but allow hiding if scrolling down from top
+		const safetyZoneThreshold = scrollContainer === window ? 30 : 10;
+		const isInSafetyZone = currentScrollY < safetyZoneThreshold;
+
+		// Special case: if we're at the very top (scrollY=0) and scrolling down, allow hiding
+		const allowHideFromTop = currentScrollY === 0 && scrollDelta > 0;
+
+		logger.log(
+			'AutoHide',
+			`Scroll: Y=${currentScrollY}, delta=${scrollDelta}, velocity=${
+				this.scrollVelocity
+			}, direction=${this.scrollDirection}, safety=${isInSafetyZone}, hidden=${
+				this.isAutoHidden
+			}, container=${scrollContainer === window ? 'window' : '.watch-below-the-player'}`
+		);
+
+		// Hide player when scrolling down with sufficient velocity - very low threshold
+		if (
+			this.scrollDirection === -1 &&
+			this.scrollVelocity > 0.5 &&
+			(!isInSafetyZone || allowHideFromTop) &&
+			!this.isAutoHidden
+		) {
+			logger.log('AutoHide', 'Triggering auto-hide');
+			this._autoHidePlayer();
+		}
+		// Show player with stricter criteria to avoid false toggles during downward scroll
+		else if (this.isAutoHidden) {
+			const shouldShowFromUpward = this.scrollDirection === 1 && this.scrollVelocity < -0.5;
+			const shouldShowFromSafety = isInSafetyZone && this.scrollVelocity <= 0.2;
+			if (shouldShowFromUpward || shouldShowFromSafety) {
+				logger.log('AutoHide', 'Triggering auto-show');
+				this._autoShowPlayer();
+			}
+		}
+
+		this.lastScrollY = currentScrollY;
+		this.lastScrollContainer = scrollContainer;
+	}
+
+	/**
+	 * Auto-hide the player with delay
+	 */
+	_autoHidePlayer() {
+		logger.log('AutoHide', 'Auto-hide called');
+		clearTimeout(this.autoHideTimer);
+		this.autoHideTimer = null;
+		if (this.playerWrapper && this.isPlayerVisible) {
+			this.isAutoHidden = true;
+			document.body.classList.add('yt-auto-hidden-player');
+			logger.log('AutoHide', 'Player auto-hidden - class added to body');
+		} else {
+			logger.log('AutoHide', 'Auto-hide conditions not met:', {
+				hasWrapper: !!this.playerWrapper,
+				isVisible: this.isPlayerVisible,
+				scrollDirection: this.scrollDirection,
+			});
+		}
+	}
+
+	/**
+	 * Manual test method for auto-hide functionality
+	 */
+	testAutoHide() {
+		logger.log('AutoHide', 'Manual test - forcing auto-hide');
+		if (this.playerWrapper && this.isPlayerVisible) {
+			this.isAutoHidden = true;
+			this.playerWrapper.classList.add('yt-auto-hidden');
+			logger.log('AutoHide', 'Manual test - player auto-hidden');
+		} else {
+			logger.log(
+				'AutoHide',
+				'Manual test failed - wrapper:',
+				!!this.playerWrapper,
+				'visible:',
+				this.isPlayerVisible
+			);
+		}
+	}
+
+	/**
+	 * Get current auto-hide debug state
+	 */
+	getAutoHideState() {
+		return {
+			autoHideEnabled: this.options.autoHidePlayerOnScroll,
+			isPlayerVisible: this.isPlayerVisible,
+			isAutoHidden: this.isAutoHidden,
+			hasWrapper: !!this.playerWrapper,
+			wrapperClassList: this.playerWrapper ? Array.from(this.playerWrapper.classList) : [],
+			scrollEventCount: this.scrollEventCount,
+			lastScrollY: this.lastScrollY,
+			scrollVelocity: this.scrollVelocity,
+			scrollDirection: this.scrollDirection,
+			hasWatchBelowPlayer: !!this.watchBelowPlayerElement,
+		};
+	}
+
+	/**
+	 * Manual test method for auto-show functionality
+	 */
+	testAutoShow() {
+		logger.log('AutoHide', 'Manual test - forcing auto-show');
+		if (this.playerWrapper && this.isAutoHidden) {
+			this.isAutoHidden = false;
+			this.playerWrapper.classList.remove('yt-auto-hidden');
+			logger.log('AutoHide', 'Manual test - player auto-shown');
+		} else {
+			logger.log(
+				'AutoHide',
+				'Manual test failed - wrapper:',
+				!!this.playerWrapper,
+				'hidden:',
+				this.isAutoHidden
+			);
+		}
+	}
+
+	/**
+	 * Auto-show the player immediately
+	 */
+	_autoShowPlayer() {
+		logger.log('AutoHide', 'Auto-show called');
+		clearTimeout(this.autoHideTimer);
+		if (this.playerWrapper && this.isAutoHidden) {
+			this.isAutoHidden = false;
+			document.body.classList.remove('yt-auto-hidden-player');
+			logger.log('AutoHide', 'Player auto-shown - class removed from body');
+		} else {
+			logger.log('AutoHide', 'Auto-show conditions not met:', {
+				hasWrapper: !!this.playerWrapper,
+				isAutoHidden: this.isAutoHidden,
+			});
+		}
 	}
 
 	/**
@@ -1594,7 +2306,8 @@ class YTMediaPlayer {
 
 		// Clamp to valid range
 		newHeight = Math.max(0, Math.min(newHeight, this.cachedMeasurements.maxDrawerHeight));
-		this.playerDrawer.style.height = `${newHeight}px`;
+		// Set CSS custom property for dynamic calculations (CSS will handle the height)
+		this.playerWrapper.style.setProperty('--drawer-height-px', `${newHeight}px`);
 
 		const now = performance.now();
 		if (now - this.lastDrawerUpdateTime > this.drawerUpdateThrottle) {
@@ -1740,6 +2453,7 @@ class YTMediaPlayer {
 			'[data-action]',
 			'ytm-related-chip-cloud-renderer',
 			'.ytm-infocards-creator-custom-url-buttons',
+			'ytm-engagement-panel',
 		];
 
 		for (const selector of interactiveSelectors) {
@@ -1794,11 +2508,19 @@ class YTMediaPlayer {
 
 		// Prevent scrolling for horizontal swipes
 		if (this.touchStartInfo.fingerCount === 1 && event.touches.length === 1) {
+			// In horizontal mode, allow native horizontal scrolling within the playlist wrapper
+			const inPlaylistArea =
+				this.playlistWrapper &&
+				(this.touchStartInfo.target === this.playlistWrapper ||
+					(this.touchStartInfo.target.closest &&
+						this.touchStartInfo.target.closest('.yt-playlist-wrapper')));
 			if (
 				Math.abs(deltaX) > Math.abs(deltaY) * (1 / this.SWIPE_VERTICAL_THRESHOLD_RATIO) &&
 				Math.abs(deltaX) > 10
 			) {
-				event.preventDefault();
+				if (!(this._isHorizontalPlaylistActive() && inPlaylistArea)) {
+					event.preventDefault();
+				}
 			}
 		} else if (this.touchStartInfo.fingerCount === 2 && event.touches.length === 2) {
 			if (!this.isDrawerDragging && !this.isSeekbarDragging) {
@@ -1841,6 +2563,15 @@ class YTMediaPlayer {
 				Math.abs(deltaX) > this.SWIPE_DISTANCE_THRESHOLD &&
 				Math.abs(deltaY) < Math.abs(deltaX) * this.SWIPE_VERTICAL_THRESHOLD_RATIO
 			) {
+				// In horizontal mode, when swiping within the playlist area, do not trigger single-finger gestures
+				const inPlaylistArea =
+					this.playlistWrapper &&
+					(this.touchStartInfo.target === this.playlistWrapper ||
+						(this.touchStartInfo.target.closest &&
+							this.touchStartInfo.target.closest('.yt-playlist-wrapper')));
+				if (this._isHorizontalPlaylistActive() && inPlaylistArea) {
+					return;
+				}
 				action =
 					deltaX < 0
 						? this.options.gestureSingleSwipeLeftAction
@@ -2046,7 +2777,6 @@ class YTMediaPlayer {
 	_handlePlaylistScroll() {
 		if (
 			this.programmaticScrollInProgress ||
-			!this.options.keepPlaylistFocused ||
 			!this.hasPlaylist ||
 			!this.playlistWrapper ||
 			this._isContextMenuOpen()
@@ -2055,13 +2785,185 @@ class YTMediaPlayer {
 		}
 
 		clearTimeout(this.autoScrollFocusTimer);
-		this.autoScrollFocusTimer = setTimeout(
-			this._performAutoScrollFocus_bound,
-			this.playlistScrollDebounceDelay
-		);
+		this.playlistWrapper.classList.add('scrolling');
+		this.autoScrollFocusTimer = setTimeout(() => {
+			this.playlistWrapper.classList.remove('scrolling');
+			this._performAutoScrollFocus_bound();
+		}, this.playlistScrollDebounceDelay);
 	}
 
-	_performAutoScrollFocus() {
+	/**
+	 * Update the centered item overlay during horizontal compact scrolling
+	 */
+	_updateCenteredOverlayOnScroll() {
+		if (!this._isHorizontalPlaylistActive() || !this.playlistWrapper || !this.hasPlaylist)
+			return;
+
+		const items = Array.from(this.playlistWrapper.querySelectorAll('.yt-playlist-item'));
+		if (!items.length || !this.centeredOverlayElement) return;
+
+		const centerX = this.playlistWrapper.scrollLeft + this.playlistWrapper.clientWidth / 2;
+		let closestItem = null;
+		let closestDist = Infinity;
+		for (const item of items) {
+			const itemCenter = item.offsetLeft + item.offsetWidth / 2;
+			const dist = Math.abs(itemCenter - centerX);
+			if (dist < closestDist) {
+				closestDist = dist;
+				closestItem = item;
+			}
+		}
+
+		if (!closestItem) return;
+
+		// Highlight centered item
+		this.playlistWrapper
+			.querySelectorAll('.yt-playlist-item.centered')
+			.forEach((el) => el.classList.remove('centered'));
+		closestItem.classList.add('centered');
+
+		// Update overlay content
+		const titleEl = closestItem.querySelector('.yt-playlist-item-title');
+		const artistEl = closestItem.querySelector('.yt-playlist-item-artist');
+		const thumbEl = closestItem.querySelector('.yt-playlist-item-thumbnail');
+
+		const useHeaderControlsOverlay =
+			!!this.options.horizontalPlaylistDetailsInHeaderControls &&
+			this._isHorizontalPlaylistActive();
+
+		if (useHeaderControlsOverlay) {
+			if (this._isLimitedHeightActive) {
+				// Reduced height mode: overlay in playing details area
+				this._ensureControlsCenteredOverlay();
+				if (this.controlsCenteredOverlayTitle) {
+					this.controlsCenteredOverlayTitle.textContent = titleEl?.textContent || '';
+				}
+				if (this.controlsCenteredOverlayArtist) {
+					this.controlsCenteredOverlayArtist.textContent = artistEl?.textContent || '';
+				}
+				if (this.controlsCenteredOverlayThumb && thumbEl) {
+					this.controlsCenteredOverlayThumb.style.backgroundImage =
+						thumbEl.style.backgroundImage || '';
+				}
+				if (this.controlsCenteredOverlay) {
+					this.controlsCenteredOverlay.classList.add('visible');
+				}
+			} else {
+				// Normal height: overlay in drawer header content
+				this._ensureDrawerCenteredOverlay();
+				if (this.drawerCenteredOverlayTitle) {
+					this.drawerCenteredOverlayTitle.textContent = titleEl?.textContent || '';
+				}
+				if (this.drawerCenteredOverlayArtist) {
+					this.drawerCenteredOverlayArtist.textContent = artistEl?.textContent || '';
+				}
+				if (this.drawerCenteredOverlayThumb && thumbEl) {
+					this.drawerCenteredOverlayThumb.style.backgroundImage =
+						thumbEl.style.backgroundImage || '';
+				}
+				if (this.drawerCenteredOverlay) {
+					this.drawerCenteredOverlay.classList.add('visible');
+				}
+			}
+		} else {
+			// Default centered overlay
+			if (this.centeredOverlayTitle) {
+				this.centeredOverlayTitle.textContent = titleEl?.textContent || '';
+			}
+			if (this.centeredOverlayArtist) {
+				this.centeredOverlayArtist.textContent = artistEl?.textContent || '';
+			}
+			if (this.centeredOverlayThumb && thumbEl) {
+				this.centeredOverlayThumb.style.backgroundImage =
+					thumbEl.style.backgroundImage || '';
+			}
+
+			if (this.centeredOverlayElement) {
+				this.centeredOverlayElement.classList.add('visible');
+			}
+		}
+
+		// Hide on idle
+		clearTimeout(this.centeredOverlayHideTimer);
+		this.centeredOverlayHideTimer = setTimeout(() => {
+			this._hideCenteredOverlay();
+		}, this.playlistScrollDebounceDelay + 1000);
+	}
+
+	_hideCenteredOverlay(resetHighlight = true) {
+		if (!this.centeredOverlayElement) return;
+		this.centeredOverlayElement.classList.remove('visible');
+		if (this.drawerCenteredOverlay) {
+			this.drawerCenteredOverlay.classList.remove('visible');
+		}
+		if (this.controlsCenteredOverlay) {
+			this.controlsCenteredOverlay.classList.remove('visible');
+		}
+		clearTimeout(this.centeredOverlayHideTimer);
+		if (resetHighlight && this.playlistWrapper) {
+			this.playlistWrapper
+				.querySelectorAll('.yt-playlist-item.centered')
+				.forEach((el) => el.classList.remove('centered'));
+		}
+	}
+
+	_ensureDrawerCenteredOverlay() {
+		if (!this.playerWrapper) return;
+		const headerContent = this.playerWrapper.querySelector('.yt-drawer-header-content');
+		if (!headerContent) return;
+		if (!this.drawerCenteredOverlay) {
+			const overlay = document.createElement('div');
+			overlay.className = 'yt-horizontal-centered-item-overlay yt-drawer-centered-overlay';
+			const thumb = document.createElement('div');
+			thumb.className = 'yt-overlay-thumb';
+			const text = document.createElement('div');
+			text.className = 'yt-overlay-text';
+			const title = document.createElement('div');
+			title.className = 'yt-overlay-title';
+			const artist = document.createElement('div');
+			artist.className = 'yt-overlay-artist';
+			text.appendChild(title);
+			text.appendChild(artist);
+			overlay.appendChild(thumb);
+			overlay.appendChild(text);
+			headerContent.appendChild(overlay);
+
+			this.drawerCenteredOverlay = overlay;
+			this.drawerCenteredOverlayThumb = thumb;
+			this.drawerCenteredOverlayTitle = title;
+			this.drawerCenteredOverlayArtist = artist;
+		}
+	}
+
+	_ensureControlsCenteredOverlay() {
+		if (!this.playerWrapper) return;
+		const detailsOverlay = this.playerWrapper.querySelector('.yt-details-overlay');
+		if (!detailsOverlay) return;
+		if (!this.controlsCenteredOverlay) {
+			const overlay = document.createElement('div');
+			overlay.className = 'yt-horizontal-centered-item-overlay yt-controls-centered-overlay';
+			const thumb = document.createElement('div');
+			thumb.className = 'yt-overlay-thumb';
+			const text = document.createElement('div');
+			text.className = 'yt-overlay-text';
+			const title = document.createElement('div');
+			title.className = 'yt-overlay-title';
+			const artist = document.createElement('div');
+			artist.className = 'yt-overlay-artist';
+			text.appendChild(title);
+			text.appendChild(artist);
+			overlay.appendChild(thumb);
+			overlay.appendChild(text);
+			detailsOverlay.appendChild(overlay);
+
+			this.controlsCenteredOverlay = overlay;
+			this.controlsCenteredOverlayThumb = thumb;
+			this.controlsCenteredOverlayTitle = title;
+			this.controlsCenteredOverlayArtist = artist;
+		}
+	}
+
+	_performAutoScrollFocus(immediate = false) {
 		if (
 			!this.options.keepPlaylistFocused ||
 			!this.hasPlaylist ||
@@ -2074,7 +2976,7 @@ class YTMediaPlayer {
 		const activeItem = this.playlistWrapper.querySelector('.yt-playlist-item.active');
 		if (activeItem) {
 			this.programmaticScrollInProgress = true;
-			this._scrollActiveItemIntoView(activeItem);
+			this._scrollActiveItemIntoView(activeItem, immediate ? 'instant' : 'smooth');
 			setTimeout(() => {
 				this.programmaticScrollInProgress = false;
 			}, 500);
@@ -2084,6 +2986,34 @@ class YTMediaPlayer {
 	_scrollActiveItemIntoView(activeItem, behavior = 'smooth') {
 		if (!activeItem || !this.playlistWrapper || !activeItem.offsetParent) return;
 
+		// In horizontal mode, scroll along X.
+		if (this._isHorizontalPlaylistActive()) {
+			const wrapperWidth = this.playlistWrapper.clientWidth;
+			const itemWidth = activeItem.offsetWidth;
+			const itemCenter = activeItem.offsetLeft + itemWidth / 2;
+			let targetScrollLeft = itemCenter - wrapperWidth / 2;
+
+			// Clamp to valid scroll range
+			const maxScrollLeft = Math.max(0, this.playlistWrapper.scrollWidth - wrapperWidth);
+			targetScrollLeft = Math.max(0, Math.min(targetScrollLeft, maxScrollLeft));
+
+			const currentScrollLeft = this.playlistWrapper.scrollLeft;
+
+			if (Math.abs(currentScrollLeft - targetScrollLeft) <= 20) return;
+
+			requestAnimationFrame(() => {
+				if (this.playlistWrapper) {
+					this.playlistWrapper.scrollTo({
+						left: targetScrollLeft,
+						behavior,
+					});
+				}
+			});
+
+			return;
+		}
+
+		// Default vertical behavior
 		const previousItem = activeItem.previousElementSibling;
 		const playlistHeight = this.playlistWrapper.offsetHeight;
 		const itemHeight = activeItem.offsetHeight;
@@ -2102,10 +3032,27 @@ class YTMediaPlayer {
 			if (this.playlistWrapper) {
 				this.playlistWrapper.scrollTo({
 					top: targetScrollTop,
-					behavior: behavior,
+					behavior,
 				});
+
+				// Call callback after scroll completes
+				if (onScrollComplete) {
+					onScrollComplete();
+				}
 			}
 		});
+	}
+
+	/**
+	 * Determine if the playlist is currently in a horizontal scrolling layout
+	 * This is true when limited height mode is active OR when the below-video
+	 * horizontal playlist option is active and the drawer is not fully open.
+	 */
+	_isHorizontalPlaylistActive() {
+		return (
+			(!!document.body && document.body.classList.contains('yt-horizontal-playlist')) ||
+			this._isLimitedHeightActive
+		);
 	}
 
 	/**
@@ -2375,6 +3322,15 @@ class YTMediaPlayer {
 			this.playlistWrapper.addEventListener('scroll', this._handlePlaylistScroll_bound, {
 				passive: true,
 			});
+
+			// Independent listener to update centered overlay during any scroll
+			this.playlistWrapper.addEventListener(
+				'scroll',
+				this._updateCenteredOverlayOnScroll_bound,
+				{
+					passive: true,
+				}
+			);
 		}
 
 		const reloadLink = this.playerWrapper.querySelector('.yt-playlist-reload-container button');
@@ -2398,6 +3354,49 @@ class YTMediaPlayer {
 					attributes: true,
 					attributeFilter: ['class'],
 				});
+			}
+
+			// Auto-hide scroll listeners
+			if (this.options.autoHidePlayerOnScroll) {
+				logger.log(
+					'AutoHide',
+					'Setting up auto-hide scroll listeners, wrapper:',
+					!!this.playerWrapper
+				);
+				// Listen for scroll events on body
+				window.addEventListener('scroll', this._handleScrollThrottled_bound, {
+					passive: true,
+				});
+
+				// Also listen for scroll events on .watch-below-the-player element if it exists
+				this.watchBelowPlayerElement = document.querySelector('.watch-below-the-player');
+				if (this.watchBelowPlayerElement) {
+					this.watchBelowPlayerElement.addEventListener(
+						'scroll',
+						this._handleScrollThrottled_bound,
+						{ passive: true }
+					);
+					logger.log(
+						'AutoHide',
+						'Added scroll listener to .watch-below-the-player element'
+					);
+				} else {
+					logger.log('AutoHide', '.watch-below-the-player element not found');
+				}
+				// Initialize scroll position - detect which container is scrollable
+				if (
+					this.watchBelowPlayerElement &&
+					this.watchBelowPlayerElement.scrollHeight >
+						this.watchBelowPlayerElement.clientHeight
+				) {
+					this.lastScrollY = this.watchBelowPlayerElement.scrollTop;
+				} else {
+					this.lastScrollY = window.scrollY;
+				}
+				this.scrollVelocity = 0;
+				this.scrollDirection = 0;
+			} else {
+				logger.log('AutoHide', 'Auto-hide disabled, skipping scroll listeners');
 			}
 
 			// Gesture listeners
@@ -2616,9 +3615,9 @@ class YTMediaPlayer {
 		duration.textContent = item.duration || '0:00';
 		container.appendChild(duration);
 
-		// Create play-next indicator icon (hidden by default)
-		const playNextIcon = document.createElement('div');
-		playNextIcon.className = 'play-next-indicator';
+		// Create playing now indicator icon (hidden by default)
+		const playingNowIcon = document.createElement('div');
+		playingNowIcon.className = 'playing-now-indicator';
 
 		// Create SVG play icon
 		const playSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -2630,7 +3629,28 @@ class YTMediaPlayer {
 		const playPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 		playPath.setAttribute('d', 'M8 5v14l11-7z');
 		playSvg.appendChild(playPath);
-		playNextIcon.appendChild(playSvg);
+		playingNowIcon.appendChild(playSvg);
+
+		container.appendChild(playingNowIcon);
+
+		// Create play-next indicator icon (hidden by default)
+		const playNextIcon = document.createElement('div');
+		playNextIcon.className = 'play-next-indicator';
+
+		// Create SVG play next icon
+		const playNextSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		playNextSvg.setAttribute('viewBox', '0 0 256 256');
+		playNextSvg.setAttribute('width', '12');
+		playNextSvg.setAttribute('height', '12');
+		playNextSvg.style.fill = 'currentColor';
+
+		const playNextPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		playNextPath.setAttribute(
+			'd',
+			'M144,192a8.00008,8.00008,0,0,1-8,8H40a8,8,0,0,1,0-16h96A8.00008,8.00008,0,0,1,144,192ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm96,48H40a8,8,0,0,0,0,16h96a8,8,0,0,0,0-16Zm108.24023,33.21582-64-40A8.00044,8.00044,0,0,0,168,120v80a8.00043,8.00043,0,0,0,12.24023,6.78418l64-40a8.00062,8.00062,0,0,0,0-13.56836Z'
+		);
+		playNextSvg.appendChild(playNextPath);
+		playNextIcon.appendChild(playNextSvg);
 
 		container.appendChild(playNextIcon);
 
@@ -2703,16 +3723,63 @@ class YTMediaPlayer {
 		const content = document.createElement('div');
 		content.className = 'yt-context-menu-content';
 
+		this._createMainMenuOptions(content);
+
+		// Show Details option
+		const detailsOption = document.createElement('div');
+		detailsOption.className = 'yt-context-menu-option';
+
+		const detailsIcon = document.createElement('div');
+		detailsIcon.className = 'yt-context-menu-option-icon';
+		const detailsSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		detailsSvg.setAttribute('viewBox', '0 0 24 24');
+		const detailsPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		detailsPath.setAttribute(
+			'd',
+			'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z'
+		);
+		detailsSvg.appendChild(detailsPath);
+		detailsIcon.appendChild(detailsSvg);
+
+		const detailsText = document.createElement('div');
+		detailsText.className = 'yt-context-menu-option-text';
+		detailsText.textContent = 'Show details';
+
+		detailsOption.appendChild(detailsIcon);
+		detailsOption.appendChild(detailsText);
+		detailsOption.addEventListener('click', () => {
+			this._showDetailsInContextMenu();
+		});
+		content.appendChild(detailsOption);
+
+		modal.appendChild(content);
+		overlay.appendChild(modal);
+
+		return overlay;
+	}
+
+	/**
+	 * Creates and appends the main menu options to the given content element.
+	 * @param {HTMLElement} content - The content element to append options to.
+	 */
+	_createMainMenuOptions(content) {
 		// Play Next option
 		const playNextOption = document.createElement('div');
 		playNextOption.className = 'yt-context-menu-option';
 
 		const playNextIcon = document.createElement('div');
 		playNextIcon.className = 'yt-context-menu-option-icon';
+
 		const playNextSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-		playNextSvg.setAttribute('viewBox', '0 0 24 24');
+		playNextSvg.setAttribute('viewBox', '0 0 256 256');
+		playNextSvg.setAttribute('width', '12');
+		playNextSvg.setAttribute('height', '12');
+
 		const playNextPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-		playNextPath.setAttribute('d', 'M8 5v14l11-7z');
+		playNextPath.setAttribute(
+			'd',
+			'M144,192a8.00008,8.00008,0,0,1-8,8H40a8,8,0,0,1,0-16h96A8.00008,8.00008,0,0,1,144,192ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm96,48H40a8,8,0,0,0,0,16h96a8,8,0,0,0,0-16Zm108.24023,33.21582-64-40A8.00044,8.00044,0,0,0,168,120v80a8.00043,8.00043,0,0,0,12.24023,6.78418l64-40a8.00062,8.00062,0,0,0,0-13.56836Z'
+		);
 		playNextSvg.appendChild(playNextPath);
 		playNextIcon.appendChild(playNextSvg);
 
@@ -2728,7 +3795,7 @@ class YTMediaPlayer {
 		});
 		content.appendChild(playNextOption);
 
-		// Repeat Current Video option
+		// Repeat option
 		const repeatOption = document.createElement('div');
 		repeatOption.className = 'yt-context-menu-option separator';
 
@@ -2811,38 +3878,6 @@ class YTMediaPlayer {
 			this._hideContextMenu();
 		});
 		content.appendChild(blacklistOption);
-
-		// Show Details option
-		const detailsOption = document.createElement('div');
-		detailsOption.className = 'yt-context-menu-option';
-
-		const detailsIcon = document.createElement('div');
-		detailsIcon.className = 'yt-context-menu-option-icon';
-		const detailsSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-		detailsSvg.setAttribute('viewBox', '0 0 24 24');
-		const detailsPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-		detailsPath.setAttribute(
-			'd',
-			'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z'
-		);
-		detailsSvg.appendChild(detailsPath);
-		detailsIcon.appendChild(detailsSvg);
-
-		const detailsText = document.createElement('div');
-		detailsText.className = 'yt-context-menu-option-text';
-		detailsText.textContent = 'Show details';
-
-		detailsOption.appendChild(detailsIcon);
-		detailsOption.appendChild(detailsText);
-		detailsOption.addEventListener('click', () => {
-			this._showDetailsInContextMenu();
-		});
-		content.appendChild(detailsOption);
-
-		modal.appendChild(content);
-		overlay.appendChild(modal);
-
-		return overlay;
 	}
 
 	_showContextMenu(x, y, videoId) {
@@ -2943,114 +3978,7 @@ class YTMediaPlayer {
 		content.innerHTML = '';
 
 		// Recreate the main menu options
-		// Play Next option
-		const playNextOption = document.createElement('div');
-		playNextOption.className = 'yt-context-menu-option';
-
-		const playNextIcon = document.createElement('div');
-		playNextIcon.className = 'yt-context-menu-option-icon';
-		const playNextSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-		playNextSvg.setAttribute('viewBox', '0 0 24 24');
-		const playNextPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-		playNextPath.setAttribute('d', 'M8 5v14l11-7z');
-		playNextSvg.appendChild(playNextPath);
-		playNextIcon.appendChild(playNextSvg);
-
-		const playNextText = document.createElement('div');
-		playNextText.className = 'yt-context-menu-option-text';
-		playNextText.textContent = 'Play next';
-
-		playNextOption.appendChild(playNextIcon);
-		playNextOption.appendChild(playNextText);
-		playNextOption.addEventListener('click', () => {
-			this._setPlayNext(this.contextMenuVideoId);
-			this._hideContextMenu();
-		});
-		content.appendChild(playNextOption);
-
-		// Repeat Current Video option
-		const repeatOption = document.createElement('div');
-		repeatOption.className = 'yt-context-menu-option separator';
-
-		const repeatIcon = document.createElement('div');
-		repeatIcon.className = 'yt-context-menu-option-icon';
-		const repeatSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-		repeatSvg.setAttribute('viewBox', '0 0 24 24');
-		const repeatPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-		repeatPath.setAttribute(
-			'd',
-			'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z'
-		);
-		repeatSvg.appendChild(repeatPath);
-		repeatIcon.appendChild(repeatSvg);
-
-		const repeatText = document.createElement('div');
-		repeatText.className = 'yt-context-menu-option-text';
-		repeatText.textContent = 'Play this on repeat';
-
-		repeatOption.appendChild(repeatIcon);
-		repeatOption.appendChild(repeatText);
-		repeatOption.addEventListener('click', () => {
-			this._setRepeatCurrent(this.contextMenuVideoId);
-			this._hideContextMenu();
-		});
-		content.appendChild(repeatOption);
-
-		// Remove from mix option
-		const removeOption = document.createElement('div');
-		removeOption.className = 'yt-context-menu-option';
-
-		const removeIcon = document.createElement('div');
-		removeIcon.className = 'yt-context-menu-option-icon';
-		const removeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-		removeSvg.setAttribute('viewBox', '0 0 24 24');
-		const removePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-		removePath.setAttribute(
-			'd',
-			'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'
-		);
-		removeSvg.appendChild(removePath);
-		removeIcon.appendChild(removeSvg);
-
-		const removeText = document.createElement('div');
-		removeText.className = 'yt-context-menu-option-text';
-		removeText.textContent = 'Remove from this mix';
-
-		removeOption.appendChild(removeIcon);
-		removeOption.appendChild(removeText);
-		removeOption.addEventListener('click', () => {
-			this._removeFromMix(this.contextMenuVideoId);
-			this._hideContextMenu();
-		});
-		content.appendChild(removeOption);
-
-		// Blacklist option
-		const blacklistOption = document.createElement('div');
-		blacklistOption.className = 'yt-context-menu-option separator';
-
-		const blacklistIcon = document.createElement('div');
-		blacklistIcon.className = 'yt-context-menu-option-icon';
-		const blacklistSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-		blacklistSvg.setAttribute('viewBox', '0 0 24 24');
-		const blacklistPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-		blacklistPath.setAttribute(
-			'd',
-			'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z'
-		);
-		blacklistSvg.appendChild(blacklistPath);
-		blacklistIcon.appendChild(blacklistSvg);
-
-		const blacklistText = document.createElement('div');
-		blacklistText.className = 'yt-context-menu-option-text';
-		blacklistText.textContent = 'Blacklist this video';
-
-		blacklistOption.appendChild(blacklistIcon);
-		blacklistOption.appendChild(blacklistText);
-		blacklistOption.addEventListener('click', () => {
-			this._blacklistVideo(this.contextMenuVideoId);
-			this._hideContextMenu();
-		});
-		content.appendChild(blacklistOption);
+		this._createMainMenuOptions(content);
 
 		// Show Details option
 		const detailsOption = document.createElement('div');
@@ -3072,6 +4000,11 @@ class YTMediaPlayer {
 		detailsText.className = 'yt-context-menu-option-text';
 		detailsText.textContent = 'Show details';
 
+		detailsOption.appendChild(detailsIcon);
+		detailsOption.appendChild(detailsText);
+		detailsOption.addEventListener('click', () => {
+			this._showDetailsInContextMenu();
+		});
 		detailsOption.appendChild(detailsIcon);
 		detailsOption.appendChild(detailsText);
 		detailsOption.addEventListener('click', () => {
@@ -3358,6 +4291,7 @@ class YTMediaPlayer {
 	showPlayer() {
 		if (this.isPlayerVisible || !this.playerWrapper) return;
 
+		logger.log('AutoHide', 'showPlayer called - making player visible');
 		this.isPlayerVisible = true;
 		this.playerWrapper.classList.remove('yt-player-hidden');
 
@@ -3371,6 +4305,53 @@ class YTMediaPlayer {
 			});
 		}
 
+		// Re-attach auto-hide scroll listeners
+		if (this.options.autoHidePlayerOnScroll) {
+			logger.log(
+				'AutoHide',
+				'Re-attaching auto-hide scroll listeners, player visible:',
+				this.isPlayerVisible
+			);
+
+			// Listen for scroll events on body
+			window.addEventListener('scroll', this._handleScrollThrottled_bound, { passive: true });
+
+			// Also listen for scroll events on .watch-below-the-player element if it exists
+			if (this.watchBelowPlayerElement) {
+				this.watchBelowPlayerElement.addEventListener(
+					'scroll',
+					this._handleScrollThrottled_bound,
+					{ passive: true }
+				);
+			}
+
+			// Initialize scroll position - detect which container is scrollable
+			if (
+				this.watchBelowPlayerElement &&
+				this.watchBelowPlayerElement.scrollHeight >
+					this.watchBelowPlayerElement.clientHeight
+			) {
+				this.lastScrollY = this.watchBelowPlayerElement.scrollTop;
+			} else {
+				this.lastScrollY = window.scrollY;
+			}
+			this.scrollVelocity = 0;
+			this.scrollDirection = 0;
+			this.scrollEventCount = 0; // Reset debug counter
+		}
+
+		// Reset auto-hide state
+		this._autoShowPlayer();
+		// Reset scroll position - detect which container is scrollable
+		if (
+			this.watchBelowPlayerElement &&
+			this.watchBelowPlayerElement.scrollHeight > this.watchBelowPlayerElement.clientHeight
+		) {
+			this.lastScrollY = this.watchBelowPlayerElement.scrollTop;
+		} else {
+			this.lastScrollY = window.scrollY;
+		}
+
 		// Recalculate and restore state
 		this._invalidateAndRecalculateMeasurements();
 		this._updatePlaylistVisibility();
@@ -3380,6 +4361,7 @@ class YTMediaPlayer {
 	hidePlayer() {
 		if (!this.isPlayerVisible || !this.playerWrapper) return;
 
+		logger.log('AutoHide', 'hidePlayer called - hiding player');
 		this.isPlayerVisible = false;
 		this.playerWrapper.classList.add('yt-player-hidden');
 
@@ -3388,6 +4370,16 @@ class YTMediaPlayer {
 		if (this.resizeObserver) {
 			this.resizeObserver.disconnect();
 		}
+
+		// Remove auto-hide scroll listeners
+		window.removeEventListener('scroll', this._handleScrollThrottled_bound);
+		if (this.watchBelowPlayerElement) {
+			this.watchBelowPlayerElement.removeEventListener(
+				'scroll',
+				this._handleScrollThrottled_bound
+			);
+		}
+		clearTimeout(this.autoHideTimer);
 	}
 
 	/**
@@ -3567,9 +4559,9 @@ class YTMediaPlayer {
 	}
 
 	/**
-	 * Process hidden items for blacklist, removed-from-mix, and duplicates
+	 * Process hidden items for blacklist, removed-from-mix, duplicates, and Christmas music
 	 */
-	_processHiddenItems(items, listId) {
+	_processHiddenItems(items, listId, playlistTitle = '') {
 		const blacklist = window.userSettings.videoBlacklist || [];
 		const removed =
 			(listId &&
@@ -3599,6 +4591,27 @@ class YTMediaPlayer {
 
 			if (isBlacklisted || removed.includes(videoId)) {
 				hidden = true;
+			}
+
+			// Apply Christmas music filtering if not already hidden
+			if (!hidden && window.userSettings.christmasMusicFilter !== 'disabled') {
+				const christmasSettings = {
+					christmasMusicFilter: window.userSettings.christmasMusicFilter,
+					christmasStartDate: window.userSettings.christmasStartDate,
+					christmasEndDate: window.userSettings.christmasEndDate,
+					christmasBypassOnPlaylistTitle:
+						window.userSettings.christmasBypassOnPlaylistTitle,
+				};
+
+				const videoData = {
+					title: item.title || '',
+					artist: item.artist || item.author || '',
+					playlistTitle: playlistTitle || '',
+				};
+
+				if (shouldFilterChristmasMusic(videoData, christmasSettings)) {
+					hidden = true;
+				}
 			}
 
 			// Handle duplicates (if enabled)
@@ -3674,7 +4687,7 @@ class YTMediaPlayer {
 		this.playerWrapper.classList.remove('yt-playlist-loading');
 
 		// Process items for hiding (blacklist, removed-from-mix, duplicates)
-		newItems = this._processHiddenItems(newItems, listId);
+		newItems = this._processHiddenItems(newItems, listId, title);
 
 		this.options.currentPlaylist.items = newItems;
 
@@ -3746,6 +4759,9 @@ class YTMediaPlayer {
 
 		this._updateDrawerVisualState();
 
+		// Update edge padding for centering extremes in horizontal mode
+		this._updatePlaylistEdgePaddingForCentering();
+
 		// Scroll to active item
 		if (activeElement) {
 			if (this.options.keepPlaylistFocused) {
@@ -3753,7 +4769,7 @@ class YTMediaPlayer {
 				this.programmaticScrollInProgress = false;
 			}
 
-			this._scrollActiveItemIntoView(activeElement, 'auto');
+			this._scrollActiveItemIntoView(activeElement, 'instant');
 		}
 
 		// Update header content
@@ -3823,11 +4839,11 @@ class YTMediaPlayer {
 			`.yt-playlist-item[data-item-id="${newItemIdStr}"]`
 		);
 		if (newActive) {
-			newActive.classList.add('active');
 			if (this.options.keepPlaylistFocused) {
 				clearTimeout(this.autoScrollFocusTimer);
 				this.programmaticScrollInProgress = false;
 			}
+			newActive.classList.add('active');
 			this._scrollActiveItemIntoView(newActive, 'smooth');
 		}
 
@@ -4029,6 +5045,10 @@ class YTMediaPlayer {
 		}
 	}
 
+	setPlaylistScrollDebounceDelay(delay) {
+		this.playlistScrollDebounceDelay = delay * 1000;
+	}
+
 	setGesturesEnabled(enabled) {
 		if (this.options.enableGestures === enabled) return;
 
@@ -4051,6 +5071,7 @@ class YTMediaPlayer {
 		clearTimeout(this.autoScrollFocusTimer);
 		clearTimeout(this.gestureFeedbackTimeout);
 		clearTimeout(this.resizeTimeout);
+		clearTimeout(this.autoHideTimer);
 
 		// Remove body classes
 		if (document.body) {
@@ -4058,12 +5079,20 @@ class YTMediaPlayer {
 				'yt-drawer-closed',
 				'yt-drawer-mid',
 				'yt-drawer-full',
-				'yt-player-body-dragging'
+				'yt-player-body-dragging',
+				'yt-limited-height-mode-navbar-hidden'
 			);
 		}
 
 		// Remove global listeners
 		window.removeEventListener('resize', this._handleResize_bound);
+		window.removeEventListener('scroll', this._handleScrollThrottled_bound);
+		if (this.watchBelowPlayerElement) {
+			this.watchBelowPlayerElement.removeEventListener(
+				'scroll',
+				this._handleScrollThrottled_bound
+			);
+		}
 		if (this.resizeObserver) {
 			this.resizeObserver.disconnect();
 			this.resizeObserver = null;
