@@ -66,7 +66,10 @@ class OptionDependencyManager {
 	registerDependency(child) {
 		const parentId = child.getAttribute('data-parent') || child.dataset.parent;
 		let expectedValue = child.getAttribute('data-parent-value') || child.dataset.parentValue;
-		let condition = child.getAttribute('data-parent-condition') || child.dataset.parentCondition || 'equals';
+		let condition =
+			child.getAttribute('data-parent-condition') ||
+			child.dataset.parentCondition ||
+			'equals';
 
 		if (expectedValue && expectedValue.startsWith('!')) {
 			condition = 'not-equals';
@@ -145,10 +148,10 @@ class OptionDependencyManager {
 		});
 	}
 
-		evaluateDependency(dep, parent) {
-			const parentValue = this.getElementValue(parent);
-			const { expectedValue, condition, complexConditions } = dep;
-			const combineMode = (dep.element.dataset.parentCombine || 'all').toLowerCase();
+	evaluateDependency(dep, parent) {
+		const parentValue = this.getElementValue(parent);
+		const { expectedValue, condition, complexConditions } = dep;
+		const combineMode = (dep.element.dataset.parentCombine || 'all').toLowerCase();
 
 		// Debug logging
 		console.log('Evaluating dependency:', {
@@ -159,33 +162,34 @@ class OptionDependencyManager {
 			shouldEnable: this.evaluateSingleCondition(parentValue, expectedValue, condition),
 		});
 
-			// Handle complex conditions (multiple parents)
-			if (complexConditions.length > 0) {
-				const mainCondition = this.evaluateSingleCondition(
-					parentValue,
-					expectedValue,
-					condition
+		// Handle complex conditions (multiple parents)
+		if (complexConditions.length > 0) {
+			const mainCondition = this.evaluateSingleCondition(
+				parentValue,
+				expectedValue,
+				condition
+			);
+			const complexResults = complexConditions.map((cond) => {
+				const complexParent = document.getElementById(cond.parentId);
+				if (!complexParent) return false;
+				const complexValue = this.getElementValue(complexParent);
+				return this.evaluateSingleCondition(
+					complexValue,
+					cond.expectedValue,
+					cond.condition
 				);
-				const complexResults = complexConditions.map((cond) => {
-					const complexParent = document.getElementById(cond.parentId);
-					if (!complexParent) return false;
-					const complexValue = this.getElementValue(complexParent);
-					return this.evaluateSingleCondition(
-						complexValue,
-						cond.expectedValue,
-						cond.condition
-					);
-				});
-				const results = [mainCondition, ...complexResults];
-				const finalResult = combineMode === 'any'
+			});
+			const results = [mainCondition, ...complexResults];
+			const finalResult =
+				combineMode === 'any'
 					? results.some((r) => r === true)
 					: results.every((r) => r === true);
-				return finalResult;
-			}
-
-			// Simple single parent condition
-			return this.evaluateSingleCondition(parentValue, expectedValue, condition);
+			return finalResult;
 		}
+
+		// Simple single parent condition
+		return this.evaluateSingleCondition(parentValue, expectedValue, condition);
+	}
 
 	evaluateSingleCondition(parentValue, expectedValue, condition) {
 		console.log('evaluateSingleCondition:', {
@@ -264,7 +268,8 @@ class OptionDependencyManager {
 	}
 
 	applyHiddenState(element, shouldEnable) {
-		if (shouldEnable) element.classList.remove('hidden'); else element.classList.add('hidden');
+		if (shouldEnable) element.classList.remove('hidden');
+		else element.classList.add('hidden');
 		element.querySelectorAll('input, select, textarea, button').forEach((control) => {
 			control.disabled = !shouldEnable;
 		});
@@ -347,7 +352,7 @@ function setupSearch() {
 			if (noResultsMessage) hideElement(noResultsMessage);
 			if (mainContent) showElement(mainContent);
 		}
-}
+	}
 
 	// Event listeners
 	searchToggle.addEventListener('click', toggleSearch);
@@ -764,8 +769,13 @@ function setupInteractiveLabels() {
 				}
 			});
 		}
-		if (item.classList.contains('toggle-item') && item.classList.contains('toggle-item--full')) {
-			item.querySelectorAll('.toggle-subrow .toggle-label-description, .toggle-label-group .toggle-label-description').forEach((desc) => {
+		if (
+			item.classList.contains('toggle-item') &&
+			item.classList.contains('toggle-item--full')
+		) {
+			item.querySelectorAll(
+				'.toggle-subrow .toggle-label-description, .toggle-label-group .toggle-label-description'
+			).forEach((desc) => {
 				desc.addEventListener('click', () => {
 					if (input && input.type === 'checkbox') input.click();
 				});
@@ -1157,16 +1167,16 @@ function initDonorsSection() {
 
 	if (!donorsHeader || !donorsList || !donorsFooter || !collapseIcon) return;
 
-		donorsHeader.addEventListener('click', async () => {
-			const isExpanded = donorsHeader.classList.toggle('expanded');
-			if (isExpanded) {
-				showElement(donorsList);
-				showElement(donorsFooter);
-			} else {
-				hideElement(donorsList);
-				hideElement(donorsFooter);
-			}
-			collapseIcon.textContent = isExpanded ? '▲' : '▼';
+	donorsHeader.addEventListener('click', async () => {
+		const isExpanded = donorsHeader.classList.toggle('expanded');
+		if (isExpanded) {
+			showElement(donorsList);
+			showElement(donorsFooter);
+		} else {
+			hideElement(donorsList);
+			hideElement(donorsFooter);
+		}
+		collapseIcon.textContent = isExpanded ? '▲' : '▼';
 
 		if (isExpanded) {
 			try {
@@ -1247,7 +1257,9 @@ function initGlobalCollapseButton() {
 				content: card.querySelector('.card-content'),
 			}))
 			.filter((pair) => pair.header && pair.content);
-		const hasVisible = collapsiblePairs.some((pair) => !pair.content.classList.contains('hidden'));
+		const hasVisible = collapsiblePairs.some(
+			(pair) => !pair.content.classList.contains('hidden')
+		);
 		collapsiblePairs.forEach((pair) => {
 			if (hasVisible) {
 				pair.content.classList.add('hidden');
@@ -1530,7 +1542,7 @@ async function initNewOptionIndicators() {
 			const addedVersion = optionElement.getAttribute('data-added-version');
 
 			// Compare versions
-			if (compareVersions(addedVersion, lastVersion) > 0) {
+			if (compareVersions(addedVersion, lastVersion) > 0 || addedVersion === currentVersion) {
 				// This option is new, add the badge
 				addNewOptionBadge(optionElement);
 				newOptionsList.push(optionElement);
@@ -1714,3 +1726,17 @@ function compareVersions(version1, version2) {
 
 	return 0;
 }
+
+let lastY = window.scrollY;
+window.addEventListener('scroll', () => {
+	const currentY = window.scrollY;
+	const el = document.querySelector('.options-page');
+
+	if (currentY > lastY) {
+		el.classList.add('compact'); // scrolling down
+	} else {
+		el.classList.remove('compact'); // scrolling up
+	}
+
+	lastY = currentY;
+});

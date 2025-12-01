@@ -79,7 +79,8 @@ window.userSettings = {
 	bufferDetectionEventCount: 2,
 	bufferDetectionPauseDuration: 5,
 	bufferDetectionMinDuration: 1,
-	hideEasterEggSpider: false,
+	enableEasterEggs: true,
+	showEasterEggSpider: true,
 	hideShorts: false,
 	hidePlayables: true,
 	christmasMusicFilter: 'disabled', // 'disabled', 'always', 'dates'

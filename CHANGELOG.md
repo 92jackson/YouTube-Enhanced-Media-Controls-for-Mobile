@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.1]
+
+### Changes
+
+-   Fixed refocusing playing item in playlist on drawer state change
+-   Minor updates to the options page
+
 ## [2.0.0] - 2025-11-22
 
 ### Added

@@ -1,6 +1,6 @@
 # YouTube Enhanced Media Controls (for Mobile)
 
-![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)
+![Version](https://img.shields.io/badge/version-2.0.1-pink.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Firefox](https://img.shields.io/badge/Firefox-Compatible-FF7139.svg?logo=firefoxbrowser&logoColor=white)
 ![Kiwi Browser](https://img.shields.io/badge/Kiwi%20Browser-Compatible-00C851.svg)
@@ -46,26 +46,23 @@ This extension was originally developed to provide a more user friendly interfac
 
 -   **Background Play Support**: Continue playback when switching tabs or minimizing browser
 -   **Continue Watching Popup Handling**: Automatic dismissal of YouTube's continue watching overlays
--   **Media Key Playlist Navigation Fix**: Prevents Android notification and Bluetooth media keys from skipping outside the current playlist to suggested videos
--   **Auto Ad Skip**: Skip YouTube ads automatically as they play
--   **Rapid Buffer Auto-Pause**: Pause the video for a set duration when repeated buffering is detected. Useful on slow connections.
+-   **Playlist-only Media Keys**: Prevents Android notification and Bluetooth media keys from skipping outside the current playlist
+-   **Auto-skip Ads**: Automatically skip ads when detected during playback (experimental)
+-   **Rapid Buffer Auto-Pause**: Pause the video for a set duration when repeated buffering is detected
+-   **Playlist Stability Fixes**: Auto-reload stuck playlists and fix playlist auto-scroll
+-   **Blacklist Videos**: Manage a list of videos to hide from playlists and suggestions
 
-## 📦 Installation
+# 📦 Installation
+
+## Official store releases:
 
 ### Firefox
 
 Install the extension from the [Firefox Browser ADD-ONS](https://addons.mozilla.org/en-GB/firefox/addon/yt-enhanced-media-controls/) store.
 
-### Kiwi Browser
-
-1. Download the project's .zip file.
-2. Open Kiwi Browser and navigate to `kiwi://extensions`.
-3. Enable "Developer mode".
-4. Click "+ (from .zip/.crx/.user.js)" and select the downloaded `.zip` file.
-
 ### Microsoft Edge Canary (Android)
 
-**Note**: This method requires Edge Canary and is experimental.
+**Note**: This method requires Edge Canary and to mess about with Developer options (thanks Microsoft...).
 
 1. Install [Microsoft Edge Canary](https://play.google.com/store/apps/details?id=com.microsoft.emmx.canary) from Google Play Store.
 2. Enable Developer Options:
@@ -73,14 +70,54 @@ Install the extension from the [Firefox Browser ADD-ONS](https://addons.mozilla.
     - Tap the build number **5 times** to unlock Developer Options
 3. Install the extension by ID:
     - In Edge Canary, go to Settings → Developer Options
-    - Find "Extension install by id" field
-    - Enter: `alabiblpjgpdmeobghefpoaijodckbjk`
+    - Select `Extension install by id` then enter: `alabiblpjgpdmeobghefpoaijodckbjk`
+
+## Via build:
+
+-   To compile your own, see [/build/README.md](https://github.com/92jackson/YouTube-Enhanced-Media-Controls-for-Mobile/blob/main/build/README.md)
+-   Or use the pre-compiled releases here: [Releases](https://github.com/92jackson/YouTube-Enhanced-Media-Controls-for-Mobile/releases)
+
+### Kiwi Browser (Android)
+
+1. Download the lastest release -gc-XX.zip (or compile).
+2. Open Kiwi Browser and open `Extensions` from the menu.
+3. Enable "Developer mode".
+4. Click `+ (from .zip/.crx/.user.js)` and select the downloaded `.zip` file.
+
+### FireFox Nightly (Android)
+
+**Note**: This method requires FireFox Nightly for Android, standard wont work!
+
+1. Install [FireFox Nightly](https://play.google.com/store/apps/details?id=org.mozilla.fenix) from Google Play Store.
+2. Enable Developer Options:
+    - Go to Settings → About Firefox Nightly
+    - Tap the FireFox logo **5 times** to unlock Developer Options
+3. There'll now be a new option under Settings → Advanced for `Install extension from file`, use that to navigate to the downloaded `-ff-XX.zip` file.
+
+### Microsoft Edge Canary (Android)
+
+1. Install [Microsoft Edge Canary](https://play.google.com/store/apps/details?id=com.microsoft.emmx.canary) from Google Play Store.
+2. Enable Developer Options:
+    - Go to Settings → About Microsoft Edge
+    - Tap the build number **5 times** to unlock Developer Options
+3. Install the extension by crx:
+    - In Edge Canary, go to Settings → Developer Options
+    - Select `Extension install by crx` and navigate to the downloaded `-me-XX.crx` file.
+
+### Google Chrome (Desktop)
+
+1. Download the lastest release -gc-XX.zip (or compile) and extract it.
+2. Open Google Chrome and open `Extensions` from the menu.
+3. Enable "Developer mode".
+4. Click `Load unpacked` and navigate to the extracted `-gc-XX` folder.
 
 ### Browser Compatibility
 
--   ✅ Firefox
+-   ✅ Firefox (Android + Desktop for testing)
+-   ✅ FireFox Nightly (Android)
 -   ✅ Kiwi Browser (Android)
--   🧪 Microsoft Edge Canary (Android) - Experimental
+-   ✅ Microsoft Edge Canary (Android)
+-   ✅ Google Chrome/MS Edge (Desktop - recommended for testing only)
 
 ## 🛠️ Configuration
 
@@ -121,41 +158,6 @@ Click the extension icon in your browser's menu to access the settings panel. Th
 -   **Two-finger Swipe Down**: Play/pause toggle
 -   **Custom Gestures**: Configure additional actions in settings
 
-## 🏗️ Project Structure
-
-```
-media-controls/
-├── .prettierrc               # Code formatting configuration
-├── CHANGELOG.md              # Version history and feature documentation
-├── LICENSE                   # MIT License
-├── README.md                 # Project documentation
-├── manifest.json             # Extension manifest (Manifest V3)
-├── src/                      # Source code directory
-│   ├── content/              # Content scripts
-│   │   ├── background-player.js # Background playback functionality
-│   │   ├── content.js        # Main content script
-│   │   ├── yt-media-player.js # Custom player implementation
-│   │   ├── yt-navbar.js      # Custom navigation bar
-│   │   └── yt-splash.js      # Splash screen handling
-│   ├── options/              # Extension options
-│   │   ├── options.html      # Settings page
-│   │   └── options.js        # Settings page logic
-│   └── utils/                # Utility modules
-│       ├── user-settings.js  # User preferences management
-│       └── utils.js          # Core utilities (refactored into classes)
-├── styles/                   # CSS stylesheets
-│   ├── yt-media-player.css   # Player styling
-│   └── yt-splash.css         # Splash screen styling
-├── icons/                    # Extension icons
-│   ├── icon16.png
-│   ├── icon32.png
-│   ├── icon48.png
-│   └── icon128.png
-└── assets/                   # Static assets
-    ├── default_thumb.png
-    └── splash.png
-```
-
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -175,4 +177,4 @@ If you encounter issues or have questions:
 
 ---
 
-**Note**: This extension is designed specifically for the mobile version of YouTube (`m.youtube.com`) and will not work on the desktop version.
+**Note**: This extension is designed specifically for the mobile version of YouTube (`m.youtube.com`) and will not work on the desktop version. While it will work on desktop browsers, it is optimised for mobile use only.

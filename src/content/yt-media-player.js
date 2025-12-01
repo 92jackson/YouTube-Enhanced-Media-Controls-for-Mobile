@@ -1772,7 +1772,7 @@ class YTMediaPlayer {
 		}
 
 		// Add immediate auto-scroll focus after layout change
-		if (this.options.keepPlaylistFocused && this.hasPlaylist) {
+		if (this.hasPlaylist) {
 			this._performAutoScrollFocus(true);
 		}
 	}
@@ -2965,10 +2965,9 @@ class YTMediaPlayer {
 
 	_performAutoScrollFocus(immediate = false) {
 		if (
-			!this.options.keepPlaylistFocused ||
+			((!this.options.keepPlaylistFocused || this._isContextMenuOpen()) && !immediate) ||
 			!this.hasPlaylist ||
-			!this.playlistWrapper ||
-			this._isContextMenuOpen()
+			!this.playlistWrapper
 		) {
 			return;
 		}
