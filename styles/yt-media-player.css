@@ -235,7 +235,428 @@ body.yt-theme-light {
 
 /* === COLOR THEMES === */
 
+/* Red Theme */
+body.yt-theme-red {
+	--yt-player-bg-primary: rgba(255, 0, 0, 0.95);
+	--yt-player-bg-secondary: #ff0000;
+	--yt-player-bg-pressed: rgba(255, 255, 255, 0.1);
+	--yt-player-button-normal: #dd0000;
+	--yt-player-bg-active: rgba(255, 255, 255, 0.2);
+	--yt-player-bg-hover: #ff3333;
+	--yt-player-text-primary: #ffffff;
+	--yt-player-text-secondary: #f0f0f0;
+	--yt-player-text-muted: #cccccc;
+	--yt-player-handle-bg: #ff0000;
+	--yt-player-handle-text-primary: #ffffff;
+	--yt-player-handle-text-secondary: #f0f0f0;
+	--yt-player-handle-cue-bg: #dd0000;
+	--yt-player-handle-closed-bg: #cc0000;
+	--yt-player-seekbar-bg: linear-gradient(135deg, #ff3333 0%, #ff0000 100%);
+	--yt-player-seekbar-track: #dd0000;
+	--yt-player-seekbar-handle: #ffffff;
+	--yt-player-button-active: #cc0000;
+	--yt-player-playlist-bg: #330000;
+	--yt-player-playlist-text-primary: #ffffff;
+	--yt-player-playlist-text-secondary: #f0f0f0;
+	--yt-player-playlist-border: #660000;
+	--yt-player-playlist-hover-bg: #440000;
+	--yt-player-playlist-active-bg: #550000;
+	--yt-player-playlist-thumbnail-bg: #220000;
+	--yt-player-playlist-thumbnail-border: #550000;
+}
+
+/* Blue Theme */
+body.yt-theme-blue {
+	--yt-player-bg-primary: rgba(52, 152, 219, 0.95);
+	--yt-player-bg-secondary: #3498db;
+	--yt-player-bg-pressed: rgba(255, 255, 255, 0.1);
+	--yt-player-button-normal: #2980b9;
+	--yt-player-bg-active: rgba(255, 255, 255, 0.2);
+	--yt-player-bg-hover: #5dade2;
+	--yt-player-text-primary: #ffffff;
+	--yt-player-text-secondary: #f0f0f0;
+	--yt-player-text-muted: #cccccc;
+	--yt-player-handle-bg: #3498db;
+	--yt-player-handle-text-primary: #ffffff;
+	--yt-player-handle-text-secondary: #f0f0f0;
+	--yt-player-handle-cue-bg: #2980b9;
+	--yt-player-handle-closed-bg: #2471a3;
+	--yt-player-seekbar-bg: linear-gradient(135deg, #5dade2 0%, #3498db 100%);
+	--yt-player-seekbar-track: #2980b9;
+	--yt-player-seekbar-handle: #ffffff;
+	--yt-player-button-active: #2471a3;
+	--yt-player-playlist-bg: #1a3a5c;
+	--yt-player-playlist-text-primary: #ffffff;
+	--yt-player-playlist-text-secondary: #f0f0f0;
+	--yt-player-playlist-border: #2e5984;
+	--yt-player-playlist-hover-bg: #234567;
+	--yt-player-playlist-active-bg: #2c5070;
+	--yt-player-playlist-thumbnail-bg: #0f2a44;
+	--yt-player-playlist-thumbnail-border: #2c5070;
+}
+
+/* Green Theme */
+body.yt-theme-green {
+	--yt-player-bg-primary: rgba(46, 204, 113, 0.95);
+	--yt-player-bg-secondary: #2ecc71;
+	--yt-player-bg-pressed: rgba(255, 255, 255, 0.1);
+	--yt-player-button-normal: #27ae60;
+	--yt-player-bg-active: rgba(255, 255, 255, 0.2);
+	--yt-player-bg-hover: #58d68d;
+	--yt-player-text-primary: #ffffff;
+	--yt-player-text-secondary: #f0f0f0;
+	--yt-player-text-muted: #cccccc;
+	--yt-player-handle-bg: #2ecc71;
+	--yt-player-handle-text-primary: #ffffff;
+	--yt-player-handle-text-secondary: #f0f0f0;
+	--yt-player-handle-cue-bg: #27ae60;
+	--yt-player-handle-closed-bg: #229954;
+	--yt-player-seekbar-bg: linear-gradient(135deg, #58d68d 0%, #2ecc71 100%);
+	--yt-player-seekbar-track: #27ae60;
+	--yt-player-seekbar-handle: #ffffff;
+	--yt-player-button-active: #229954;
+	--yt-player-playlist-bg: #1a4d2e;
+	--yt-player-playlist-text-primary: #ffffff;
+	--yt-player-playlist-text-secondary: #f0f0f0;
+	--yt-player-playlist-border: #2e7d4a;
+	--yt-player-playlist-hover-bg: #235a38;
+	--yt-player-playlist-active-bg: #2c6642;
+	--yt-player-playlist-thumbnail-bg: #0f3a24;
+	--yt-player-playlist-thumbnail-border: #2c6642;
+}
+
+/* Purple Theme */
+body.yt-theme-purple {
+	--yt-player-bg-primary: rgba(155, 89, 182, 0.95);
+	--yt-player-bg-secondary: #9b59b6;
+	--yt-player-bg-pressed: rgba(255, 255, 255, 0.1);
+	--yt-player-button-normal: #8e44ad;
+	--yt-player-bg-active: rgba(255, 255, 255, 0.2);
+	--yt-player-bg-hover: #bb8fce;
+	--yt-player-text-primary: #ffffff;
+	--yt-player-text-secondary: #f0f0f0;
+	--yt-player-text-muted: #cccccc;
+	--yt-player-handle-bg: #9b59b6;
+	--yt-player-handle-text-primary: #ffffff;
+	--yt-player-handle-text-secondary: #f0f0f0;
+	--yt-player-handle-cue-bg: #8e44ad;
+	--yt-player-handle-closed-bg: #7d3c98;
+	--yt-player-seekbar-bg: linear-gradient(135deg, #bb8fce 0%, #9b59b6 100%);
+	--yt-player-seekbar-track: #8e44ad;
+	--yt-player-seekbar-handle: #ffffff;
+	--yt-player-button-active: #7d3c98;
+	--yt-player-playlist-bg: #3d2a4a;
+	--yt-player-playlist-text-primary: #ffffff;
+	--yt-player-playlist-text-secondary: #f0f0f0;
+	--yt-player-playlist-border: #5e4470;
+	--yt-player-playlist-hover-bg: #4a3557;
+	--yt-player-playlist-active-bg: #553f64;
+	--yt-player-playlist-thumbnail-bg: #2a1f35;
+	--yt-player-playlist-thumbnail-border: #553f64;
+}
+
+/* Orange Theme */
+body.yt-theme-orange {
+	--yt-player-bg-primary: rgba(230, 126, 34, 0.95);
+	--yt-player-bg-secondary: #e67e22;
+	--yt-player-bg-pressed: rgba(255, 255, 255, 0.1);
+	--yt-player-button-normal: #d35400;
+	--yt-player-bg-active: rgba(255, 255, 255, 0.2);
+	--yt-player-bg-hover: #ec7063;
+	--yt-player-text-primary: #ffffff;
+	--yt-player-text-secondary: #f0f0f0;
+	--yt-player-text-muted: #cccccc;
+	--yt-player-handle-bg: #e67e22;
+	--yt-player-handle-text-primary: #ffffff;
+	--yt-player-handle-text-secondary: #f0f0f0;
+	--yt-player-handle-cue-bg: #d35400;
+	--yt-player-handle-closed-bg: #ba4a00;
+	--yt-player-seekbar-bg: linear-gradient(135deg, #ec7063 0%, #e67e22 100%);
+	--yt-player-seekbar-track: #d35400;
+	--yt-player-seekbar-handle: #ffffff;
+	--yt-player-button-active: #ba4a00;
+	--yt-player-playlist-bg: #4a2f0e;
+	--yt-player-playlist-text-primary: #ffffff;
+	--yt-player-playlist-text-secondary: #f0f0f0;
+	--yt-player-playlist-border: #704620;
+	--yt-player-playlist-hover-bg: #5a3a17;
+	--yt-player-playlist-active-bg: #66421c;
+	--yt-player-playlist-thumbnail-bg: #33240a;
+	--yt-player-playlist-thumbnail-border: #66421c;
+}
+
+/* Pink Theme */
+body.yt-theme-pink {
+	--yt-player-bg-primary: rgba(233, 30, 99, 0.95);
+	--yt-player-bg-secondary: #e91e63;
+	--yt-player-bg-pressed: rgba(255, 255, 255, 0.1);
+	--yt-player-button-normal: #c2185b;
+	--yt-player-bg-active: rgba(255, 255, 255, 0.2);
+	--yt-player-bg-hover: #f06292;
+	--yt-player-text-primary: #ffffff;
+	--yt-player-text-secondary: #f0f0f0;
+	--yt-player-text-muted: #cccccc;
+	--yt-player-handle-bg: #e91e63;
+	--yt-player-handle-text-primary: #ffffff;
+	--yt-player-handle-text-secondary: #f0f0f0;
+	--yt-player-handle-cue-bg: #c2185b;
+	--yt-player-handle-closed-bg: #ad1457;
+	--yt-player-seekbar-bg: linear-gradient(135deg, #f06292 0%, #e91e63 100%);
+	--yt-player-seekbar-track: #c2185b;
+	--yt-player-seekbar-handle: #ffffff;
+	--yt-player-button-active: #ad1457;
+	--yt-player-playlist-bg: #4a0e26;
+	--yt-player-playlist-text-primary: #ffffff;
+	--yt-player-playlist-text-secondary: #f0f0f0;
+	--yt-player-playlist-border: #70203a;
+	--yt-player-playlist-hover-bg: #5a172e;
+	--yt-player-playlist-active-bg: #661c34;
+	--yt-player-playlist-thumbnail-bg: #330a1a;
+	--yt-player-playlist-thumbnail-border: #661c34;
+}
+
+/* Teal Theme */
+body.yt-theme-teal {
+	--yt-player-bg-primary: rgba(0, 128, 128, 0.95);
+	--yt-player-bg-secondary: #008080;
+	--yt-player-bg-pressed: rgba(255, 255, 255, 0.1);
+	--yt-player-button-normal: #006666;
+	--yt-player-bg-active: rgba(255, 255, 255, 0.2);
+	--yt-player-bg-hover: #4db6ac;
+	--yt-player-text-primary: #ffffff;
+	--yt-player-text-secondary: #f0f0f0;
+	--yt-player-text-muted: #cccccc;
+	--yt-player-handle-bg: #008080;
+	--yt-player-handle-text-primary: #ffffff;
+	--yt-player-handle-text-secondary: #f0f0f0;
+	--yt-player-handle-cue-bg: #006666;
+	--yt-player-handle-closed-bg: #004d4d;
+	--yt-player-seekbar-bg: linear-gradient(135deg, #4db6ac 0%, #008080 100%);
+	--yt-player-seekbar-track: #006666;
+	--yt-player-seekbar-handle: #ffffff;
+	--yt-player-button-active: #004d4d;
+	--yt-player-playlist-bg: #1a3333;
+	--yt-player-playlist-text-primary: #ffffff;
+	--yt-player-playlist-text-secondary: #f0f0f0;
+	--yt-player-playlist-border: #2e5959;
+	--yt-player-playlist-hover-bg: #234646;
+	--yt-player-playlist-active-bg: #2c5050;
+	--yt-player-playlist-thumbnail-bg: #0f2626;
+	--yt-player-playlist-thumbnail-border: #2c5050;
+}
+
+/* Yellow Theme */
+body.yt-theme-yellow {
+	--yt-player-bg-primary: rgba(241, 196, 15, 0.95);
+	--yt-player-bg-secondary: #f1c40f;
+	--yt-player-bg-pressed: rgba(0, 0, 0, 0.1);
+	--yt-player-button-normal: #f39c12;
+	--yt-player-bg-active: rgba(0, 0, 0, 0.1);
+	--yt-player-bg-hover: #f7dc6f;
+	--yt-player-text-primary: #000000;
+	--yt-player-text-secondary: #333333;
+	--yt-player-text-muted: #666666;
+	--yt-player-handle-bg: #f1c40f;
+	--yt-player-handle-text-primary: #000000;
+	--yt-player-handle-text-secondary: #333333;
+	--yt-player-handle-cue-bg: #f39c12;
+	--yt-player-handle-closed-bg: #d68910;
+	--yt-player-seekbar-bg: linear-gradient(135deg, #f7dc6f 0%, #f1c40f 100%);
+	--yt-player-seekbar-track: #f39c12;
+	--yt-player-seekbar-handle: #000000;
+	--yt-player-button-active: #d68910;
+	--yt-player-playlist-bg: #4a4a0f;
+	--yt-player-playlist-text-primary: #ffffff;
+	--yt-player-playlist-text-secondary: #f0f0f0;
+	--yt-player-playlist-border: #707020;
+	--yt-player-playlist-hover-bg: #5a5a17;
+	--yt-player-playlist-active-bg: #66661c;
+	--yt-player-playlist-thumbnail-bg: #33330a;
+	--yt-player-playlist-thumbnail-border: #66661c;
+}
+
+/* Baby Pink Theme */
+body.yt-theme-babypink {
+	--yt-player-bg-primary: rgba(245, 169, 208, 0.95);
+	--yt-player-bg-secondary: #f5a9d0;
+	--yt-player-bg-pressed: rgba(255, 255, 255, 0.1);
+	--yt-player-button-normal: #f06292;
+	--yt-player-bg-active: rgba(255, 255, 255, 0.2);
+	--yt-player-bg-hover: #f8bbd9;
+	--yt-player-text-primary: #ffffff;
+	--yt-player-text-secondary: #f0f0f0;
+	--yt-player-text-muted: #cccccc;
+	--yt-player-handle-bg: #f5a9d0;
+	--yt-player-handle-text-primary: #ffffff;
+	--yt-player-handle-text-secondary: #f0f0f0;
+	--yt-player-handle-cue-bg: #f06292;
+	--yt-player-handle-closed-bg: #ec407a;
+	--yt-player-seekbar-bg: linear-gradient(135deg, #f8bbd9 0%, #f5a9d0 100%);
+	--yt-player-seekbar-track: #f06292;
+	--yt-player-seekbar-handle: #ffffff;
+	--yt-player-button-active: #ec407a;
+	--yt-player-playlist-bg: #4a3542;
+	--yt-player-playlist-text-primary: #ffffff;
+	--yt-player-playlist-text-secondary: #f0f0f0;
+	--yt-player-playlist-border: #705063;
+	--yt-player-playlist-hover-bg: #5a404d;
+	--yt-player-playlist-active-bg: #664858;
+	--yt-player-playlist-thumbnail-bg: #332a37;
+	--yt-player-playlist-thumbnail-border: #664858;
+}
+
+/* Indigo Theme */
+body.yt-theme-indigo {
+	--yt-player-bg-primary: rgba(63, 81, 181, 0.95);
+	--yt-player-bg-secondary: #3f51b5;
+	--yt-player-bg-pressed: rgba(255, 255, 255, 0.1);
+	--yt-player-button-normal: #303f9f;
+	--yt-player-bg-active: rgba(255, 255, 255, 0.2);
+	--yt-player-bg-hover: #7986cb;
+	--yt-player-text-primary: #ffffff;
+	--yt-player-text-secondary: #f0f0f0;
+	--yt-player-text-muted: #cccccc;
+	--yt-player-handle-bg: #3f51b5;
+	--yt-player-handle-text-primary: #ffffff;
+	--yt-player-handle-text-secondary: #f0f0f0;
+	--yt-player-handle-cue-bg: #303f9f;
+	--yt-player-handle-closed-bg: #283593;
+	--yt-player-seekbar-bg: linear-gradient(135deg, #7986cb 0%, #3f51b5 100%);
+	--yt-player-seekbar-track: #303f9f;
+	--yt-player-seekbar-handle: #ffffff;
+	--yt-player-button-active: #283593;
+	--yt-player-playlist-bg: #1f2a4a;
+	--yt-player-playlist-text-primary: #ffffff;
+	--yt-player-playlist-text-secondary: #f0f0f0;
+	--yt-player-playlist-border: #3f4470;
+	--yt-player-playlist-hover-bg: #2e3757;
+	--yt-player-playlist-active-bg: #354064;
+	--yt-player-playlist-thumbnail-bg: #141f35;
+	--yt-player-playlist-thumbnail-border: #354064;
+}
+
+/* Cyan Theme */
+body.yt-theme-cyan {
+	--yt-player-bg-primary: rgba(0, 188, 212, 0.95);
+	--yt-player-bg-secondary: #00bcd4;
+	--yt-player-bg-pressed: rgba(255, 255, 255, 0.1);
+	--yt-player-button-normal: #0097a7;
+	--yt-player-bg-active: rgba(255, 255, 255, 0.2);
+	--yt-player-bg-hover: #4dd0e1;
+	--yt-player-text-primary: #ffffff;
+	--yt-player-text-secondary: #f0f0f0;
+	--yt-player-text-muted: #cccccc;
+	--yt-player-handle-bg: #00bcd4;
+	--yt-player-handle-text-primary: #ffffff;
+	--yt-player-handle-text-secondary: #f0f0f0;
+	--yt-player-handle-cue-bg: #0097a7;
+	--yt-player-handle-closed-bg: #00838f;
+	--yt-player-seekbar-bg: linear-gradient(135deg, #4dd0e1 0%, #00bcd4 100%);
+	--yt-player-seekbar-track: #0097a7;
+	--yt-player-seekbar-handle: #ffffff;
+	--yt-player-button-active: #00838f;
+	--yt-player-playlist-bg: #1a3d44;
+	--yt-player-playlist-text-primary: #ffffff;
+	--yt-player-playlist-text-secondary: #f0f0f0;
+	--yt-player-playlist-border: #2e5c66;
+	--yt-player-playlist-hover-bg: #234c55;
+	--yt-player-playlist-active-bg: #2c5660;
+	--yt-player-playlist-thumbnail-bg: #0f2a2f;
+	--yt-player-playlist-thumbnail-border: #2c5660;
+}
+
+/* Lime Theme */
+body.yt-theme-lime {
+	--yt-player-bg-primary: rgba(205, 220, 57, 0.95);
+	--yt-player-bg-secondary: #cddc39;
+	--yt-player-bg-pressed: rgba(0, 0, 0, 0.1);
+	--yt-player-button-normal: #afb42b;
+	--yt-player-bg-active: rgba(0, 0, 0, 0.1);
+	--yt-player-bg-hover: #dce775;
+	--yt-player-text-primary: #000000;
+	--yt-player-text-secondary: #333333;
+	--yt-player-text-muted: #666666;
+	--yt-player-handle-bg: #cddc39;
+	--yt-player-handle-text-primary: #000000;
+	--yt-player-handle-text-secondary: #333333;
+	--yt-player-handle-cue-bg: #afb42b;
+	--yt-player-handle-closed-bg: #9e9d24;
+	--yt-player-seekbar-bg: linear-gradient(135deg, #dce775 0%, #cddc39 100%);
+	--yt-player-seekbar-track: #afb42b;
+	--yt-player-seekbar-handle: #000000;
+	--yt-player-button-active: #9e9d24;
+	--yt-player-playlist-bg: #424a17;
+	--yt-player-playlist-text-primary: #ffffff;
+	--yt-player-playlist-text-secondary: #f0f0f0;
+	--yt-player-playlist-border: #636e26;
+	--yt-player-playlist-hover-bg: #515a1e;
+	--yt-player-playlist-active-bg: #5c6622;
+	--yt-player-playlist-thumbnail-bg: #2f350f;
+	--yt-player-playlist-thumbnail-border: #5c6622;
+}
+
+/* Brown Theme */
+body.yt-theme-brown {
+	--yt-player-bg-primary: rgba(121, 85, 72, 0.95);
+	--yt-player-bg-secondary: #795548;
+	--yt-player-bg-pressed: rgba(255, 255, 255, 0.1);
+	--yt-player-button-normal: #5d4037;
+	--yt-player-bg-active: rgba(255, 255, 255, 0.2);
+	--yt-player-bg-hover: #a1887f;
+	--yt-player-text-primary: #ffffff;
+	--yt-player-text-secondary: #f0f0f0;
+	--yt-player-text-muted: #cccccc;
+	--yt-player-handle-bg: #795548;
+	--yt-player-handle-text-primary: #ffffff;
+	--yt-player-handle-text-secondary: #f0f0f0;
+	--yt-player-handle-cue-bg: #5d4037;
+	--yt-player-handle-closed-bg: #4e342e;
+	--yt-player-seekbar-bg: linear-gradient(135deg, #a1887f 0%, #795548 100%);
+	--yt-player-seekbar-track: #5d4037;
+	--yt-player-seekbar-handle: #ffffff;
+	--yt-player-button-active: #4e342e;
+	--yt-player-playlist-bg: #2f2217;
+	--yt-player-playlist-text-primary: #ffffff;
+	--yt-player-playlist-text-secondary: #f0f0f0;
+	--yt-player-playlist-border: #473326;
+	--yt-player-playlist-hover-bg: #3a2a1e;
+	--yt-player-playlist-active-bg: #423022;
+	--yt-player-playlist-thumbnail-bg: #1f170f;
+	--yt-player-playlist-thumbnail-border: #423022;
+}
+
+/* Grey Theme */
+body.yt-theme-grey {
+	--yt-player-bg-primary: rgba(158, 158, 158, 0.95);
+	--yt-player-bg-secondary: #9e9e9e;
+	--yt-player-bg-pressed: rgba(255, 255, 255, 0.1);
+	--yt-player-button-normal: #757575;
+	--yt-player-bg-active: rgba(255, 255, 255, 0.2);
+	--yt-player-bg-hover: #bdbdbd;
+	--yt-player-text-primary: #ffffff;
+	--yt-player-text-secondary: #f0f0f0;
+	--yt-player-text-muted: #cccccc;
+	--yt-player-handle-bg: #9e9e9e;
+	--yt-player-handle-text-primary: #ffffff;
+	--yt-player-handle-text-secondary: #f0f0f0;
+	--yt-player-handle-cue-bg: #757575;
+	--yt-player-handle-closed-bg: #616161;
+	--yt-player-seekbar-bg: linear-gradient(135deg, #bdbdbd 0%, #9e9e9e 100%);
+	--yt-player-seekbar-track: #757575;
+	--yt-player-seekbar-handle: #ffffff;
+	--yt-player-button-active: #616161;
+	--yt-player-playlist-bg: #333333;
+	--yt-player-playlist-text-primary: #ffffff;
+	--yt-player-playlist-text-secondary: #f0f0f0;
+	--yt-player-playlist-border: #4d4d4d;
+	--yt-player-playlist-hover-bg: #3d3d3d;
+	--yt-player-playlist-active-bg: #444444;
+	--yt-player-playlist-thumbnail-bg: #262626;
+	--yt-player-playlist-thumbnail-border: #444444;
+}
+
 /* Playlist Color Modes */
+/* Light playlist colors */
 body.yt-playlist-light {
 	--yt-player-playlist-bg: #ffffff;
 	--yt-player-playlist-text-primary: #1e2022;
@@ -247,6 +668,7 @@ body.yt-playlist-light {
 	--yt-player-playlist-thumbnail-border: #e8eaed;
 }
 
+/* Dark playlist colors */
 body.yt-playlist-dark {
 	--yt-player-playlist-bg: #1a1a1a;
 	--yt-player-playlist-text-primary: #e8e8e8;

@@ -3800,6 +3800,58 @@ class YTMediaPlayer {
 		return yiq >= 150 ? '#111111' : '#f0f0f0';
 	}
 
+	_parseCssColorToRgb(str) {
+		const hexMatch = (str || '').match(/#([0-9a-fA-F]{3,6})/);
+		if (hexMatch) {
+			let hex = hexMatch[1];
+			if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('');
+			const r = parseInt(hex.slice(0, 2), 16);
+			const g = parseInt(hex.slice(2, 4), 16);
+			const b = parseInt(hex.slice(4, 6), 16);
+			return { r, g, b };
+		}
+		const rgbMatch = (str || '').match(/rgba?\(([^)]+)\)/);
+		if (rgbMatch) {
+			const nums = rgbMatch[1].split(',').map((n) => parseFloat(n.trim()));
+			return { r: nums[0] || 0, g: nums[1] || 0, b: nums[2] || 0 };
+		}
+		return null;
+	}
+
+	_contrastTextForBackground(el) {
+		const cs = getComputedStyle(el);
+		const bgColor = cs.backgroundColor;
+		const isTransparent = /rgba?\(\s*0+\s*,\s*0+\s*,\s*0+\s*(?:,\s*0\s*)?\)/i.test(bgColor);
+		if (!isTransparent) {
+			return this._contrastTextForRgb(bgColor);
+		}
+		const bgImg = cs.backgroundImage;
+		if (bgImg && bgImg !== 'none') {
+			const colors = [];
+			let m;
+			const hexRe = /#([0-9a-fA-F]{3,6})/g;
+			while ((m = hexRe.exec(bgImg)) !== null) colors.push(m[0]);
+			const rgbRe = /rgba?\([^)]+\)/g;
+			let m2;
+			while ((m2 = rgbRe.exec(bgImg)) !== null) colors.push(m2[0]);
+			if (colors.length) {
+				let sum = 0;
+				let count = 0;
+				for (let i = 0; i < colors.length; i++) {
+					const rgb = this._parseCssColorToRgb(colors[i]);
+					if (rgb) {
+						const yiq = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+						sum += yiq;
+						count++;
+					}
+				}
+				const avg = count ? sum / count : 0;
+				return avg >= 150 ? '#111111' : '#f0f0f0';
+			}
+		}
+		return '#f0f0f0';
+	}
+
 	_updateContrastingTextColors() {
 		if (
 			this.options.titleContrastMode !== 'per-letter' ||
@@ -3836,9 +3888,8 @@ class YTMediaPlayer {
 		if (!trackEl || !progressEl) return;
 		const progressRect = progressEl.getBoundingClientRect();
 		const boundary = progressRect.right;
-		const bgColor = getComputedStyle(trackEl).backgroundColor;
+		const bgTextColor = this._contrastTextForBackground(trackEl);
 		const progressColor = getComputedStyle(progressEl).backgroundColor;
-		const bgTextColor = this._contrastTextForRgb(bgColor);
 		const progressTextColor = this._contrastTextForRgb(progressColor);
 		const apply = (arr) => {
 			if (!arr || arr.length === 0) return;

@@ -2,11 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.1] - 2025-12-04
+
+### Fixed
+
+-   Contrast Text Colors - Now takes into account the color of the seekbar track, not just the seekbar progress
+-   CSS Theme colors restored - Had been accidentally removed during refactoring at ver 2.0.0
+
 ## [2.2.0] - 2025-12-04
 
 ### Added
 
--   **Contrast Text Colors** - Added an option to use per-letter contrast text colors for video titles and authors in the bottom controls area
+-   **Contrast Text Colors** - Added an option to use per-letter contrast text colors for video details in the bottom controls area
 -   **New Features Badge** - Added a badge to the extension icon to indicate that there are new features available (only shown after a new feature update)
 -   **Change Log** - Added a link to the change log in the options page
 
