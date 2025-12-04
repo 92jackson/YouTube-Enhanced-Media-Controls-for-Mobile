@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.0] - 2025-12-04
+
+### Added
+
+-   **Contrast Text Colors** - Added an option to use per-letter contrast text colors for video titles and authors in the bottom controls area
+-   **New Features Badge** - Added a badge to the extension icon to indicate that there are new features available (only shown after a new feature update)
+-   **Change Log** - Added a link to the change log in the options page
+
+### Changed
+
+-   Improved logic for adding 'New' options badges (badges remain even after patch updates and are only removed after new feature updates)
+-   Minor improvement to title parsing logic to remove trailing promo suffix segments after separators
+-   Increased the touch target size of the compact seekbar handle for better accessibility
+
+### Fixed
+
+-   I'm Feeling Lucky Preview:
+
+    -   Fixed incorrect background color variable
+    -   Fixed not progressing to result after timeout
+
+-   Re-focus button not working with touch (the drawer handle was stealing the touch event)
+
 ## [2.1.1] - 2025-12-04
 
 ### Changed

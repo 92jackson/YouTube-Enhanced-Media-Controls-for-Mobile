@@ -69,6 +69,7 @@ class YTMediaPlayer {
 			hidePlaylistItemDurations: window.userSettings.hidePlaylistItemDurations,
 			keepPlaylistFocused: window.userSettings.keepPlaylistFocused,
 			enableTitleMarquee: window.userSettings.enableTitleMarquee !== false,
+			titleContrastMode: window.userSettings.titleContrastMode || 'default',
 			horizontalPlaylistDetailsInHeaderControls:
 				window.userSettings.horizontalPlaylistDetailsInHeaderControls,
 
@@ -1262,6 +1263,12 @@ class YTMediaPlayer {
 		} else if (this.options.showRepeatButton === 'show-when-active') {
 			this.playerWrapper.classList.add('hide-repeat-button-when-inactive');
 		}
+
+		this.playerWrapper.classList.toggle(
+			'yt-per-letter-contrast',
+			this.options.titleContrastMode === 'per-letter' &&
+				!(this.playerControls && this.playerControls.classList.contains('compact'))
+		);
 	}
 
 	/**
@@ -1307,6 +1314,8 @@ class YTMediaPlayer {
 			}
 		});
 
+		this._initLetterSpans();
+		this._updateContrastingTextColors();
 		logger.log('Core', '=== _initializeState END ===');
 	}
 
@@ -2043,6 +2052,7 @@ class YTMediaPlayer {
 				this._setDrawerHeight(target, false, false);
 			}
 			this.setTitleMarqueeEnabled(this.options.enableTitleMarquee);
+			this._updateContrastingTextColors();
 		}, 100);
 	}
 
@@ -2344,6 +2354,7 @@ class YTMediaPlayer {
 	 */
 	_startDrawerDrag(event) {
 		if (!this._canDragDrawer() || this._isCloseButtonClick(event)) return;
+		if (this._isInteractiveElement(event.target)) return;
 		if (event.type === 'mousedown' && event.button !== 0) return;
 
 		this.isDrawerDragging = true;
@@ -2528,6 +2539,7 @@ class YTMediaPlayer {
 			'ytm-related-chip-cloud-renderer',
 			'.ytm-infocards-creator-custom-url-buttons',
 			'ytm-engagement-panel',
+			'yt-drawer-focus-current-button',
 		];
 
 		for (const selector of interactiveSelectors) {
@@ -3187,11 +3199,20 @@ class YTMediaPlayer {
 
 			this.isSeekbarDragging = true;
 			seekbarElement.classList.add('dragging');
+			const isCompact =
+				this.playerControls && this.playerControls.classList.contains('compact');
+			if (isBackground && isCompact && this.seekbarInline) {
+				this.seekbarInline.classList.add('dragging');
+			}
 			document.body.classList.add('yt-player-body-dragging');
 
 			// Show tooltip if mode is seek-tooltip
 			if (this.options.playerTimeDisplayMode === 'seek-tooltip') {
-				const tooltip = isBackground
+				const useInlineTooltip =
+					this.playerControls && this.playerControls.classList.contains('compact');
+				const tooltip = useInlineTooltip
+					? this.seekTooltipInlineElement
+					: isBackground
 					? this.seekTooltipElement
 					: this.seekTooltipInlineElement;
 				if (tooltip) {
@@ -3199,7 +3220,11 @@ class YTMediaPlayer {
 				}
 			}
 
-			if (isBackground && this.detailsOverlayElement) {
+			if (
+				isBackground &&
+				this.detailsOverlayElement &&
+				!(this.playerControls && this.playerControls.classList.contains('compact'))
+			) {
 				this.detailsOverlayElement.classList.add('yt-seeking-active');
 			}
 
@@ -3226,19 +3251,35 @@ class YTMediaPlayer {
 			newTime = Math.max(0, Math.min(this.totalTime, newTime));
 
 			this.trackTime = newTime;
+			const percentage = (this.totalTime > 0 ? this.trackTime / this.totalTime : 0) * 100;
+			if (this.seekbarProgressInline)
+				this.seekbarProgressInline.style.width = `${percentage}%`;
+			if (this.seekbarProgress) this.seekbarProgress.style.width = `${percentage}%`;
 			this._updateTimerDisplay();
 			this._updatePrevButtonVisualState();
 
 			// Update tooltip content/position when seeking
 			if (this.options.playerTimeDisplayMode === 'seek-tooltip') {
-				const tooltip = isBackground
+				const useInlineTooltip =
+					this.playerControls && this.playerControls.classList.contains('compact');
+				const tooltip = useInlineTooltip
+					? this.seekTooltipInlineElement
+					: isBackground
 					? this.seekTooltipElement
 					: this.seekTooltipInlineElement;
-				if (tooltip && rect.width > 0) {
+				const posRect =
+					useInlineTooltip && this.seekbarInline
+						? this.seekbarInline.getBoundingClientRect()
+						: rect;
+
+				if (tooltip && posRect.width > 0) {
 					const percentage =
 						(this.totalTime > 0 ? this.trackTime / this.totalTime : 0) * 100;
 					this._updateSeekTooltipText(tooltip);
-					const px = (percentage / 100) * rect.width;
+					const px = Math.max(
+						0,
+						Math.min(posRect.width, (percentage / 100) * posRect.width)
+					);
 					tooltip.style.left = `${px}px`;
 				}
 			}
@@ -3255,11 +3296,20 @@ class YTMediaPlayer {
 
 			this.isSeekbarDragging = false;
 			seekbarElement.classList.remove('dragging');
+			const isCompact =
+				this.playerControls && this.playerControls.classList.contains('compact');
+			if (isBackground && isCompact && this.seekbarInline) {
+				this.seekbarInline.classList.remove('dragging');
+			}
 			document.body.classList.remove('yt-player-body-dragging');
 
 			// Hide tooltip after drag
 			if (this.options.playerTimeDisplayMode === 'seek-tooltip') {
-				const tooltip = isBackground
+				const useInlineTooltip =
+					this.playerControls && this.playerControls.classList.contains('compact');
+				const tooltip = useInlineTooltip
+					? this.seekTooltipInlineElement
+					: isBackground
 					? this.seekTooltipElement
 					: this.seekTooltipInlineElement;
 				if (tooltip) {
@@ -3267,7 +3317,11 @@ class YTMediaPlayer {
 				}
 			}
 
-			if (isBackground && this.detailsOverlayElement) {
+			if (
+				isBackground &&
+				this.detailsOverlayElement &&
+				!(this.playerControls && this.playerControls.classList.contains('compact'))
+			) {
 				this.detailsOverlayElement.classList.remove('yt-seeking-active');
 			}
 
@@ -3301,26 +3355,42 @@ class YTMediaPlayer {
 					);
 
 					this.trackTime = newTime;
+					const newPercentage =
+						(this.totalTime > 0 ? this.trackTime / this.totalTime : 0) * 100;
+					if (this.seekbarProgressInline)
+						this.seekbarProgressInline.style.width = `${newPercentage}%`;
+					if (this.seekbarProgress)
+						this.seekbarProgress.style.width = `${newPercentage}%`;
 					this._updateTimerDisplay();
 					this._updatePrevButtonVisualState();
 
 					if (this.options.playerTimeDisplayMode === 'seek-tooltip') {
-						const tooltip = isBackground
+						const useInlineTooltip =
+							this.playerControls &&
+							this.playerControls.classList.contains('compact');
+						const tooltip = useInlineTooltip
+							? this.seekTooltipInlineElement
+							: isBackground
 							? this.seekTooltipElement
 							: this.seekTooltipInlineElement;
-						if (tooltip && rect.width > 0) {
-							const percentage =
-								(this.totalTime > 0 ? this.trackTime / this.totalTime : 0) * 100;
-							this._updateSeekTooltipText(tooltip);
-							const px = (percentage / 100) * rect.width;
-							tooltip.style.left = `${px}px`;
-							tooltip.style.display = 'block';
+						if (tooltip) {
+							const posRect =
+								useInlineTooltip && this.seekbarInline
+									? this.seekbarInline.getBoundingClientRect()
+									: rect;
+							if (posRect.width > 0) {
+								this._updateSeekTooltipText(tooltip);
+								const px = Math.max(
+									0,
+									Math.min(posRect.width, (newPercentage / 100) * posRect.width)
+								);
+								tooltip.style.left = `${px}px`;
+								tooltip.style.display = 'block';
+							}
 						}
 					}
 
 					if (this.options.callbacks.onSeekbarUpdate) {
-						const newPercentage =
-							(this.totalTime > 0 ? this.trackTime / this.totalTime : 0) * 100;
 						this.options.callbacks.onSeekbarUpdate(newPercentage, this.trackTime, true);
 					}
 
@@ -3667,6 +3737,264 @@ class YTMediaPlayer {
 		const percentage = (this.totalTime > 0 ? this.trackTime / this.totalTime : 0) * 100;
 		this.seekbarProgress.style.width = `${percentage}%`;
 		this.seekbarProgressInline.style.width = `${percentage}%`;
+		this._updateContrastingTextColors();
+	}
+
+	_initLetterSpans() {
+		if (
+			this.options.titleContrastMode !== 'per-letter' ||
+			(this.playerControls && this.playerControls.classList.contains('compact'))
+		) {
+			this._removeTitleClone();
+			const restore = (el) => {
+				if (!el) return;
+				const txt = el.textContent || '';
+				el.textContent = txt;
+			};
+			restore(this.videoTitleElement);
+			restore(this.videoAuthorElement);
+			this.titleLetterSpans = [];
+			this.cloneLetterSpans = [];
+			this.authorLetterSpans = [];
+			return;
+		}
+		const targets = [];
+		if (this.videoTitleElement) targets.push({ el: this.videoTitleElement, key: 'title' });
+		if (this.videoAuthorElement) targets.push({ el: this.videoAuthorElement, key: 'author' });
+		this.titleLetterSpans = [];
+		this.cloneLetterSpans = [];
+		this.authorLetterSpans = [];
+		for (let i = 0; i < targets.length; i++) {
+			const el = targets[i].el;
+			const key = targets[i].key;
+			const text = el.textContent || '';
+			while (el.firstChild) el.removeChild(el.firstChild);
+			const frag = document.createDocumentFragment();
+			const spans = [];
+			for (let j = 0; j < text.length; j++) {
+				const ch = text[j];
+				const s = document.createElement('span');
+				s.className = 'yt-letter-span';
+				s.textContent = ch;
+				frag.appendChild(s);
+				spans.push(s);
+			}
+			el.appendChild(frag);
+			if (key === 'title') this.titleLetterSpans = spans;
+			else this.authorLetterSpans = spans;
+		}
+		if (this.options.enableTitleMarquee) this._ensureTitleCloneForMarquee();
+	}
+
+	_contrastTextForRgb(str) {
+		const nums = (str || '').match(/\d+(\.\d+)?/g) || [];
+		let r = 0;
+		let g = 0;
+		let b = 0;
+		if (nums.length >= 3) {
+			r = parseFloat(nums[0]);
+			g = parseFloat(nums[1]);
+			b = parseFloat(nums[2]);
+		}
+		const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+		return yiq >= 150 ? '#111111' : '#f0f0f0';
+	}
+
+	_updateContrastingTextColors() {
+		if (
+			this.options.titleContrastMode !== 'per-letter' ||
+			(this.playerControls && this.playerControls.classList.contains('compact'))
+		) {
+			const clear = (arr) => {
+				if (!arr || arr.length === 0) return;
+				for (let i = 0; i < arr.length; i++) {
+					arr[i].style.backgroundImage = '';
+					arr[i].style.webkitBackgroundClip = '';
+					arr[i].style.backgroundClip = '';
+					arr[i].style.webkitTextFillColor = '';
+					arr[i].style.color = '';
+				}
+			};
+			clear(this.titleLetterSpans);
+			clear(this.cloneLetterSpans);
+			clear(this.authorLetterSpans);
+			if (this.videoTimerElement) {
+				this.videoTimerElement.style.backgroundImage = '';
+				this.videoTimerElement.style.webkitBackgroundClip = '';
+				this.videoTimerElement.style.backgroundClip = '';
+				this.videoTimerElement.style.webkitTextFillColor = '';
+				this.videoTimerElement.style.color = '';
+			}
+			return;
+		}
+		let trackEl = this.seekbarBackground;
+		let progressEl = this.seekbarProgress;
+		if (!trackEl || trackEl.offsetParent === null) {
+			trackEl = this.seekbarInline;
+			progressEl = this.seekbarProgressInline;
+		}
+		if (!trackEl || !progressEl) return;
+		const progressRect = progressEl.getBoundingClientRect();
+		const boundary = progressRect.right;
+		const bgColor = getComputedStyle(trackEl).backgroundColor;
+		const progressColor = getComputedStyle(progressEl).backgroundColor;
+		const bgTextColor = this._contrastTextForRgb(bgColor);
+		const progressTextColor = this._contrastTextForRgb(progressColor);
+		const apply = (arr) => {
+			if (!arr || arr.length === 0) return;
+			for (let i = 0; i < arr.length; i++) {
+				const r = arr[i].getBoundingClientRect();
+				const left = r.left;
+				const right = r.right;
+				if (boundary <= left) {
+					arr[i].style.backgroundImage = '';
+					arr[i].style.webkitBackgroundClip = '';
+					arr[i].style.backgroundClip = '';
+					arr[i].style.webkitTextFillColor = '';
+					arr[i].style.color = bgTextColor;
+					continue;
+				}
+				if (boundary >= right) {
+					arr[i].style.backgroundImage = '';
+					arr[i].style.webkitBackgroundClip = '';
+					arr[i].style.backgroundClip = '';
+					arr[i].style.webkitTextFillColor = '';
+					arr[i].style.color = progressTextColor;
+					continue;
+				}
+				const pos = Math.max(0, Math.min(1, (boundary - left) / r.width)) * 100;
+				const grad = `linear-gradient(to right, ${progressTextColor} ${pos}%, ${bgTextColor} ${pos}%)`;
+				arr[i].style.backgroundImage = grad;
+				arr[i].style.webkitBackgroundClip = 'text';
+				arr[i].style.backgroundClip = 'text';
+				arr[i].style.color = 'transparent';
+				arr[i].style.webkitTextFillColor = 'transparent';
+			}
+		};
+		apply(this.titleLetterSpans);
+		apply(this.cloneLetterSpans);
+		apply(this.authorLetterSpans);
+		if (this.videoTimerElement) {
+			const r = this.videoTimerElement.getBoundingClientRect();
+			const left = r.left;
+			const right = r.right;
+			if (boundary <= left) {
+				this.videoTimerElement.style.backgroundImage = '';
+				this.videoTimerElement.style.webkitBackgroundClip = '';
+				this.videoTimerElement.style.backgroundClip = '';
+				this.videoTimerElement.style.webkitTextFillColor = '';
+				this.videoTimerElement.style.color = bgTextColor;
+			} else if (boundary >= right) {
+				this.videoTimerElement.style.backgroundImage = '';
+				this.videoTimerElement.style.webkitBackgroundClip = '';
+				this.videoTimerElement.style.backgroundClip = '';
+				this.videoTimerElement.style.webkitTextFillColor = '';
+				this.videoTimerElement.style.color = progressTextColor;
+			} else {
+				const pos = Math.max(0, Math.min(1, (boundary - left) / r.width)) * 100;
+				const grad = `linear-gradient(to right, ${progressTextColor} ${pos}%, ${bgTextColor} ${pos}%)`;
+				this.videoTimerElement.style.backgroundImage = grad;
+				this.videoTimerElement.style.webkitBackgroundClip = 'text';
+				this.videoTimerElement.style.backgroundClip = 'text';
+				this.videoTimerElement.style.color = 'transparent';
+				this.videoTimerElement.style.webkitTextFillColor = 'transparent';
+			}
+		}
+	}
+
+	_startMarqueeColorSync() {
+		if (
+			this.options.titleContrastMode !== 'per-letter' ||
+			(this.playerControls && this.playerControls.classList.contains('compact'))
+		) {
+			this._stopMarqueeColorSync();
+			return;
+		}
+		const container =
+			this.videoTitleContainerElement ||
+			(this.videoTitleElement && this.videoTitleElement.parentElement);
+		if (!container) return;
+		if (!container.classList.contains('marquee')) {
+			this._stopMarqueeColorSync();
+			return;
+		}
+		if (!this.titleLetterSpans || this.titleLetterSpans.length === 0) this._initLetterSpans();
+		this._ensureTitleCloneForMarquee();
+		if (this._marqueeColorSyncActive) return;
+		this._marqueeColorSyncActive = true;
+		const step = () => {
+			if (!this._marqueeColorSyncActive) return;
+			this._updateContrastingTextColors();
+			this._marqueeColorRafId = requestAnimationFrame(step);
+		};
+		this._marqueeColorRafId = requestAnimationFrame(step);
+	}
+
+	_stopMarqueeColorSync() {
+		this._marqueeColorSyncActive = false;
+		if (this._marqueeColorRafId) {
+			cancelAnimationFrame(this._marqueeColorRafId);
+			this._marqueeColorRafId = null;
+		}
+	}
+
+	_ensureTitleCloneForMarquee() {
+		const container =
+			this.videoTitleContainerElement ||
+			(this.videoTitleElement && this.videoTitleElement.parentElement);
+		const textEl =
+			this.videoTitleElement ||
+			(container && container.querySelector('.yt-video-title-text'));
+		if (!container || !textEl) return;
+		if (!container.classList.contains('marquee')) return;
+		const existing = textEl.querySelector('.yt-title-clone');
+		if (existing) return;
+		const gapRaw = getComputedStyle(container).getPropertyValue('--yt-title-marquee-gap');
+		let gapPx = 24;
+		if (gapRaw) {
+			const m = gapRaw.match(/\d+\.?\d*/);
+			if (m) gapPx = parseFloat(m[0]);
+		}
+		const clone = document.createElement('span');
+		clone.className = 'yt-title-clone';
+		clone.style.display = 'inline-block';
+		clone.style.marginLeft = `${gapPx}px`;
+		const spans = [];
+		const isPerLetter =
+			this.options.titleContrastMode === 'per-letter' &&
+			!(this.playerControls && this.playerControls.classList.contains('compact'));
+		if (isPerLetter && this.titleLetterSpans && this.titleLetterSpans.length > 0) {
+			for (let i = 0; i < this.titleLetterSpans.length; i++) {
+				const s = document.createElement('span');
+				s.className = 'yt-letter-span';
+				s.textContent = this.titleLetterSpans[i].textContent;
+				clone.appendChild(s);
+				spans.push(s);
+			}
+		} else {
+			const srcText =
+				(this.videoTitleElement && this.videoTitleElement.textContent) ||
+				(textEl && textEl.textContent) ||
+				'';
+			clone.textContent = srcText;
+		}
+		textEl.appendChild(clone);
+		this.cloneLetterSpans = spans;
+		textEl.setAttribute('data-marquee', '');
+	}
+
+	_removeTitleClone() {
+		const container =
+			this.videoTitleContainerElement ||
+			(this.videoTitleElement && this.videoTitleElement.parentElement);
+		const textEl =
+			this.videoTitleElement ||
+			(container && container.querySelector('.yt-video-title-text'));
+		if (!textEl) return;
+		const existing = textEl.querySelector('.yt-title-clone');
+		if (existing) textEl.removeChild(existing);
+		this.cloneLetterSpans = [];
+		textEl.removeAttribute('data-marquee');
 	}
 
 	_updateSeekTooltipText(tooltipEl) {
@@ -4635,6 +4963,16 @@ class YTMediaPlayer {
 	setLayout(layout) {
 		if (this.playerControls) {
 			this.playerControls.className = `yt-player-controls ${layout}`;
+			if (this.playerWrapper) {
+				this.playerWrapper.classList.toggle(
+					'yt-per-letter-contrast',
+					this.options.titleContrastMode === 'per-letter' && layout !== 'compact'
+				);
+			}
+			this._initLetterSpans();
+			this._ensureTitleCloneForMarquee();
+			this._updateContrastingTextColors();
+			this._startMarqueeColorSync();
 			this._invalidateAndRecalculateMeasurements();
 		}
 	}
@@ -4803,6 +5141,8 @@ class YTMediaPlayer {
 		};
 
 		this.setCurrentTime(currentTime, totalTime);
+		this._initLetterSpans();
+		this._updateContrastingTextColors();
 		logger.log('TitleMarquee', 'Title updated - re-evaluating marquee');
 		this.setTitleMarqueeEnabled(this.options.enableTitleMarquee);
 	}
@@ -5308,6 +5648,34 @@ class YTMediaPlayer {
 
 		const textEl = this.videoTitleElement || container.querySelector('.yt-video-title-text');
 		DOMUtils.setMarquee(container, textEl, enabled);
+		if (enabled) {
+			this._ensureTitleCloneForMarquee();
+			if (
+				this.options.titleContrastMode === 'per-letter' &&
+				!(this.playerControls && this.playerControls.classList.contains('compact'))
+			) {
+				this._startMarqueeColorSync();
+			} else {
+				this._stopMarqueeColorSync();
+			}
+		} else {
+			this._stopMarqueeColorSync();
+			this._removeTitleClone();
+		}
+	}
+
+	setTitleContrastMode(mode) {
+		this.options.titleContrastMode = mode === 'per-letter' ? 'per-letter' : 'default';
+		if (this.playerWrapper) {
+			this.playerWrapper.classList.toggle(
+				'yt-per-letter-contrast',
+				this.options.titleContrastMode === 'per-letter' &&
+					!(this.playerControls && this.playerControls.classList.contains('compact'))
+			);
+		}
+		this._initLetterSpans();
+		this._updateContrastingTextColors();
+		this.setTitleMarqueeEnabled(this.options.enableTitleMarquee);
 	}
 
 	setClassSetting(key, enabled) {
@@ -5393,6 +5761,7 @@ class YTMediaPlayer {
 
 		// Remove gesture listeners
 		this._removeGestureListeners();
+		this._stopMarqueeColorSync();
 
 		// Remove from DOM
 		if (this.playerWrapper?.parentNode) {

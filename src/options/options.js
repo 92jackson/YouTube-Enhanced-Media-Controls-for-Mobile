@@ -1087,14 +1087,11 @@ function loadVersionNumber() {
 		chrome.runtime &&
 		typeof chrome.runtime.getURL === 'function'
 	) {
-		fetch(chrome.runtime.getURL('manifest.json'))
+		return fetch(chrome.runtime.getURL('manifest.json'))
 			.then((response) => response.json())
 			.then((manifest) => {
-				// Update global version variable
 				if (manifest.version) {
 					currentVersion = manifest.version;
-
-					// Update UI element
 					const versionElement = document.getElementById('version-number');
 					if (versionElement) {
 						versionElement.textContent = `v${currentVersion}`;
@@ -1105,10 +1102,11 @@ function loadVersionNumber() {
 				console.error('Failed to load version from manifest:', error);
 			});
 	}
+	return Promise.resolve();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-	loadVersionNumber();
+	await loadVersionNumber();
 
 	// Initialize the new dependency manager FIRST
 	dependencyManager = new OptionDependencyManager();
@@ -1542,8 +1540,7 @@ async function initNewOptionIndicators() {
 			const addedVersion = optionElement.getAttribute('data-added-version');
 			let addedVersionWithoutPatch = addedVersion.split('.').slice(0, 2).join('.');
 			let currentVersionWithoutPatch = currentVersion.split('.').slice(0, 2).join('.');
-			console.log(currentVersionWithoutPatch);
-			console.log(addedVersionWithoutPatch);
+
 			// Compare versions
 			if (
 				compareVersions(addedVersion, lastVersion) > 0 ||

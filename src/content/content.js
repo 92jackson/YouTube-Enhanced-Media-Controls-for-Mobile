@@ -2088,9 +2088,9 @@ class LuckyPreviewOverlay {
 	}
 	complete() {
 		this.state = 'complete';
-		if (this.anchor && !this.earlyClicked && typeof this.anchor.click === 'function') {
-		} //	this.anchor.click();
-		//this.close();
+		if (this.anchor && !this.earlyClicked && typeof this.anchor.click === 'function')
+			this.anchor.click();
+		this.close();
 	}
 }
 
@@ -3425,6 +3425,11 @@ function initializeEventListenersAndObservers() {
 											'enableTitleMarquee',
 											newValue
 										);
+									},
+									titleContrastMode: () => {
+										if (ytPlayerInstance) {
+											ytPlayerInstance.setTitleContrastMode(newValue);
+										}
 									},
 								};
 

@@ -436,7 +436,8 @@ class DOMUtils {
 		});
 
 		if (shouldMarquee) {
-			if (textElement)
+			const isLetterized = !!(textElement && textElement.querySelector('.yt-letter-span'));
+			if (textElement && !isLetterized)
 				textElement.setAttribute('data-marquee', textElement.textContent || '');
 			container.style.setProperty('--yt-title-marquee-gap', `${gapPx}px`);
 			container.style.setProperty('--yt-title-marquee-cycle', `${cycleDistance}px`);
@@ -549,6 +550,17 @@ class MediaUtils {
 				);
 				return hasPromo ? '' : match;
 			})
+			.trim();
+
+		// Remove bracketed "from ..." qualifiers
+		title = title.replace(/\(\s*from\b[^()]*\)/gi, '').trim();
+
+		// Remove trailing promo suffix segments after separators
+		title = title
+			.replace(
+				/(?:\s*[\-–—:|•]\s*(?:official(?:\s+music)?\s+video|official\s+audio|lyric\s+video|lyrics?|visualizer|audio(?:\s+only)?|mv|m\/v|music\s+video|shorts?))+$/i,
+				''
+			)
 			.trim();
 
 		// Setup result fields

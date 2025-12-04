@@ -1,6 +1,6 @@
 # YouTube Enhanced Media Controls (for Mobile)
 
-![Version](https://img.shields.io/badge/version-2.1.1-pink.svg)
+![Version](https://img.shields.io/badge/version-2.2.0-pink.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Firefox](https://img.shields.io/badge/Firefox-Compatible-FF7139.svg?logo=firefoxbrowser&logoColor=white)
 ![Kiwi Browser](https://img.shields.io/badge/Kiwi%20Browser-Compatible-00C851.svg)
@@ -52,7 +52,7 @@ This extension was originally developed to provide a more user friendly interfac
 -   **Playlist-only Media Keys**: Prevents Android notification and Bluetooth media keys from skipping outside the current playlist
 -   **Auto-skip Ads**: Automatically skip ads when detected during playback (experimental)
 -   **Rapid Buffer Auto-Pause**: Pause the video for a set duration when repeated buffering is detected
--   **Playlist Stability Fixes**: Auto-reload stuck playlists and fix playlist auto-scroll
+-   **Playlist Stability Fixes**: Auto-reload stuck playlists
 -   **Blacklist Videos**: Manage a list of videos to hide from playlists and suggestions
 -   **Update Notifications**: Optional toast when the extension updates
 

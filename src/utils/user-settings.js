@@ -41,6 +41,7 @@ window.userSettings = {
 	playlistItemDensity: 'comfortable',
 	allowMultilinePlaylistTitles: false,
 	enableTitleMarquee: true,
+	titleContrastMode: 'default',
 	hidePlaylistItemDurations: false,
 	keepPlaylistFocused: false,
 	playlistScrollDebounceDelay: 2.5,
