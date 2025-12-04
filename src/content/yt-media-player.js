@@ -150,6 +150,7 @@ class YTMediaPlayer {
 		this.lastDrawerUpdateTime = 0;
 		this.drawerUpdateThrottle = 100; // ms
 		this._suppressNextClick = false; // prevent mouse click on drag release
+		this.lastBodyUpdateDrawerState = null;
 
 		// Cached measurements - invalidated on resize
 		this.cachedMeasurements = {
@@ -318,6 +319,7 @@ class YTMediaPlayer {
 		const tempDiv = document.createElement('div');
 		tempDiv.appendChild(this._createPlayerElement());
 		this.playerWrapper = tempDiv.firstElementChild;
+
 		logger.log('AutoHide', 'Player wrapper created:', !!this.playerWrapper);
 	}
 
@@ -389,9 +391,7 @@ class YTMediaPlayer {
 		// Create video title
 		const videoTitle = document.createElement('div');
 		videoTitle.className = 'yt-video-title';
-		if (this.options.enableTitleMarquee) {
-			videoTitle.classList.add('marquee');
-		}
+
 		const titleText = this.options.nowPlayingVideoDetails.title || '';
 		const authorText = this.options.nowPlayingVideoDetails.author || '';
 		const adIndicator = document.createElement('span');
@@ -1447,6 +1447,9 @@ class YTMediaPlayer {
 			'Measurements',
 			`Final measurements (Max: ${maxDrawerHeight}px, Mid: ${midDrawerHeight}px, Controls: ${controlsHeight}px, Button group: ${buttonGroupWidth}px)`
 		);
+
+		// Initalise marquee
+		this.setTitleMarqueeEnabled(this.options.enableTitleMarquee);
 	}
 
 	/**
@@ -1841,9 +1844,10 @@ class YTMediaPlayer {
 		}
 
 		// Add immediate auto-scroll focus after layout change
-		if (this.hasPlaylist) {
+		if (this.hasPlaylist && this.drawerState !== this.lastBodyUpdateDrawerState) {
 			this._performAutoScrollFocus(true);
 		}
+		this.lastBodyUpdateDrawerState = this.drawerState;
 	}
 
 	/**
@@ -2038,6 +2042,7 @@ class YTMediaPlayer {
 				const target = this._getNearestSnapPoint(clampedHeight);
 				this._setDrawerHeight(target, false, false);
 			}
+			this.setTitleMarqueeEnabled(this.options.enableTitleMarquee);
 		}, 100);
 	}
 
@@ -4798,6 +4803,8 @@ class YTMediaPlayer {
 		};
 
 		this.setCurrentTime(currentTime, totalTime);
+		logger.log('TitleMarquee', 'Title updated - re-evaluating marquee');
+		this.setTitleMarqueeEnabled(this.options.enableTitleMarquee);
 	}
 
 	/**
@@ -5298,7 +5305,9 @@ class YTMediaPlayer {
 			this.videoTitleContainerElement ||
 			(this.videoTitleElement && this.videoTitleElement.parentElement);
 		if (!container) return;
-		container.classList.toggle('marquee', !!enabled);
+
+		const textEl = this.videoTitleElement || container.querySelector('.yt-video-title-text');
+		DOMUtils.setMarquee(container, textEl, enabled);
 	}
 
 	setClassSetting(key, enabled) {
@@ -5310,6 +5319,7 @@ class YTMediaPlayer {
 				this.options.hideTimerDuration = !!enabled;
 				break;
 			case 'enableTitleMarquee':
+				logger.log('TitleMarquee', 'Setting changed:', !!enabled);
 				this.setTitleMarqueeEnabled(!!enabled);
 				break;
 			case 'autoHidePlayerOnScroll':

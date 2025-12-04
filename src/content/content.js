@@ -1909,25 +1909,40 @@ class LuckyPreviewOverlay {
 		this.progressWrapper.appendChild(this.svg);
 		this.modal = document.createElement('div');
 		this.modal.className = 'yt-lucky-preview-modal';
-		this.clickWrapper = document.createElement('div');
-		this.clickWrapper.className = 'yt-lucky-preview-click-wrapper';
-		this.thumb = document.createElement('img');
-		this.thumb.className = 'yt-lucky-preview-thumb';
 		this.title = document.createElement('div');
 		this.title.className = 'yt-lucky-preview-title';
-		this.title.textContent = 'Preparing first result';
+		this.titlePrefix = document.createElement('span');
+		this.titlePrefix.className = 'yt-lucky-preview-title-prefix';
+		this.titlePrefix.textContent = 'Result: ';
+		this.titleTextWrapper = document.createElement('div');
+		this.titleTextWrapper.className = 'yt-lucky-preview-title-text-wrapper';
+		this.titleText = document.createElement('span');
+		this.titleText.className = 'yt-lucky-preview-title-text';
+		this.titleText.textContent = 'Waiting for results...';
+		this.titleTextWrapper.appendChild(this.titleText);
+		this.title.appendChild(this.titlePrefix);
+		this.title.appendChild(this.titleTextWrapper);
+		this.modal.appendChild(this.title);
+		this.center = document.createElement('div');
+		this.center.className = 'yt-lucky-preview-center';
+		this.thumb = document.createElement('img');
+		this.thumb.className = 'yt-lucky-preview-thumb';
+		this.center.appendChild(this.thumb);
+		this.center.appendChild(this.progressWrapper);
+		this.countdownReadout = document.createElement('div');
+		this.countdownReadout.className = 'yt-lucky-countdown-readout';
+		this.countdownReadout.style.display = 'none';
+		this.center.appendChild(this.countdownReadout);
+		this.modal.appendChild(this.center);
 		this.actions = document.createElement('div');
 		this.actions.className = 'yt-lucky-preview-actions';
 		this.cancelLink = document.createElement('button');
 		this.cancelLink.className = 'yt-lucky-preview-cancel-link';
 		this.cancelLink.textContent = 'Cancel';
 		this.actions.appendChild(this.cancelLink);
-		this.clickWrapper.appendChild(this.thumb);
-		this.clickWrapper.appendChild(this.title);
-		this.modal.appendChild(this.clickWrapper);
 		this.modal.appendChild(this.actions);
-		this.overlay.appendChild(this.progressWrapper);
 		this.overlay.appendChild(this.modal);
+		this.modal.addEventListener('click', (e) => e.stopPropagation());
 		this.segment = seg;
 		this.radius = 90;
 		this.circumference = 2 * Math.PI * this.radius;
@@ -1940,6 +1955,7 @@ class LuckyPreviewOverlay {
 		this.transitionStartTime = 0;
 		this.transitionDuration = 0;
 		this.countdownStartTime = 0;
+		this.countdownSecondsLast = -1;
 		this.segment.style.strokeDasharray = this.circumference;
 		this.segment.style.strokeDashoffset = this.circumference;
 		this.startSpinner();
@@ -1948,7 +1964,7 @@ class LuckyPreviewOverlay {
 			this.close();
 			if (this.onCancel) this.onCancel();
 		});
-		this.clickWrapper.addEventListener('click', (e) => {
+		this.center.addEventListener('click', (e) => {
 			e.stopPropagation();
 			this.earlyClicked = true;
 			luckyEarlyClick = true;
@@ -1976,7 +1992,11 @@ class LuckyPreviewOverlay {
 				: Utils.getStandardThumbnailUrl(vid);
 			this.thumb.src = url;
 		}
-		if (titleText) this.title.textContent = titleText;
+		if (titleText) this.titleText.textContent = titleText;
+		// Use requestAnimationFrame to ensure DOM layout is updated before measuring for marquee
+		requestAnimationFrame(() => {
+			DOMUtils.setMarquee(this.titleTextWrapper, this.titleText, true);
+		});
 		if (!this.countdownStarted) {
 			this.countdownStarted = true;
 			this.startTransition();
@@ -1990,6 +2010,7 @@ class LuckyPreviewOverlay {
 	startSpinner() {
 		this.state = 'spinner';
 		this.startTime = performance.now();
+		if (this.countdownReadout) this.countdownReadout.style.display = 'none';
 		this.animateSpinner();
 	}
 	animateSpinner() {
@@ -2039,6 +2060,12 @@ class LuckyPreviewOverlay {
 		this.segment.style.transform = 'rotate(0deg)';
 		this.segment.style.strokeDashoffset = this.circumference;
 		this.countdownStartTime = performance.now();
+		this.countdownSecondsLast = -1;
+		if (this.countdownReadout) {
+			this.countdownReadout.style.display = 'flex';
+			const initial = Math.ceil(this.countdownDuration / 1000);
+			this.countdownReadout.textContent = String(initial);
+		}
 		this.animateCountdown();
 	}
 	animateCountdown() {
@@ -2046,6 +2073,11 @@ class LuckyPreviewOverlay {
 		const now = performance.now();
 		const elapsed = now - this.countdownStartTime;
 		const progress = Math.min(elapsed / this.countdownDuration, 1);
+		const secondsLeft = Math.max(0, Math.ceil((this.countdownDuration - elapsed) / 1000));
+		if (this.countdownReadout && secondsLeft !== this.countdownSecondsLast) {
+			this.countdownSecondsLast = secondsLeft;
+			this.countdownReadout.textContent = String(secondsLeft) + 's';
+		}
 		const offset = this.circumference * (1 - progress);
 		this.segment.style.strokeDashoffset = offset;
 		if (progress < 1) {
@@ -2056,9 +2088,9 @@ class LuckyPreviewOverlay {
 	}
 	complete() {
 		this.state = 'complete';
-		if (this.anchor && !this.earlyClicked && typeof this.anchor.click === 'function')
-			this.anchor.click();
-		this.close();
+		if (this.anchor && !this.earlyClicked && typeof this.anchor.click === 'function') {
+		} //	this.anchor.click();
+		//this.close();
 	}
 }
 
@@ -2090,7 +2122,7 @@ function startFeelingLuckyWatcher() {
 					onCancel: () => {
 						luckyCancelled = true;
 					},
-					countdownDuration: 3000,
+					countdownDuration: 4000,
 					spinnerSpeed: 1000,
 				});
 			}

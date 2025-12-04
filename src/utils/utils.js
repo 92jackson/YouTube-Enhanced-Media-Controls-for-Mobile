@@ -389,6 +389,77 @@ class DOMUtils {
 			style.visibility !== 'hidden'
 		);
 	}
+
+	/**
+	 * Applies marquee effect to an element if its content overflows.
+	 * @param {HTMLElement} container - The container element for the marquee.
+	 * @param {HTMLElement} textElement - The text element to be scrolled.
+	 * @param {boolean} enabled - Whether to enable or disable the marquee.
+	 */
+	static setMarquee(container, textElement, enabled) {
+		if (!container) return;
+
+		if (!enabled) {
+			logger.log('DOMUtils', 'setMarquee: Disabled by setting - removing marquee');
+			container.classList.remove('marquee');
+			container.style.removeProperty('--yt-title-marquee-distance');
+			container.style.removeProperty('--yt-title-marquee-cycle');
+			container.style.removeProperty('--yt-title-marquee-gap');
+			container.style.removeProperty('--yt-title-marquee-duration');
+			if (textElement) textElement.removeAttribute('data-marquee');
+			return;
+		}
+
+		// Ensure measurement uses original text only (no duplicate via ::after)
+		container.classList.remove('marquee');
+		const containerClientWidth = container.clientWidth || container.offsetWidth || 0;
+		const textScrollWidth = textElement
+			? Math.max(textElement.scrollWidth, textElement.offsetWidth)
+			: 0;
+		const textRect = textElement ? textElement.getBoundingClientRect() : null;
+		const baseTextWidth = Math.max(textScrollWidth, textRect ? Math.ceil(textRect.width) : 0);
+		const overflowNeeded = Math.max(0, baseTextWidth - containerClientWidth);
+		const gapPx = 24;
+		const cycleDistance = baseTextWidth + gapPx;
+		let shouldMarquee = overflowNeeded > 0;
+
+		logger.log('DOMUtils', 'setMarquee: Evaluating', {
+			enabled: !!enabled,
+			hasContainer: !!container,
+			containerClientWidth,
+			hasTextEl: !!textElement,
+			textScrollWidth,
+			baseTextWidth,
+			gapPx,
+			cycleDistance,
+			result: shouldMarquee,
+		});
+
+		if (shouldMarquee) {
+			if (textElement)
+				textElement.setAttribute('data-marquee', textElement.textContent || '');
+			container.style.setProperty('--yt-title-marquee-gap', `${gapPx}px`);
+			container.style.setProperty('--yt-title-marquee-cycle', `${cycleDistance}px`);
+			const PX_PER_SECOND = 60;
+			const TRAVEL_FRACTION = 0.3;
+			const MIN_SECONDS = 6;
+			const MAX_SECONDS = 24;
+			const travelSeconds = cycleDistance / PX_PER_SECOND;
+			const duration = Math.max(
+				MIN_SECONDS,
+				Math.min(MAX_SECONDS, travelSeconds / TRAVEL_FRACTION)
+			);
+			container.style.setProperty('--yt-title-marquee-duration', `${duration}s`);
+			logger.log('DOMUtils', 'setMarquee: Duration applied', { duration, cycleDistance });
+		}
+
+		container.classList.toggle('marquee', shouldMarquee);
+		logger.log(
+			'DOMUtils',
+			'setMarquee: Applied class:',
+			String(container.classList.contains('marquee'))
+		);
+	}
 }
 
 /**

@@ -1540,9 +1540,15 @@ async function initNewOptionIndicators() {
 
 		newOptions.forEach((optionElement) => {
 			const addedVersion = optionElement.getAttribute('data-added-version');
-
+			let addedVersionWithoutPatch = addedVersion.split('.').slice(0, 2).join('.');
+			let currentVersionWithoutPatch = currentVersion.split('.').slice(0, 2).join('.');
+			console.log(currentVersionWithoutPatch);
+			console.log(addedVersionWithoutPatch);
 			// Compare versions
-			if (compareVersions(addedVersion, lastVersion) > 0 || addedVersion === currentVersion) {
+			if (
+				compareVersions(addedVersion, lastVersion) > 0 ||
+				addedVersionWithoutPatch == currentVersionWithoutPatch
+			) {
 				// This option is new, add the badge
 				addNewOptionBadge(optionElement);
 				newOptionsList.push(optionElement);

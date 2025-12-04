@@ -2,7 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
-### [2.1.0] - 2025-12-04
+## [2.1.1] - 2025-12-04
+
+### Changed
+
+-   **Title Marquee** - Improved animation timing and added circular motion. Now only animates when the title is too long to fit in the available space.
+-   **I'm Feeling Lucky Preview** - Improved layout.
+
+### Fixed
+
+-   Bug causing forced re-focusing of active playlist item when touching the playlist drawer handle fixed. Re-focus should now only occur:
+    1.  When the drawer state is changed.
+    2.  When the active item is changed.
+    3.  When "Keep current item focused" is enabled.
+    4.  When the re-focus button is pressed.
+
+## [2.1.0] - 2025-12-04
 
 ### Added
 
