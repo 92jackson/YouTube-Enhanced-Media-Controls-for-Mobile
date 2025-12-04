@@ -467,6 +467,9 @@ class MediaUtils {
 			'mv',
 			'lyrics?',
 			'lyric video',
+			'music',
+			'video',
+			'song',
 		];
 		title = title
 			.replace(/\(([^()]+)\)/gi, (match, inner) => {
@@ -1129,15 +1132,15 @@ const VersionUtils = {
 	compareVersions: (version1, version2) => {
 		const v1Parts = version1.split('.').map(Number);
 		const v2Parts = version2.split('.').map(Number);
-		
+
 		for (let i = 0; i < Math.max(v1Parts.length, v2Parts.length); i++) {
 			const v1Part = v1Parts[i] || 0;
 			const v2Part = v2Parts[i] || 0;
-			
+
 			if (v1Part < v2Part) return -1;
 			if (v1Part > v2Part) return 1;
 		}
-		
+
 		return 0;
 	},
 
@@ -1150,11 +1153,11 @@ const VersionUtils = {
 	isPatchUpdate: (oldVersion, newVersion) => {
 		const oldParts = oldVersion.split('.').map(Number);
 		const newParts = newVersion.split('.').map(Number);
-		
+
 		// Major and minor versions must be the same, only patch can differ
-		return oldParts[0] === newParts[0] && 
-		       oldParts[1] === newParts[1] && 
-		       oldParts[2] < newParts[2];
+		return (
+			oldParts[0] === newParts[0] && oldParts[1] === newParts[1] && oldParts[2] < newParts[2]
+		);
 	},
 
 	/**
@@ -1166,7 +1169,7 @@ const VersionUtils = {
 	isSignificantUpdate: (oldVersion, newVersion) => {
 		const oldParts = oldVersion.split('.').map(Number);
 		const newParts = newVersion.split('.').map(Number);
-		
+
 		// Major or minor version changed
 		return oldParts[0] !== newParts[0] || oldParts[1] !== newParts[1];
 	},
@@ -1180,7 +1183,11 @@ const VersionUtils = {
 			if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest) {
 				// Chrome extension environment
 				return chrome.runtime.getManifest().version;
-			} else if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.getManifest) {
+			} else if (
+				typeof browser !== 'undefined' &&
+				browser.runtime &&
+				browser.runtime.getManifest
+			) {
 				// Firefox extension environment
 				return browser.runtime.getManifest().version;
 			} else {
@@ -1199,8 +1206,11 @@ const VersionUtils = {
 	 * Opens the GitHub releases page for the extension
 	 */
 	openReleasesPage: () => {
-		window.open('https://github.com/92jackson/YouTube-Enhanced-Media-Controls-for-Mobile/releases/', '_blank');
-	}
+		window.open(
+			'https://github.com/92jackson/YouTube-Enhanced-Media-Controls-for-Mobile/releases/',
+			'_blank'
+		);
+	},
 };
 
 /**

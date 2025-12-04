@@ -2,7 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.0.1]
+### [2.1.0] - 2025-12-04
+
+### Added
+
+-   **I'm Feeling Lucky** - Added an option to use I'm Feeling Lucky when using the voice search (it will auto-navigate to the first search result) with optional preview overlay
+-   **Refocus Active Item in Playlist** - Button added to playlist header to refocus the active item in the playlist when not using the "Keep current item focused" option
+-   **Play Time Display Mode** - Added the options to select how the current play time/duration is shown in the bottom controls area
+-   **Hide Playlist Item Durations** - Option to hide durations in playlist items
+-   **Enable Title Marquee** - Option to enable marquee effect for long video titles in the bottom controls area
+
+### Changes
+
+-   Shows video duration in playlist item's context menu
+
+### Fixed
+
+-   Easter egg removal option fixed
+
+### Removed
+
+-   Native playlist scroll fix - Removed the option to fix the native playlist auto-scroll behavior (it was buggy, caused performance issues and was probably never actually used)
+
+## [2.0.1] - 2025-12-01
 
 ### Changes
 

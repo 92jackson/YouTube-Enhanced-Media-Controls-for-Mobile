@@ -64,7 +64,11 @@ class YTMediaPlayer {
 			customPlayerFontMultiplier: window.userSettings.customPlayerFontMultiplier,
 			playlistItemDensity: window.userSettings.playlistItemDensity,
 			allowMultilinePlaylistTitles: window.userSettings.allowMultilinePlaylistTitles,
+			playerTimeDisplayMode: window.userSettings.playerTimeDisplayMode,
+			hideTimerDuration: window.userSettings.hideTimerDuration,
+			hidePlaylistItemDurations: window.userSettings.hidePlaylistItemDurations,
 			keepPlaylistFocused: window.userSettings.keepPlaylistFocused,
+			enableTitleMarquee: window.userSettings.enableTitleMarquee !== false,
 			horizontalPlaylistDetailsInHeaderControls:
 				window.userSettings.horizontalPlaylistDetailsInHeaderControls,
 
@@ -293,6 +297,11 @@ class YTMediaPlayer {
 		// Playlist handlers
 		this._handlePlaylistScroll_bound = this._handlePlaylistScroll.bind(this);
 		this._performAutoScrollFocus_bound = this._performAutoScrollFocus.bind(this);
+		this._handleDrawerFocusButtonClick_bound = (event) => {
+			event.preventDefault();
+			event.stopPropagation();
+			this._performAutoScrollFocus(false, true);
+		};
 
 		// Centered overlay handlers
 		this._updateCenteredOverlayOnScroll_bound = this._updateCenteredOverlayOnScroll.bind(this);
@@ -351,6 +360,15 @@ class YTMediaPlayer {
 		const seekbarHandle = document.createElement('div');
 		seekbarHandle.className = 'yt-seekbar-handle';
 		seekbarProgress.appendChild(seekbarHandle);
+		// Tooltip shown only when seeking if playerTimeDisplayMode is 'seek-tooltip'
+		const seekTooltip = document.createElement('div');
+		seekTooltip.className = 'yt-seek-tooltip';
+		const seekTooltipCurrentText = document.createTextNode('0:00');
+		const seekTooltipDurationSpan = document.createElement('span');
+		seekTooltipDurationSpan.textContent = '/0:00';
+		seekTooltip.appendChild(seekTooltipCurrentText);
+		seekTooltip.appendChild(seekTooltipDurationSpan);
+		seekbarBg.appendChild(seekTooltip);
 		seekbarBg.appendChild(seekbarProgress);
 		playingDetails.appendChild(seekbarBg);
 
@@ -371,6 +389,9 @@ class YTMediaPlayer {
 		// Create video title
 		const videoTitle = document.createElement('div');
 		videoTitle.className = 'yt-video-title';
+		if (this.options.enableTitleMarquee) {
+			videoTitle.classList.add('marquee');
+		}
 		const titleText = this.options.nowPlayingVideoDetails.title || '';
 		const authorText = this.options.nowPlayingVideoDetails.author || '';
 		const adIndicator = document.createElement('span');
@@ -398,7 +419,11 @@ class YTMediaPlayer {
 		playbackInfo.className = 'yt-playback-info';
 		const videoTimer = document.createElement('div');
 		videoTimer.className = 'yt-video-timer';
-		videoTimer.textContent = '0:00 / 0:00';
+		const videoTimerCurrentText = document.createTextNode('0:00');
+		const videoTimerDurationSpan = document.createElement('span');
+		videoTimerDurationSpan.textContent = '/0:00';
+		videoTimer.appendChild(videoTimerCurrentText);
+		videoTimer.appendChild(videoTimerDurationSpan);
 		playbackInfo.appendChild(videoTimer);
 
 		// Create inline seekbar
@@ -409,6 +434,15 @@ class YTMediaPlayer {
 		const seekbarThumbInline = document.createElement('div');
 		seekbarThumbInline.className = 'yt-seekbar-thumb-inline';
 		seekbarProgressInline.appendChild(seekbarThumbInline);
+		// Inline seek tooltip (compact layout)
+		const seekTooltipInline = document.createElement('div');
+		seekTooltipInline.className = 'yt-seek-tooltip-inline';
+		const seekTooltipInlineCurrentText = document.createTextNode('0:00');
+		const seekTooltipInlineDurationSpan = document.createElement('span');
+		seekTooltipInlineDurationSpan.textContent = '/0:00';
+		seekTooltipInline.appendChild(seekTooltipInlineCurrentText);
+		seekTooltipInline.appendChild(seekTooltipInlineDurationSpan);
+		seekbarInline.appendChild(seekTooltipInline);
 		seekbarInline.appendChild(seekbarProgressInline);
 		playbackInfo.appendChild(seekbarInline);
 
@@ -821,6 +855,20 @@ class YTMediaPlayer {
 		closeButton.textContent = '×';
 		dragHandle.appendChild(closeButton);
 
+		const focusButton = document.createElement('button');
+		focusButton.className = 'yt-drawer-focus-current-button';
+		focusButton.setAttribute('aria-label', 'Focus current item');
+		const focusSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		focusSvg.setAttribute('class', 'icon focus-current');
+		focusSvg.setAttribute('viewBox', '0 0 32 32');
+		const focusPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		focusPath.setAttribute(
+			'd',
+			'M30,15H27.9492A12.0071,12.0071,0,0,0,17,4.0508V2H15V4.0508A12.0071,12.0071,0,0,0,4.0508,15H2v2H4.0508A12.0071,12.0071,0,0,0,15,27.9492V30h2V27.9492A12.0071,12.0071,0,0,0,27.9492,17H30ZM17,25.9492V22H15v3.9492A10.0166,10.0166,0,0,1,6.0508,17H10V15H6.0508A10.0166,10.0166,0,0,1,15,6.0508V10h2V6.0508A10.0166,10.0166,0,0,1,25.9492,15H22v2h3.9492A10.0166,10.0166,0,0,1,17,25.9492Z'
+		);
+		focusSvg.appendChild(focusPath);
+		focusButton.appendChild(focusSvg);
+
 		// Create header content
 		const headerContent = document.createElement('div');
 		headerContent.className = 'yt-drawer-header-content';
@@ -844,6 +892,7 @@ class YTMediaPlayer {
 		headerContent.appendChild(subheaderContainer);
 
 		dragHandle.appendChild(headerContent);
+		headerContent.appendChild(focusButton);
 		fragment.appendChild(dragHandle);
 
 		// Create player drawer
@@ -1107,6 +1156,9 @@ class YTMediaPlayer {
 			this.drawerHandle = this.playerWrapper.querySelector('.yt-drawer-drag-handle');
 			this.playerDrawer = this.playerWrapper.querySelector('.yt-player-drawer');
 			this.drawerCloseButton = this.playerWrapper.querySelector('.yt-drawer-close-button');
+			this.drawerFocusButton = this.playerWrapper.querySelector(
+				'.yt-drawer-focus-current-button'
+			);
 			this.drawerHeader = this.playerWrapper.querySelector('.yt-drawer-header');
 			this.drawerSubheader = this.playerWrapper.querySelector('.yt-drawer-subheader');
 			this.playlistWrapper = this.playerWrapper.querySelector('.yt-playlist-wrapper');
@@ -1115,11 +1167,17 @@ class YTMediaPlayer {
 		// Video details
 		this.thumbnailElement = this.playerWrapper.querySelector('.yt-thumbnail');
 		this.videoTitleElement = this.playerWrapper.querySelector('.yt-video-title-text');
+		this.videoTitleContainerElement = this.playerWrapper.querySelector('.yt-video-title');
 		this.videoAuthorElement = this.playerWrapper.querySelector('.yt-video-author');
 		this.videoAuthorCompactElement = this.playerWrapper.querySelector(
 			'.yt-video-author-compact'
 		);
 		this.videoTimerElement = this.playerWrapper.querySelector('.yt-video-timer');
+		this.videoTimerDurationSpan = this.videoTimerElement
+			? this.videoTimerElement.querySelector('span')
+			: null;
+		this.seekTooltipElement = this.playerWrapper.querySelector('.yt-seek-tooltip');
+		this.seekTooltipInlineElement = this.playerWrapper.querySelector('.yt-seek-tooltip-inline');
 
 		// Seekbars
 		this.seekbarBackground = this.playerWrapper.querySelector('.yt-seekbar-background');
@@ -1175,6 +1233,17 @@ class YTMediaPlayer {
 		}
 		if (!this.options.showSkipButton) {
 			this.playerWrapper.classList.add('hide-skip-button');
+		}
+
+		// Playlist item duration visibility
+		if (this.options.hidePlaylistItemDurations) {
+			this.playerWrapper.classList.add('hide-durations');
+		}
+
+		// Timer mode
+		this.setPlayerTimeDisplayMode(this.options.playerTimeDisplayMode);
+		if (this.options.hideTimerDuration && this.playerControls) {
+			this.playerControls.classList.add('timer-hide-duration');
 		}
 
 		// Auto-hide setting class - add to body when auto-hide is enabled
@@ -2784,11 +2853,14 @@ class YTMediaPlayer {
 			return;
 		}
 
+		this._updateDrawerFocusButtonVisibility();
+
 		clearTimeout(this.autoScrollFocusTimer);
 		this.playlistWrapper.classList.add('scrolling');
 		this.autoScrollFocusTimer = setTimeout(() => {
 			this.playlistWrapper.classList.remove('scrolling');
 			this._performAutoScrollFocus_bound();
+			this._updateDrawerFocusButtonVisibility();
 		}, this.playlistScrollDebounceDelay);
 	}
 
@@ -2963,9 +3035,11 @@ class YTMediaPlayer {
 		}
 	}
 
-	_performAutoScrollFocus(immediate = false) {
+	_performAutoScrollFocus(immediate = false, force = false) {
 		if (
-			((!this.options.keepPlaylistFocused || this._isContextMenuOpen()) && !immediate) ||
+			((!this.options.keepPlaylistFocused || this._isContextMenuOpen()) &&
+				!immediate &&
+				!force) ||
 			!this.hasPlaylist ||
 			!this.playlistWrapper
 		) {
@@ -2979,7 +3053,30 @@ class YTMediaPlayer {
 			setTimeout(() => {
 				this.programmaticScrollInProgress = false;
 			}, 500);
+			this._updateDrawerFocusButtonVisibility();
 		}
+	}
+
+	_isActiveItemVisible() {
+		if (!this.playlistWrapper) return true;
+		const activeItem = this.playlistWrapper.querySelector('.yt-playlist-item.active');
+		if (!activeItem) return true;
+		const containerRect = this.playlistWrapper.getBoundingClientRect();
+		const itemRect = activeItem.getBoundingClientRect();
+		if (this._isHorizontalPlaylistActive()) {
+			return itemRect.left >= containerRect.left && itemRect.right <= containerRect.right;
+		}
+		return itemRect.top >= containerRect.top && itemRect.bottom <= containerRect.bottom;
+	}
+
+	_updateDrawerFocusButtonVisibility() {
+		if (!this.drawerFocusButton) return;
+		const shouldShow =
+			!this.options.keepPlaylistFocused &&
+			this.hasPlaylist &&
+			!!this.playlistWrapper &&
+			!this._isActiveItemVisible();
+		this.drawerFocusButton.classList.toggle('visible', shouldShow);
 	}
 
 	_scrollActiveItemIntoView(activeItem, behavior = 'smooth') {
@@ -3033,11 +3130,6 @@ class YTMediaPlayer {
 					top: targetScrollTop,
 					behavior,
 				});
-
-				// Call callback after scroll completes
-				if (onScrollComplete) {
-					onScrollComplete();
-				}
 			}
 		});
 	}
@@ -3092,6 +3184,16 @@ class YTMediaPlayer {
 			seekbarElement.classList.add('dragging');
 			document.body.classList.add('yt-player-body-dragging');
 
+			// Show tooltip if mode is seek-tooltip
+			if (this.options.playerTimeDisplayMode === 'seek-tooltip') {
+				const tooltip = isBackground
+					? this.seekTooltipElement
+					: this.seekTooltipInlineElement;
+				if (tooltip) {
+					tooltip.style.display = 'block';
+				}
+			}
+
 			if (isBackground && this.detailsOverlayElement) {
 				this.detailsOverlayElement.classList.add('yt-seeking-active');
 			}
@@ -3122,6 +3224,20 @@ class YTMediaPlayer {
 			this._updateTimerDisplay();
 			this._updatePrevButtonVisualState();
 
+			// Update tooltip content/position when seeking
+			if (this.options.playerTimeDisplayMode === 'seek-tooltip') {
+				const tooltip = isBackground
+					? this.seekTooltipElement
+					: this.seekTooltipInlineElement;
+				if (tooltip && rect.width > 0) {
+					const percentage =
+						(this.totalTime > 0 ? this.trackTime / this.totalTime : 0) * 100;
+					this._updateSeekTooltipText(tooltip);
+					const px = (percentage / 100) * rect.width;
+					tooltip.style.left = `${px}px`;
+				}
+			}
+
 			if (this.options.callbacks.onSeekbarUpdate) {
 				const percentage = (this.totalTime > 0 ? this.trackTime / this.totalTime : 0) * 100;
 				this.options.callbacks.onSeekbarUpdate(percentage, this.trackTime, false);
@@ -3135,6 +3251,16 @@ class YTMediaPlayer {
 			this.isSeekbarDragging = false;
 			seekbarElement.classList.remove('dragging');
 			document.body.classList.remove('yt-player-body-dragging');
+
+			// Hide tooltip after drag
+			if (this.options.playerTimeDisplayMode === 'seek-tooltip') {
+				const tooltip = isBackground
+					? this.seekTooltipElement
+					: this.seekTooltipInlineElement;
+				if (tooltip) {
+					tooltip.style.display = 'none';
+				}
+			}
 
 			if (isBackground && this.detailsOverlayElement) {
 				this.detailsOverlayElement.classList.remove('yt-seeking-active');
@@ -3172,6 +3298,20 @@ class YTMediaPlayer {
 					this.trackTime = newTime;
 					this._updateTimerDisplay();
 					this._updatePrevButtonVisualState();
+
+					if (this.options.playerTimeDisplayMode === 'seek-tooltip') {
+						const tooltip = isBackground
+							? this.seekTooltipElement
+							: this.seekTooltipInlineElement;
+						if (tooltip && rect.width > 0) {
+							const percentage =
+								(this.totalTime > 0 ? this.trackTime / this.totalTime : 0) * 100;
+							this._updateSeekTooltipText(tooltip);
+							const px = (percentage / 100) * rect.width;
+							tooltip.style.left = `${px}px`;
+							tooltip.style.display = 'block';
+						}
+					}
 
 					if (this.options.callbacks.onSeekbarUpdate) {
 						const newPercentage =
@@ -3424,6 +3564,17 @@ class YTMediaPlayer {
 			);
 		}
 
+		if (this.drawerFocusButton) {
+			this.drawerFocusButton.removeEventListener(
+				'click',
+				this._handleDrawerFocusButtonClick_bound
+			);
+			this.drawerFocusButton.addEventListener(
+				'click',
+				this._handleDrawerFocusButtonClick_bound
+			);
+		}
+
 		// Add listeners if drawer can be dragged
 		if (this._canDragDrawer()) {
 			logger.log('Events', 'Adding drawer interaction listeners');
@@ -3443,6 +3594,8 @@ class YTMediaPlayer {
 		} else {
 			logger.log('Events', 'Drawer cannot be dragged, skipping interaction listeners');
 		}
+
+		this._updateDrawerFocusButtonVisibility();
 	}
 
 	/**
@@ -3485,13 +3638,92 @@ class YTMediaPlayer {
 		const tM = Math.floor(this.totalTime / 60);
 		const tS = Math.floor(this.totalTime % 60);
 
-		this.videoTimerElement.textContent = `${cM}:${cS.toString().padStart(2, '0')} / ${tM}:${tS
-			.toString()
-			.padStart(2, '0')}`;
+		const currentText = `${cM}:${cS.toString().padStart(2, '0')}`;
+		const durationText = `/${tM}:${tS.toString().padStart(2, '0')}`;
+
+		if (
+			this.videoTimerElement.firstChild &&
+			this.videoTimerElement.firstChild.nodeType === Node.TEXT_NODE
+		) {
+			this.videoTimerElement.firstChild.nodeValue = currentText;
+		} else {
+			this.videoTimerElement.textContent = '';
+			this.videoTimerElement.appendChild(document.createTextNode(currentText));
+		}
+		if (this.videoTimerDurationSpan) {
+			this.videoTimerDurationSpan.textContent = durationText;
+		} else {
+			const span = document.createElement('span');
+			span.textContent = durationText;
+			this.videoTimerElement.appendChild(span);
+			this.videoTimerDurationSpan = span;
+		}
 
 		const percentage = (this.totalTime > 0 ? this.trackTime / this.totalTime : 0) * 100;
 		this.seekbarProgress.style.width = `${percentage}%`;
 		this.seekbarProgressInline.style.width = `${percentage}%`;
+	}
+
+	_updateSeekTooltipText(tooltipEl) {
+		if (!tooltipEl) return;
+		let cM = Math.floor(this.trackTime / 60);
+		let cS = Math.floor(this.trackTime % 60);
+		let tM = Math.floor(this.totalTime / 60);
+		let tS = Math.floor(this.totalTime % 60);
+		const currentText = `${cM}:${cS.toString().padStart(2, '0')}`;
+		const durationText = `/${tM}:${tS.toString().padStart(2, '0')}`;
+		if (tooltipEl.firstChild && tooltipEl.firstChild.nodeType === Node.TEXT_NODE) {
+			tooltipEl.firstChild.nodeValue = currentText;
+		} else {
+			tooltipEl.textContent = '';
+			tooltipEl.appendChild(document.createTextNode(currentText));
+		}
+		let span = tooltipEl.querySelector('span');
+		if (span) {
+			span.textContent = durationText;
+		} else {
+			span = document.createElement('span');
+			span.textContent = durationText;
+			tooltipEl.appendChild(span);
+		}
+	}
+
+	_formatTimerText(cM, cS, tM, tS) {
+		if (typeof cM !== 'number') {
+			cM = Math.floor(this.trackTime / 60);
+			cS = Math.floor(this.trackTime % 60);
+			tM = Math.floor(this.totalTime / 60);
+			tS = Math.floor(this.totalTime % 60);
+		}
+		const current = `${cM}:${cS.toString().padStart(2, '0')}`;
+		if (this.options.hideTimerDuration) return current;
+		return `${current} / ${tM}:${tS.toString().padStart(2, '0')}`;
+	}
+
+	setPlayerTimeDisplayMode(mode) {
+		this.options.playerTimeDisplayMode = mode || 'always';
+		if (this.playerControls) {
+			this.playerControls.classList.remove('timer-hide', 'timer-seek-tooltip');
+			if (this.options.playerTimeDisplayMode === 'hide') {
+				this.playerControls.classList.add('timer-hide');
+			} else if (this.options.playerTimeDisplayMode === 'seek-tooltip') {
+				this.playerControls.classList.add('timer-seek-tooltip');
+			}
+		}
+	}
+
+	setHidePlaylistItemDurations(enabled) {
+		this.options.hidePlaylistItemDurations = !!enabled;
+		if (this.playerWrapper) {
+			this.playerWrapper.classList.toggle('hide-durations', !!enabled);
+		}
+	}
+
+	setHideTimerDuration(enabled) {
+		this.options.hideTimerDuration = !!enabled;
+		if (this.playerControls) {
+			this.playerControls.classList.toggle('timer-hide-duration', !!enabled);
+		}
 	}
 
 	_updatePrevButtonVisualState() {
@@ -3699,6 +3931,9 @@ class YTMediaPlayer {
 		// Thumbnail
 		const thumbnail = document.createElement('div');
 		thumbnail.className = 'yt-context-menu-thumbnail';
+		const durationBadge = document.createElement('div');
+		durationBadge.className = 'yt-context-menu-duration';
+		thumbnail.appendChild(durationBadge);
 		header.appendChild(thumbnail);
 
 		// Video info container
@@ -3902,6 +4137,7 @@ class YTMediaPlayer {
 			const thumbnail = this.contextMenu.querySelector('.yt-context-menu-thumbnail');
 			const title = this.contextMenu.querySelector('.yt-context-menu-title');
 			const author = this.contextMenu.querySelector('.yt-context-menu-author');
+			const durationEl = this.contextMenu.querySelector('.yt-context-menu-duration');
 
 			// Set thumbnail using the utility function
 			const thumbnailUrl =
@@ -3913,6 +4149,13 @@ class YTMediaPlayer {
 			// Set title and author
 			title.textContent = videoData.title || 'Unknown Title';
 			author.textContent = videoData.artist || 'Unknown Artist';
+			if (durationEl) {
+				const d =
+					(videoData && videoData.duration) ||
+					this.options.nowPlayingVideoDetails?.duration ||
+					'0:00';
+				durationEl.textContent = d;
+			}
 		}
 
 		// Show modal
@@ -4769,6 +5012,7 @@ class YTMediaPlayer {
 			}
 
 			this._scrollActiveItemIntoView(activeElement, 'instant');
+			this._updateDrawerFocusButtonVisibility();
 		}
 
 		// Update header content
@@ -4802,6 +5046,7 @@ class YTMediaPlayer {
 					itemCount: visibleItemCount,
 				});
 			}
+			this._updateDrawerFocusButtonVisibility();
 		}
 	}
 
@@ -4844,9 +5089,11 @@ class YTMediaPlayer {
 			}
 			newActive.classList.add('active');
 			this._scrollActiveItemIntoView(newActive, 'smooth');
+			this._updateDrawerFocusButtonVisibility();
 		}
 
 		this.options.currentPlaylist.activeItemId = newItemIdStr;
+		this._updateDrawerFocusButtonVisibility();
 		return itemData;
 	}
 
@@ -5041,6 +5288,43 @@ class YTMediaPlayer {
 		if (!enabled) {
 			clearTimeout(this.autoScrollFocusTimer);
 			this.programmaticScrollInProgress = false;
+		}
+		this._updateDrawerFocusButtonVisibility();
+	}
+
+	setTitleMarqueeEnabled(enabled) {
+		this.options.enableTitleMarquee = !!enabled;
+		const container =
+			this.videoTitleContainerElement ||
+			(this.videoTitleElement && this.videoTitleElement.parentElement);
+		if (!container) return;
+		container.classList.toggle('marquee', !!enabled);
+	}
+
+	setClassSetting(key, enabled) {
+		switch (key) {
+			case 'hideTimerDuration':
+				if (this.playerControls) {
+					this.playerControls.classList.toggle('timer-hide-duration', !!enabled);
+				}
+				this.options.hideTimerDuration = !!enabled;
+				break;
+			case 'enableTitleMarquee':
+				this.setTitleMarqueeEnabled(!!enabled);
+				break;
+			case 'autoHidePlayerOnScroll':
+				document.body.classList.toggle('yt-auto-hide-active', !!enabled);
+				this.options.autoHidePlayerOnScroll = !!enabled;
+				if (!enabled && this.isAutoHidden) {
+					this._autoShowPlayer();
+				}
+				break;
+			case 'hidePlayerForPanelActive':
+				document.body.classList.toggle('yt-player-hide-for-panel-active', !!enabled);
+				this.options.hidePlayerForPanelActive = !!enabled;
+				break;
+			default:
+				this.options[key] = enabled;
 		}
 	}
 

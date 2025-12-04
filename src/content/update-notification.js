@@ -151,7 +151,7 @@ class UpdateNotification {
 		const githubButton = document.createElement('button');
 		githubButton.className = 'yt-update-notification-github';
 		githubButton.innerHTML = `
-			<span>Changelog</span>
+			<span>Changes</span>
 			<svg class="yt-update-notification-external-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<path d="M3.5 3C3.22386 3 3 3.22386 3 3.5C3 3.77614 3.22386 4 3.5 4H4.5C4.77614 4 5 4.22386 5 4.5C5 4.77614 4.77614 5 4.5 5H3.5C2.67157 5 2 4.32843 2 3.5C2 2.67157 2.67157 2 3.5 2H8.5C9.32843 2 10 2.67157 10 3.5V8.5C10 9.32843 9.32843 10 8.5 10H3.5C2.67157 10 2 9.32843 2 8.5V7.5C2 7.22386 2.22386 7 2.5 7C2.77614 7 3 7.22386 3 7.5V8.5C3 8.77614 3.22386 9 3.5 9H8.5C8.77614 9 9 8.77614 9 8.5V3.5C9 3.22386 8.77614 3 8.5 3H3.5Z" fill="currentColor"/>
 				<path d="M6 2.5C6 2.22386 6.22386 2 6.5 2H9.5C9.77614 2 10 2.22386 10 2.5V5.5C10 5.77614 9.77614 6 9.5 6C9.22386 6 9 5.77614 9 5.5V3.70711L6.35355 6.35355C6.15829 6.54882 5.84171 6.54882 5.64645 6.35355C5.45118 6.15829 5.45118 5.84171 5.64645 5.64645L8.29289 3H6.5C6.22386 3 6 2.77614 6 2.5Z" fill="currentColor"/>

@@ -66,6 +66,8 @@ const CSS_SELECTORS = {
 	// Search elements
 	searchSuggestions: '.yt-searchbox-suggestions-container',
 	resultsPageTextSearchButton: 'button.search-bar-text',
+	resultsItems: 'ytm-item-section-renderer ytm-video-with-context-renderer',
+	resultsFirstVideoAnchor: 'ytm-video-with-context-renderer a.media-item-thumbnail-container',
 
 	// Loading and buffering indicators
 	playerSpinner: '.player-controls-spinner .spinner',
@@ -132,9 +134,6 @@ let manualDrawerTargetHeightThisSession = null;
 /** @type {boolean} Flag to differentiate if a pause event was initiated by the custom player controls. */
 let customControlsInitiatedPause = false;
 
-/** @type {string|null} Stores the ID of the last item scrolled to in the native playlist to prevent redundant scrolls. */
-let lastScrolledItemId = null;
-
 /** @type {string[]} Holds a shuffled copy of keys from `COLOR_MAP` for sequential random color picking. */
 let shuffledAccentColors = [];
 /** @type {number} Index for the current color in `shuffledAccentColors`. */
@@ -149,8 +148,13 @@ let isManagingFeatures = false;
 /** @type {boolean} Flags if the current video is being fetched late from the page metadata. */
 let gettingLateVideoDetails = false;
 
+let voiceSearchCancelledByUser = false;
+let lastVoiceSearchMicState = window.VoiceState.NORMAL;
+
 /** @type {Element|null} Stores the video element being observed for events. */
 let observedVideoElement = null;
+let luckyOverlayInstance = null;
+let luckyEarlyClick = false;
 
 // --- Buffer Detection Auto-Pause Variables ---
 /** @type {number|null} Timestamp of the last buffering event for rapid detection */
@@ -414,7 +418,7 @@ class DOMHelper {
 	 * @returns {Promise<Element|null>}
 	 */
 	static async findPlaylistContainerAsync(timeout = 3000) {
-		const playlistPanel = DOMUtils.waitForElement(
+		const playlistPanel = await DOMUtils.waitForElement(
 			CSS_SELECTORS.playlistPanel,
 			document,
 			timeout
@@ -713,6 +717,7 @@ const featureManager = new FeatureManager();
  * Helper function to handle getting late video details when title is missing
  */
 async function handleLateVideoDetails() {
+	if (!ytPlayerInstance) return;
 	if (
 		ytPlayerInstance.options.nowPlayingVideoDetails.title === null &&
 		DOMUtils.isElementVisible(CSS_SELECTORS.metadataSection) &&
@@ -1627,6 +1632,7 @@ async function customPlayer_onVoiceSearchClick(requestedState) {
 
 	const dialog = DOMUtils.getElement(CSS_SELECTORS.voiceSearchDialog);
 	if (requestedState === 'listening') {
+		voiceSearchCancelledByUser = false;
 		if (DOMUtils.isElementVisible(dialog)) {
 			logger.log(
 				'VoiceSearch',
@@ -1647,6 +1653,7 @@ async function customPlayer_onVoiceSearchClick(requestedState) {
 		}
 	} else if (requestedState === 'normal') {
 		if (DOMUtils.isElementVisible(dialog)) {
+			voiceSearchCancelledByUser = true;
 			logger.log(
 				'VoiceSearch',
 				'Voice search cancellation requested: Dialog open, clicking cancel button.'
@@ -1711,6 +1718,8 @@ function handleVoiceSearchDialogChanges() {
 		}
 
 		observerManager.disconnect('voiceDialog');
+
+		maybeFeelingLuckyAfterVoiceSearch();
 	}
 }
 
@@ -1815,14 +1824,363 @@ function setVoiceSearchMicState(dialogMicButton) {
 		micClasses.includes('voice-search-mic-state-speaking')
 	) {
 		ytPlayerInstance.setVoiceSearchState(window.VoiceState.LISTENING);
+		lastVoiceSearchMicState = window.VoiceState.LISTENING;
 		logger.log('VoiceSearch', "Set custom voice search state to 'listening'.");
 	} else if (micClasses.includes('voice-search-mic-state-try-again')) {
 		ytPlayerInstance.setVoiceSearchState(window.VoiceState.FAILED);
+		lastVoiceSearchMicState = window.VoiceState.FAILED;
 		logger.log('VoiceSearch', "Set custom voice search state to 'failed'.");
 	} else {
 		ytPlayerInstance.setVoiceSearchState(window.VoiceState.NORMAL);
+		lastVoiceSearchMicState = window.VoiceState.NORMAL;
 		logger.log('VoiceSearch', "Set custom voice search state to 'normal' (default).");
 	}
+}
+
+function maybeFeelingLuckyAfterVoiceSearch() {
+	logger.log(
+		'FeelingLucky',
+		`Post-voice-search check; enabled=${!!window.userSettings
+			.voiceSearchFeelingLucky}, cancelled=${!!voiceSearchCancelledByUser}, lastState=${lastVoiceSearchMicState}`
+	);
+	if (!window.userSettings.voiceSearchFeelingLucky) {
+		logger.log('FeelingLucky', 'Disabled by user setting');
+		return;
+	}
+	if (voiceSearchCancelledByUser) {
+		logger.log('FeelingLucky', 'Cancelled by user; skipping');
+		voiceSearchCancelledByUser = false;
+		return;
+	}
+	if (lastVoiceSearchMicState === window.VoiceState.FAILED) {
+		logger.log('FeelingLucky', 'Mic state indicates failure; skipping');
+		return;
+	}
+	logger.log('FeelingLucky', 'Starting results watcher');
+	startFeelingLuckyWatcher();
+}
+
+/**
+ * LuckyPreviewOverlay
+ * Manages the voice-search "I'm Feeling Lucky" preview overlay lifecycle.
+ * Responsibilities:
+ * - Create overlay UI with playlist-themed styles
+ * - Run spinner → transition → countdown via embedded SVG progress
+ * - Update thumbnail/title from the first-result anchor
+ * - Forward user clicks from the thumbnail/title wrapper to the anchor
+ * - Handle cancel and perform clean teardown
+ * Usage:
+ * - const inst = LuckyPreviewOverlay.show({ onCancel })
+ * - inst.updateFromAnchor(anchor) once the href is available
+ */
+class LuckyPreviewOverlay {
+	static show(opts = {}) {
+		const inst = new LuckyPreviewOverlay(opts);
+		document.body.appendChild(inst.overlay);
+		return inst;
+	}
+	constructor(opts = {}) {
+		this.onCancel = typeof opts.onCancel === 'function' ? opts.onCancel : null;
+		this.countdownDuration =
+			typeof opts.countdownDuration === 'number' ? opts.countdownDuration : 2000;
+		this.spinnerSpeed = typeof opts.spinnerSpeed === 'number' ? opts.spinnerSpeed : 1000;
+		this.anchor = null;
+		this.earlyClicked = false;
+		this.countdownStarted = false;
+		this.overlay = document.createElement('div');
+		this.overlay.className = 'yt-lucky-preview-overlay';
+		this.progressWrapper = document.createElement('div');
+		this.progressWrapper.className = 'yt-lucky-progress-wrapper';
+		this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		this.svg.setAttribute('class', 'yt-lucky-progress-svg');
+		this.svg.setAttribute('viewBox', '0 0 200 200');
+		const bg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+		bg.setAttribute('class', 'yt-lucky-progress-bg');
+		bg.setAttribute('cx', '100');
+		bg.setAttribute('cy', '100');
+		bg.setAttribute('r', '90');
+		const seg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+		seg.setAttribute('class', 'yt-lucky-progress-segment');
+		seg.setAttribute('cx', '100');
+		seg.setAttribute('cy', '100');
+		seg.setAttribute('r', '90');
+		this.svg.appendChild(bg);
+		this.svg.appendChild(seg);
+		this.progressWrapper.appendChild(this.svg);
+		this.modal = document.createElement('div');
+		this.modal.className = 'yt-lucky-preview-modal';
+		this.clickWrapper = document.createElement('div');
+		this.clickWrapper.className = 'yt-lucky-preview-click-wrapper';
+		this.thumb = document.createElement('img');
+		this.thumb.className = 'yt-lucky-preview-thumb';
+		this.title = document.createElement('div');
+		this.title.className = 'yt-lucky-preview-title';
+		this.title.textContent = 'Preparing first result';
+		this.actions = document.createElement('div');
+		this.actions.className = 'yt-lucky-preview-actions';
+		this.cancelLink = document.createElement('button');
+		this.cancelLink.className = 'yt-lucky-preview-cancel-link';
+		this.cancelLink.textContent = 'Cancel';
+		this.actions.appendChild(this.cancelLink);
+		this.clickWrapper.appendChild(this.thumb);
+		this.clickWrapper.appendChild(this.title);
+		this.modal.appendChild(this.clickWrapper);
+		this.modal.appendChild(this.actions);
+		this.overlay.appendChild(this.progressWrapper);
+		this.overlay.appendChild(this.modal);
+		this.segment = seg;
+		this.radius = 90;
+		this.circumference = 2 * Math.PI * this.radius;
+		this.state = 'spinner';
+		this.animationFrame = null;
+		this.startTime = null;
+		this.spinnerRotation = 0;
+		this.transitionStartRotation = 0;
+		this.transitionTargetRotation = 0;
+		this.transitionStartTime = 0;
+		this.transitionDuration = 0;
+		this.countdownStartTime = 0;
+		this.segment.style.strokeDasharray = this.circumference;
+		this.segment.style.strokeDashoffset = this.circumference;
+		this.startSpinner();
+		this.cancelLink.addEventListener('click', (e) => {
+			e.stopPropagation();
+			this.close();
+			if (this.onCancel) this.onCancel();
+		});
+		this.clickWrapper.addEventListener('click', (e) => {
+			e.stopPropagation();
+			this.earlyClicked = true;
+			luckyEarlyClick = true;
+			if (this.anchor) this.anchor.click();
+			this.close();
+		});
+		this.overlay.addEventListener('click', () => {
+			this.close();
+			if (this.onCancel) this.onCancel();
+		});
+	}
+	updateFromAnchor(anchor) {
+		this.anchor = anchor;
+		let vid = null;
+		try {
+			const u = new URL(anchor.href);
+			vid = u.searchParams.get('v');
+		} catch (e) {}
+		const itemEl = anchor.closest(CSS_SELECTORS.resultsItems) || anchor.parentElement;
+		const h3El = itemEl ? itemEl.querySelector('h3') : null;
+		const titleText = (h3El && h3El.textContent ? h3El.textContent.trim() : '') || '';
+		if (vid) {
+			const url = MediaUtils.getStandardThumbnailUrl
+				? MediaUtils.getStandardThumbnailUrl(vid)
+				: Utils.getStandardThumbnailUrl(vid);
+			this.thumb.src = url;
+		}
+		if (titleText) this.title.textContent = titleText;
+		if (!this.countdownStarted) {
+			this.countdownStarted = true;
+			this.startTransition();
+		}
+	}
+	close() {
+		if (this.overlay && this.overlay.parentNode)
+			this.overlay.parentNode.removeChild(this.overlay);
+		if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
+	}
+	startSpinner() {
+		this.state = 'spinner';
+		this.startTime = performance.now();
+		this.animateSpinner();
+	}
+	animateSpinner() {
+		if (this.state !== 'spinner') return;
+		const now = performance.now();
+		const elapsed = now - this.startTime;
+		this.spinnerRotation = (elapsed / this.spinnerSpeed) * 360;
+		const segmentPercent = 0.3;
+		const offset = this.circumference * (1 - segmentPercent);
+		this.segment.style.strokeDashoffset = offset;
+		this.segment.style.transform = `rotate(${this.spinnerRotation}deg)`;
+		this.segment.style.transformOrigin = '100px 100px';
+		this.animationFrame = requestAnimationFrame(() => this.animateSpinner());
+	}
+	startTransition() {
+		if (this.state !== 'spinner') return;
+		this.state = 'transitioning';
+		if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
+		const currentRotation = this.spinnerRotation % 360;
+		const remainingToZero = 360 - currentRotation;
+		this.transitionStartRotation = currentRotation;
+		this.transitionTargetRotation = currentRotation + remainingToZero;
+		this.transitionStartTime = performance.now();
+		this.transitionDuration = (remainingToZero / 360) * this.spinnerSpeed;
+		this.animateTransition();
+	}
+	animateTransition() {
+		const now = performance.now();
+		const elapsed = now - this.transitionStartTime;
+		const progress = Math.min(elapsed / this.transitionDuration, 1);
+		const ease = 1 - Math.pow(1 - progress, 3);
+		const rotation =
+			this.transitionStartRotation +
+			(this.transitionTargetRotation - this.transitionStartRotation) * ease;
+		const segmentPercent = 0.3 * (1 - ease);
+		const offset = this.circumference * (1 - segmentPercent);
+		this.segment.style.strokeDashoffset = offset;
+		this.segment.style.transform = `rotate(${rotation}deg)`;
+		if (progress < 1) {
+			this.animationFrame = requestAnimationFrame(() => this.animateTransition());
+		} else {
+			this.startCountdown();
+		}
+	}
+	startCountdown() {
+		this.state = 'countdown';
+		this.segment.style.transform = 'rotate(0deg)';
+		this.segment.style.strokeDashoffset = this.circumference;
+		this.countdownStartTime = performance.now();
+		this.animateCountdown();
+	}
+	animateCountdown() {
+		if (this.state !== 'countdown') return;
+		const now = performance.now();
+		const elapsed = now - this.countdownStartTime;
+		const progress = Math.min(elapsed / this.countdownDuration, 1);
+		const offset = this.circumference * (1 - progress);
+		this.segment.style.strokeDashoffset = offset;
+		if (progress < 1) {
+			this.animationFrame = requestAnimationFrame(() => this.animateCountdown());
+		} else {
+			this.complete();
+		}
+	}
+	complete() {
+		this.state = 'complete';
+		if (this.anchor && !this.earlyClicked && typeof this.anchor.click === 'function')
+			this.anchor.click();
+		this.close();
+	}
+}
+
+/**
+ * startFeelingLuckyWatcher
+ * Monitors for results page after voice search and orchestrates Lucky navigation.
+ * If preview is enabled, shows the overlay immediately and updates it when the
+ * first-result anchor href is available; otherwise, clicks the anchor directly.
+ */
+function startFeelingLuckyWatcher() {
+	const start = Date.now();
+	const maxWait = 5000;
+	const interval = 200;
+	let luckyPreviewShown = false;
+	let luckyCancelled = false;
+	luckyEarlyClick = false;
+	const tick = async () => {
+		if (!window.userSettings.voiceSearchFeelingLucky) {
+			logger.log('FeelingLucky', 'Disabled during watcher; aborting');
+			return;
+		}
+		const onResults = PageUtils.isResultsPage();
+		logger.log('FeelingLucky', `Watcher tick; onResults=${onResults}`);
+		if (onResults) {
+			if (window.userSettings.voiceSearchFeelingLuckyPreview && !luckyPreviewShown) {
+				luckyPreviewShown = true;
+				if (luckyOverlayInstance) luckyOverlayInstance.close();
+				luckyOverlayInstance = LuckyPreviewOverlay.show({
+					onCancel: () => {
+						luckyCancelled = true;
+					},
+					countdownDuration: 3000,
+					spinnerSpeed: 1000,
+				});
+			}
+			try {
+				let anchor = DOMUtils.getElement(CSS_SELECTORS.resultsFirstVideoAnchor);
+				if (!anchor) {
+					logger.log(
+						'FeelingLucky',
+						`Waiting for first result anchor: ${CSS_SELECTORS.resultsFirstVideoAnchor}`
+					);
+					anchor = await DOMUtils.waitForElement(
+						CSS_SELECTORS.resultsFirstVideoAnchor,
+						document,
+						2000
+					);
+				}
+				if (anchor) {
+					const resolveUrl = (el) => {
+						const href = el && el.href;
+						let url = null;
+						if (href && typeof href === 'string' && href.length > 0) url = href;
+
+						logger.log('FeelingLucky', `Anchor url resolve hrefProp=${href || ''}`);
+						return url;
+					};
+					let targetUrl = resolveUrl(anchor);
+					if (!targetUrl) {
+						const deadline = Date.now() + 2000;
+						const poll = () => {
+							if (!window.userSettings.voiceSearchFeelingLucky) {
+								logger.log('FeelingLucky', 'Disabled during poll; aborting');
+								return;
+							}
+							if (luckyCancelled) {
+								logger.log(
+									'FeelingLucky',
+									'Preview cancelled by user; not clicking (poll)'
+								);
+								return;
+							}
+							if (Date.now() > deadline) {
+								logger.warn('FeelingLucky', 'Anchor href still missing after wait');
+								return;
+							}
+							anchor =
+								DOMUtils.getElement(CSS_SELECTORS.resultsFirstVideoAnchor) ||
+								anchor;
+							targetUrl = resolveUrl(anchor);
+							if (targetUrl) {
+								if (window.userSettings.voiceSearchFeelingLuckyPreview) {
+									if (luckyOverlayInstance)
+										luckyOverlayInstance.updateFromAnchor(anchor);
+								} else {
+									logger.log(
+										'FeelingLucky',
+										'Clicking first result anchor (poll)'
+									);
+									anchor.click();
+								}
+								return;
+							}
+							setTimeout(poll, 100);
+						};
+						poll();
+						return;
+					}
+					if (luckyCancelled) {
+						logger.log('FeelingLucky', 'Preview cancelled by user; not clicking');
+						return;
+					}
+					if (window.userSettings.voiceSearchFeelingLuckyPreview && luckyPreviewShown) {
+						if (luckyOverlayInstance) luckyOverlayInstance.updateFromAnchor(anchor);
+					} else {
+						logger.log('FeelingLucky', 'Clicking first result anchor');
+						anchor.click();
+					}
+					return;
+				}
+				logger.warn('FeelingLucky', 'No anchor found for first result');
+			} catch (e) {
+				logger.warn('FeelingLucky', `Error locating anchor: ${e && e.message}`);
+			}
+		}
+		if (Date.now() - start < maxWait) {
+			setTimeout(tick, interval);
+		} else {
+			logger.warn('FeelingLucky', 'Timed out waiting for results page');
+		}
+	};
+	setTimeout(tick, 100);
 }
 
 /**
@@ -2341,54 +2699,6 @@ function checkForAndAutoCloseNativeDialogs() {
 	}
 }
 
-/**
- * Fixes native playlist scroll to show the currently playing item
- * @param {string} activeVideoId - The ID of the currently active video
- */
-function doFixNativePlaylistScroll(activeVideoId) {
-	logger.log(
-		'Standalone',
-		`Attempting to fix native playlist scroll for video ${activeVideoId}.`
-	);
-	if (!userSettings.fixNativePlaylistScroll || !PageUtils.isVideoWatchPage() || !activeVideoId)
-		return;
-	if (activeVideoId === lastScrolledItemId) return;
-
-	const scrollWrapper = DOMUtils.getElement(CSS_SELECTORS.playlistContentWrapper);
-	const nativeSelectedItem = DOMUtils.getElement(
-		`${CSS_SELECTORS.playlistItems} a[href*="v=${activeVideoId}"]`
-	);
-
-	if (scrollWrapper && nativeSelectedItem && nativeSelectedItem.offsetHeight > 0) {
-		setTimeout(() => {
-			const currentScrollWrapper = DOMUtils.getElement(CSS_SELECTORS.playlistContentWrapper);
-			const currentNativeSelectedItem = DOMUtils.getElement(
-				`${CSS_SELECTORS.playlistItems} a[href*="v=${activeVideoId}"]`
-			);
-
-			if (
-				!currentScrollWrapper ||
-				!currentNativeSelectedItem ||
-				currentNativeSelectedItem.offsetHeight === 0
-			)
-				return;
-
-			const wrapperRect = currentScrollWrapper.getBoundingClientRect();
-			const itemRect = currentNativeSelectedItem.getBoundingClientRect();
-			const scrollTopAdjustment =
-				itemRect.top - wrapperRect.top + currentScrollWrapper.scrollTop;
-
-			currentScrollWrapper.scrollTo({
-				top: scrollTopAdjustment - 12, // 12px top padding adjustment
-				behavior: 'smooth',
-			});
-
-			logger.log('Standalone', `Adjusted native playlist scroll for item ${activeVideoId}.`);
-			lastScrolledItemId = activeVideoId;
-		}, 1000);
-	}
-}
-
 // --- Enhanced Lifecycle Management ---
 
 /**
@@ -2669,66 +2979,6 @@ function registerFeatures() {
 			featureManager.observerManager.disconnect('continueWatching');
 		},
 		logContext: 'Standalone - Continue Watching',
-	});
-
-	// Native playlist scroll fix feature
-	featureManager.register('nativePlaylistScroll', {
-		isEnabled: () =>
-			userSettings.fixNativePlaylistScroll &&
-			PageUtils.isVideoWatchPage() &&
-			(!userSettings.enableCustomPlayer ||
-				window.userSettings.customPlaylistMode === 'disabled'),
-		initialize: async () => {
-			if (!featureManager.observerManager.get('nativePlaylistScroll')) {
-				logger.log(
-					'Standalone',
-					'Initializing native playlist scroll observer (waiting for container)...'
-				);
-
-				// Wait for playlist container to load
-				const playlistContainer = await DOMHelper.findPlaylistContainerAsync(5000);
-				if (playlistContainer) {
-					featureManager.observerManager.create(
-						'nativePlaylistScroll',
-						playlistContainer,
-						() => {
-							if (
-								userSettings.fixNativePlaylistScroll &&
-								PageUtils.isVideoWatchPage()
-							) {
-								if (currentVideoId) {
-									doFixNativePlaylistScroll(currentVideoId);
-								}
-							}
-						},
-						{
-							childList: true,
-							subtree: true,
-							attributes: true,
-							attributeFilter: ['selected', 'class'],
-						},
-						'Standalone'
-					);
-
-					// Initial check after setup
-					setTimeout(() => {
-						if (currentVideoId) {
-							doFixNativePlaylistScroll(currentVideoId);
-						}
-					}, 500); // Small delay to let playlist render
-				} else {
-					logger.warn(
-						'Standalone',
-						'Could not initialize native playlist scroll - container not found'
-					);
-				}
-			}
-		},
-		cleanup: () => {
-			featureManager.observerManager.disconnect('nativePlaylistScroll');
-			lastScrolledItemId = null;
-		},
-		logContext: 'Standalone - Fix Native Playlist',
 	});
 
 	// --- Background Player Feature ---
@@ -3045,38 +3295,16 @@ function initializeEventListenersAndObservers() {
 								// Handle non-rebuild settings
 								const settingHandlers = {
 									autoHidePlayerOnScroll: () => {
-										if (ytPlayerInstance && ytPlayerInstance.options) {
-											ytPlayerInstance.options.autoHidePlayerOnScroll =
-												newValue;
-											// Manage yt-auto-hide-active class based on setting
-											if (newValue) {
-												document.body.classList.add('yt-auto-hide-active');
-											} else {
-												document.body.classList.remove(
-													'yt-auto-hide-active'
-												);
-											}
-											// If disabling auto-hide, ensure player is visible
-											if (!newValue && ytPlayerInstance.isAutoHidden) {
-												ytPlayerInstance._autoShowPlayer();
-											}
-										}
+										ytPlayerInstance.setClassSetting(
+											'autoHidePlayerOnScroll',
+											newValue
+										);
 									},
 									hidePlayerForPanelActive: () => {
-										if (ytPlayerInstance && ytPlayerInstance.options) {
-											ytPlayerInstance.options.hidePlayerForPanelActive =
-												newValue;
-											// Manage yt-player-hide-for-panel-active class based on setting
-											if (newValue) {
-												document.body.classList.add(
-													'yt-player-hide-for-panel-active'
-												);
-											} else {
-												document.body.classList.remove(
-													'yt-player-hide-for-panel-active'
-												);
-											}
-										}
+										ytPlayerInstance.setClassSetting(
+											'hidePlayerForPanelActive',
+											newValue
+										);
 									},
 									returnToDefaultModeOnVideoSelect: () => {
 										if (ytPlayerInstance && ytPlayerInstance.options) {
@@ -3123,10 +3351,6 @@ function initializeEventListenersAndObservers() {
 									christmasBypassOnPlaylistTitle: () => {
 										playlistNeedsReloading = true;
 									},
-									bufferDetectionMinDuration: () => {
-										// Buffer detection min duration changed - no immediate action needed
-										// The new setting will be used on the next buffer event
-									},
 									showGestureFeedback: () =>
 										ytPlayerInstance.setShowGestureFeedback(newValue),
 									enableGestures: () =>
@@ -3152,6 +3376,23 @@ function initializeEventListenersAndObservers() {
 									},
 									videoBlacklist: () => {
 										playlistNeedsReloading = true;
+									},
+									playerTimeDisplayMode: () => {
+										if (ytPlayerInstance) {
+											ytPlayerInstance.setPlayerTimeDisplayMode(newValue);
+										}
+									},
+									hideTimerDuration: () => {
+										setClassSetting('hideTimerDuration', newValue);
+									},
+									hidePlaylistItemDurations: () => {
+										ytPlayerInstance.setHidePlaylistItemDurations(newValue);
+									},
+									enableTitleMarquee: () => {
+										ytPlayerInstance.setClassSetting(
+											'enableTitleMarquee',
+											newValue
+										);
 									},
 								};
 

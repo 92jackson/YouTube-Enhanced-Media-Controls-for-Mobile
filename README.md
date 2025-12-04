@@ -1,10 +1,10 @@
 # YouTube Enhanced Media Controls (for Mobile)
 
-![Version](https://img.shields.io/badge/version-2.0.1-pink.svg)
+![Version](https://img.shields.io/badge/version-2.1.0-pink.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Firefox](https://img.shields.io/badge/Firefox-Compatible-FF7139.svg?logo=firefoxbrowser&logoColor=white)
 ![Kiwi Browser](https://img.shields.io/badge/Kiwi%20Browser-Compatible-00C851.svg)
-![Edge](https://img.shields.io/badge/Edge%20Canary-Experimental-FFA500.svg?logo=microsoftedge&logoColor=white)
+![Edge](https://img.shields.io/badge/Edge%20Canary-Compatible-0078D4.svg?logo=microsoftedge&logoColor=white)
 
 ![Screenshot](https://addons.mozilla.org/user-media/previews/full/325/325301.png?modified=1751767591)
 
@@ -17,13 +17,14 @@ This extension was originally developed to provide a more user friendly interfac
 ### 🎮 Enhanced Media Player
 
 -   **Custom Player Interface**: Modern player wrapper with improved controls
--   **Customizable Themes**: System, light, dark themes with multiple accent colors
--   **Advanced Playlist Management**: Enhanced playlist controls with duplicate handling
--   **Voice Search Integration**: Quick access to YouTube's voice search functionality
+-   **Customizable Themes**: System, light, dark themes with adaptive or fixed accent colors
+-   **Advanced Playlist Management**: Enhanced playlist controls with duplicate handling and mix management
+-   **Voice Search Integration**: Quick access to YouTube's voice search (with optional "I'm Feeling Lucky")
 
 ### 🎯 Smart Controls
 
 -   **Previous/Next Navigation**: Intelligent previous button behavior (smart restart vs. previous video)
+-   **Play Next Queue**: Queue a video to play next and optionally repeat
 -   **Custom Seekbar**: Enhanced seeking with visual feedback
 -   **Play/Pause Controls**: Improved accessibility and responsiveness
 -   **Bottom Controls Bar**: Optional persistent controls for easier access
@@ -33,6 +34,7 @@ This extension was originally developed to provide a more user friendly interfac
 -   **Single-finger Swipes**: Left/right swipes for navigation
 -   **Two-finger Gestures**: Up/down and left/right swipes for various actions
 -   **Two-finger Press**: Customizable press actions
+-   **Toggle Favourites**: Gesture to open/close favourites dialog
 -   **Visual Feedback**: Optional gesture feedback indicators
 -   **Configurable Actions**: Map gestures to different player functions
 
@@ -40,6 +42,7 @@ This extension was originally developed to provide a more user friendly interfac
 
 -   **Layout Options**: Multiple player layout configurations
 -   **Appearance Settings**: Font size, density, theme customization
+-   **Navbar Customization**: Favourites and Mixes buttons with favourites management
 -   **Accessibility Features**: Enhanced controls for better usability
 
 ### 🎵 Additional Features & Fixes
@@ -51,14 +54,15 @@ This extension was originally developed to provide a more user friendly interfac
 -   **Rapid Buffer Auto-Pause**: Pause the video for a set duration when repeated buffering is detected
 -   **Playlist Stability Fixes**: Auto-reload stuck playlists and fix playlist auto-scroll
 -   **Blacklist Videos**: Manage a list of videos to hide from playlists and suggestions
+-   **Update Notifications**: Optional toast when the extension updates
 
 # 📦 Installation
 
 ## Official store releases:
 
-### Firefox
+### FireFox
 
-Install the extension from the [Firefox Browser ADD-ONS](https://addons.mozilla.org/en-GB/firefox/addon/yt-enhanced-media-controls/) store.
+Install the extension from the [FireFox Browser ADD-ONS](https://addons.mozilla.org/en-GB/firefox/addon/yt-enhanced-media-controls/) store.
 
 ### Microsoft Edge Canary (Android)
 
@@ -86,7 +90,7 @@ Install the extension from the [Firefox Browser ADD-ONS](https://addons.mozilla.
 
 ### FireFox Nightly (Android)
 
-**Note**: This method requires FireFox Nightly for Android, standard wont work!
+**Note**: This method requires FireFox Nightly for Android, standard FireFox wont work!
 
 1. Install [FireFox Nightly](https://play.google.com/store/apps/details?id=org.mozilla.fenix) from Google Play Store.
 2. Enable Developer Options:
@@ -113,50 +117,17 @@ Install the extension from the [Firefox Browser ADD-ONS](https://addons.mozilla.
 
 ### Browser Compatibility
 
--   ✅ Firefox (Android + Desktop for testing)
+-   ✅ FireFox (Android + Desktop for testing)
 -   ✅ FireFox Nightly (Android)
 -   ✅ Kiwi Browser (Android)
 -   ✅ Microsoft Edge Canary (Android)
 -   ✅ Google Chrome/MS Edge (Desktop - recommended for testing only)
 
-## 🛠️ Configuration
-
-Click the extension icon in your browser's menu to access the settings panel. The extension offers extensive customization options:
-
-### Player Settings
-
--   **Default Layout**: Choose initial player layout mode
--   **Playlist Mode**: Configure how playlists are displayed
--   **Theme**: Select appearance theme and accent colors
--   **Controls**: Toggle various player controls on/off
-
-### Gesture Settings
-
--   **Enable/Disable**: Turn gesture support on or off
--   **Action Mapping**: Assign different actions to each gesture type
--   **Feedback**: Toggle visual gesture feedback
-
-### Advanced Settings
-
--   **Debug Logging**: Enable detailed console logging
--   **Background Play**: Allow playback when tab is not active
--   **Navbar Customization**: Configure custom navigation elements
-
 ## 🎯 Usage
 
 1. **Navigate to YouTube Mobile**: Visit `m.youtube.com` in your browser
 2. **Enhanced Player**: The custom player will automatically load on video pages
-3. **Gesture Controls**: Use configured gestures for quick navigation
-4. **Settings Access**: Click the extension icon to modify preferences
-5. **Voice Search**: Use the voice button for hands-free search
-
-### Gesture Actions (Defaults)
-
--   **Single Swipe Left**: Restart current video or go to previous
--   **Single Swipe Right**: Skip to next video
--   **Two-finger Swipe Up**: Toggle voice search
--   **Two-finger Swipe Down**: Play/pause toggle
--   **Custom Gestures**: Configure additional actions in settings
+3. **Settings Access**: Click the extension icon to modify preferences
 
 ## 📄 License
 
@@ -168,12 +139,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-If you encounter issues or have questions:
-
-1. Check the browser console for error messages (enable "Debug logging" in settings first)
-2. Verify you're using a supported browser
-3. Try disabling and re-enabling the extension
-4. Create an issue with detailed information about the problem
+If you've encountered an issues, or you have feedback or suggestions, join my Discord server: [Discord](https://discord.gg/e3eXGTJbjx).
 
 ---
 

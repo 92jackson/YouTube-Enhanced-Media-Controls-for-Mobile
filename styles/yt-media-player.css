@@ -46,7 +46,7 @@ Mobile-first responsive design with touch-optimized interactions.
  * 9. Context Menus & Overlays
  *    ├── Dropdown menus
  *    ├── Filter popup
- *    └── Theme switcher
+ *    └── I'm Feeling Lucky preview
  * 
  * 10. Favourites Dialog
  *     ├── Container & layout
@@ -582,6 +582,31 @@ body.yt-auto-hidden-player:not(.yt-limited-height-mode) .yt-player-wrapper * {
 	-webkit-tap-highlight-color: transparent;
 }
 
+.yt-drawer-focus-current-button {
+	position: absolute;
+	right: 0;
+	opacity: 0;
+	display: none;
+	pointer-events: none;
+	padding: 4px;
+	background: none;
+	border: none;
+	color: var(--yt-player-handle-text-secondary);
+	background-color: var(--yt-player-handle-bg);
+	height: 100%;
+	cursor: pointer;
+}
+
+.yt-drawer-focus-current-button svg {
+	width: 24px;
+	height: 24px;
+	fill: currentColor;
+}
+
+.yt-drawer-focus-current-button.visible {
+	display: block;
+}
+
 /* Drawer Open States */
 .yt-player-wrapper:not(.drawer-closed) .yt-drawer-drag-handle {
 	border-top-left-radius: 0;
@@ -821,10 +846,13 @@ body.yt-auto-hidden-player:not(.yt-limited-height-mode) .yt-player-wrapper * {
 
 .yt-playlist-item-duration {
 	flex-shrink: 0;
-	margin-left: 12px;
 	color: var(--yt-player-text-muted);
 	font-size: calc(13px * var(--yt-font-size-multiplier));
 	white-space: nowrap;
+}
+
+.yt-player-wrapper.hide-durations .yt-playlist-item-duration {
+	display: none !important;
 }
 
 /* Play Next Indicators */
@@ -1301,7 +1329,7 @@ body:not(.yt-limited-height-mode)
 	bottom: 0;
 	left: 0;
 	background: var(--yt-player-seekbar-bg);
-	overflow: hidden;
+	overflow: visible;
 }
 
 .yt-player-controls.compact .yt-seekbar-background {
@@ -1391,6 +1419,21 @@ body:not(.yt-limited-height-mode)
 	overflow: hidden;
 	text-overflow: ellipsis;
 	text-shadow: var(--yt-player-text-shadow);
+}
+
+@keyframes yt-title-marquee {
+	0% {
+		transform: translateX(0);
+	}
+	100% {
+		transform: translateX(-100%);
+	}
+}
+
+.yt-video-title.marquee .yt-video-title-text {
+	display: inline-block;
+	will-change: transform;
+	animation: yt-title-marquee 18s linear infinite;
 }
 
 .yt-player-wrapper.yt-ad-showing .yt-video-title {
@@ -1974,6 +2017,82 @@ body:not(.yt-limited-height-mode)
 	display: none;
 }
 
+/* Timer display modes */
+.yt-player-controls.timer-hide .yt-video-timer,
+.yt-player-controls.timer-hide:not(.compact) .yt-playback-info,
+.yt-player-controls.timer-seek-tooltip .yt-video-timer,
+.yt-player-controls.timer-seek-tooltip:not(.compact) .yt-playback-info {
+	display: none;
+}
+
+.yt-player-controls.timer-hide-duration .yt-video-timer span {
+	display: none;
+}
+
+.yt-player-controls.timer-hide-duration .yt-seek-tooltip span,
+.yt-player-controls.timer-hide-duration .yt-seek-tooltip-inline span {
+	display: none;
+}
+
+.yt-seek-tooltip,
+.yt-seek-tooltip-inline {
+	position: absolute;
+	padding: 4px 6px;
+	border-radius: 4px;
+	background: var(--yt-player-bg-secondary);
+	color: var(--yt-player-text-primary);
+	font-size: calc(12px * var(--yt-font-size-multiplier));
+	box-shadow: 0 2px 8px var(--yt-player-shadow-medium);
+	pointer-events: none;
+	z-index: 9999;
+	display: none;
+	white-space: nowrap;
+}
+
+.yt-seek-tooltip::after,
+.yt-seek-tooltip-inline::after {
+	content: '';
+	position: absolute;
+	left: 50%;
+	bottom: -8px;
+	transform: translateX(calc(-50% - 2px));
+	width: 0;
+	height: 0;
+	z-index: 10000;
+	border-left: 8px solid transparent;
+	border-right: 8px solid transparent;
+	border-top: 8px solid var(--yt-player-shadow-medium);
+}
+
+.yt-seek-tooltip {
+	transform: translateX(-50%) translateY(-100%);
+	top: -15px;
+}
+.yt-seek-tooltip-inline {
+	transform: translateX(-50%);
+	bottom: calc(100% + 15px);
+}
+
+.yt-player-controls.large .yt-seek-tooltip {
+	font-size: calc(13px * var(--yt-font-size-multiplier));
+	padding: 6px 8px;
+	top: -20px;
+}
+.yt-player-controls.large .yt-seek-tooltip::after,
+.yt-player-controls.large .yt-seek-tooltip-inline::after {
+	border-left: 10px solid transparent;
+	border-right: 10px solid transparent;
+	border-top: 10px solid var(--yt-player-shadow-medium);
+	bottom: -10px;
+}
+
+.yt-player-controls.timer-hide .yt-seekbar-background.dragging .yt-seek-tooltip {
+	display: block;
+}
+.yt-player-controls.timer-hide .yt-seekbar-inline.dragging .yt-seek-tooltip-inline {
+	display: block;
+}
+
 /* === CONTEXT MENUS & OVERLAYS === */
 
 .yt-context-menu-overlay {
@@ -2027,6 +2146,7 @@ body:not(.yt-limited-height-mode)
 	background-size: cover;
 	background-position: center;
 	border-radius: 4px;
+	position: relative;
 }
 
 .yt-context-menu-video-info {
@@ -2036,7 +2156,6 @@ body:not(.yt-limited-height-mode)
 
 .yt-context-menu-title {
 	display: -webkit-box;
-	margin-bottom: 4px;
 	color: var(--yt-player-text-primary);
 	font-size: 14px;
 	font-weight: 500;
@@ -2054,6 +2173,20 @@ body:not(.yt-limited-height-mode)
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.yt-context-menu-duration {
+	position: absolute;
+	left: 2px;
+	bottom: 2px;
+	padding: 2px 4px;
+	border-radius: 4px;
+	background: rgba(0, 0, 0, 0.6);
+	color: var(--yt-player-text-primary);
+	font-size: 11px;
+	line-height: 1;
+	white-space: nowrap;
+	pointer-events: none;
 }
 
 .yt-context-menu-content {
@@ -2177,6 +2310,125 @@ body:not(.yt-limited-height-mode)
 	margin: 4px 0;
 	background: var(--yt-player-bg-secondary);
 	opacity: 0.3;
+}
+
+/* I'm Feeling Lucky Preview Overlay */
+.yt-lucky-preview-overlay {
+	position: fixed;
+	top: 48px;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 99999;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--yt-player-playlist-bg);
+	overflow: hidden;
+}
+
+.yt-lucky-preview-modal {
+	color: var(--yt-player-playlist-text-primary);
+	text-align: center;
+}
+
+.yt-lucky-preview-click-wrapper {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: min(90vw, 70vh);
+	height: min(90vw, 70vh);
+	max-height: 70vh;
+	max-width: 70vh;
+	transform: translate(-50%, -50%);
+	border-radius: 50%;
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	z-index: 1;
+}
+
+.yt-lucky-preview-thumb {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	border-radius: 50%;
+	box-shadow: 0 2px 8px var(--yt-player-shadow-light);
+}
+
+.yt-lucky-preview-title {
+	position: absolute;
+	bottom: 20%;
+	left: 50%;
+	transform: translateX(-50%);
+	max-width: calc(80%);
+	padding: 8px 12px;
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--yt-player-handle-bg) 80%, transparent);
+	color: var(--yt-player-handle-text-primary);
+	font-size: calc(14px * var(--yt-font-size-multiplier));
+
+	z-index: 2;
+	pointer-events: none;
+}
+
+.yt-lucky-preview-actions {
+	display: flex;
+	width: 100%;
+	position: absolute;
+	bottom: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	gap: 12px;
+	align-items: center;
+	justify-content: center;
+}
+
+.yt-lucky-preview-actions .yt-lucky-preview-cancel-link {
+	padding: 40px;
+	width: 100%;
+	display: block;
+	border: none;
+	cursor: pointer;
+	color: var(--yt-player-playlist-text-secondary);
+}
+
+.yt-lucky-progress-wrapper {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+	z-index: 2;
+}
+
+.yt-lucky-progress-svg {
+	width: min(90vw, 70vh);
+	height: min(90vw, 70vh);
+	max-height: 70vh;
+	max-width: 70vh;
+	transform: rotate(-90deg);
+}
+
+.yt-lucky-progress-bg {
+	fill: none;
+	stroke: rgba(255, 255, 255, 0.12);
+	stroke-width: 3;
+}
+
+.yt-lucky-progress-segment {
+	fill: none;
+	stroke: var(--yt-player-accent-primary);
+	stroke-width: 4;
+	stroke-linecap: round;
+	transition: stroke 0.3s ease;
 }
 
 /* === FAVOURITES DIALOG === */

@@ -1282,7 +1282,7 @@ System displays temporary NEW badge automatically.
 							rel="noopener noreferrer">GitHub</a>.</p>
 					</div>
 					<div class="description support-row">
-						<small><b>Enjoying the project? 😊</b><br>Totally optional, but you can support my work here, if you want to ➜</small>
+						<small><b>Enjoying the project? 😊</b><br>Totally optional, but you can support my work here ➜</small>
 						<a href="https://www.buymeacoffee.com/92jackson" target="_blank">
 							<img class="coffee-image" src="../../assets/coffee.png" alt="Buy Me A Coffee">
 						</a>
@@ -1398,6 +1398,42 @@ System displays temporary NEW badge automatically.
 							</select>
 						</div>
 						<div class="description">Sets the browser's UI color (Kiwi only 😢)</div>
+					</div>
+					<div class="setting-item select-item" data-added-version="2.1.0">
+						<div class="toggle-label-main"><div class="toggle-label-text" id="playerTimeDisplayMode-label">Play Time Display Mode</div></div>
+						<div class="select-wrapper">
+							<select id="playerTimeDisplayMode" aria-labelledby="playerTimeDisplayMode-label">
+								<option value="always">Always show play time/duration</option>
+								<option value="seek-tooltip">Show play time while seeking</option>
+								<option value="hide">Hide play time/duration</option>
+							</select>
+						</div>
+						<div class="description">Controls how the timer is displayed in the custom player.</div>
+					</div>
+					<fieldset data-parent="playerTimeDisplayMode" data-parent-value="hide" data-parent-condition="not-equals" data-behavior="hide">
+						<div class="setting-item toggle-item toggle-item--compact" data-added-version="2.1.0">
+							<div class="toggle-label-group" data-target-id="hideTimerDuration">
+								<div class="toggle-label-main"><div class="toggle-label-text" id="hideTimerDuration-label">Hide duration in timer</div></div>
+							</div>
+							<div class="toggle-subrow">
+								<label class="toggle-switch">
+									<input type="checkbox" id="hideTimerDuration" aria-labelledby="hideTimerDuration-label">
+									<span class="switch-slider"></span>
+								</label>
+							</div>
+						</div>
+					</fieldset>
+					<div class="setting-item toggle-item toggle-item--full" data-added-version="2.1.0">
+						<div class="toggle-label-group" data-target-id="enableTitleMarquee">
+							<div class="toggle-label-main"><div class="toggle-label-text" id="enableTitleMarquee-label">Scroll Long Titles</div></div>
+						</div>
+						<div class="toggle-subrow">
+							<div class="toggle-label-description">Enable marquee effect for long video titles.</div>
+							<label class="toggle-switch">
+								<input type="checkbox" id="enableTitleMarquee" aria-labelledby="enableTitleMarquee-label">
+								<span class="switch-slider"></span>
+							</label>
+						</div>
 					</div>
 					<div class="setting-item toggle-item toggle-item--full">
 						<div class="toggle-label-group" data-target-id="showBottomControls">
@@ -1728,6 +1764,15 @@ System displays temporary NEW badge automatically.
 								</select>
 							</div>
 						</div>
+						<div class="setting-item toggle-item toggle-item--compact" data-added-version="2.1.0">
+							<div class="toggle-label-group" data-target-id="hidePlaylistItemDurations">
+								<div class="toggle-label-main"><div class="toggle-label-text" id="hidePlaylistItemDurations-label">Hide durations</div></div>
+							</div>
+							<label class="toggle-switch">
+								<input type="checkbox" id="hidePlaylistItemDurations" aria-labelledby="hidePlaylistItemDurations-label">
+								<span class="switch-slider"></span>
+							</label>
+						</div>
 						<div class="setting-item toggle-item toggle-item--compact">
 							<div class="toggle-label-group" data-target-id="allowMultilinePlaylistTitles">
 								<div class="toggle-label-main"><div class="toggle-label-text" id="allowMultilinePlaylistTitles-label">Allow multi-line titles</div></div>
@@ -1847,6 +1892,34 @@ System displays temporary NEW badge automatically.
 							</div>
 							<div class="description">When using 'Dual', videos will restart if the current play time is
 								above this threshold, otherwise it will go to the previous video. Default: 5 seconds.</div>
+						</div>
+					</fieldset>
+					<div class="setting-item toggle-item toggle-item--full" data-added-version="2.1.0">
+						<div class="toggle-label-group" data-target-id="voiceSearchFeelingLucky">
+							<div class="toggle-label-main">
+								<div class="toggle-label-text" id="voiceSearchFeelingLucky-label">I'm Feeling Lucky! (Voice Search)</div>
+							</div>
+						</div>
+						<div class="toggle-subrow">
+							<div class="toggle-label-description">Automatically load the top search result following a voice search.</div>
+							<label class="toggle-switch">
+								<input type="checkbox" id="voiceSearchFeelingLucky" aria-labelledby="voiceSearchFeelingLucky-label">
+								<span class="switch-slider"></span>
+							</label>
+						</div>
+					</div>
+					<fieldset data-parent="voiceSearchFeelingLucky" data-parent-value="true">
+						<div class="setting-item toggle-item toggle-item--full" data-added-version="2.1.0">
+							<div class="toggle-label-group" data-target-id="voiceSearchFeelingLuckyPreview">
+								<div class="toggle-label-main"><div class="toggle-label-text" id="voiceSearchFeelingLuckyPreview-label">Show preview overlay</div></div>
+							</div>
+							<div class="toggle-subrow">
+								<div class="toggle-label-description">Show the top result along with a 3 second timer and a button to cancel.</div>
+								<label class="toggle-switch">
+									<input type="checkbox" id="voiceSearchFeelingLuckyPreview" aria-labelledby="voiceSearchFeelingLuckyPreview-label">
+									<span class="switch-slider"></span>
+								</label>
+							</div>
 						</div>
 					</fieldset>
 				</div>
@@ -2061,18 +2134,6 @@ System displays temporary NEW badge automatically.
 							<div class="toggle-label-description">Automatically dismisses "Continue Watching?" and "Ready to shop?" dialogs.</div>
 							<label class="toggle-switch">
 								<input type="checkbox" id="autoClickContinueWatching" aria-labelledby="autoClickContinueWatching-label">
-								<span class="switch-slider"></span>
-							</label>
-						</div>
-					</div>
-					<div class="setting-item toggle-item toggle-item--full" data-badges="fix">
-						<div class="toggle-label-group" data-target-id="fixNativePlaylistScroll">
-							<div class="toggle-label-main"><div class="toggle-label-text" id="fixNativePlaylistScroll-label">Fix Playlist Auto-scroll</div></div>
-						</div>
-						<div class="toggle-subrow">
-							<div class="toggle-label-description">Fixes the native playlist to correctly auto-scroll to the currently playing video.</div>
-							<label class="toggle-switch">
-								<input type="checkbox" id="fixNativePlaylistScroll" aria-labelledby="fixNativePlaylistScroll-label">
 								<span class="switch-slider"></span>
 							</label>
 						</div>
@@ -2469,7 +2530,7 @@ System displays temporary NEW badge automatically.
 							<div class="toggle-subrow">
 								<div class="toggle-label-description">Enable or disable the tiny spider easter egg on this page.</div>
 								<label class="toggle-switch">
-										<input type="checkbox" id="showEasterEggSpider" aria-labelledby="showEasterEggSpider-label">
+									<input type="checkbox" id="showEasterEggSpider" aria-labelledby="showEasterEggSpider-label">
 									<span class="switch-slider"></span>
 								</label>
 							</div>

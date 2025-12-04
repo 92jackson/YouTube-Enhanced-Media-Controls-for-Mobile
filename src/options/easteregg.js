@@ -125,14 +125,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// Hide/remove easter egg when user enabled the option, and react to changes
 	let spiderHidden = false;
-	const hideSpiderInput = document.getElementById('hideEasterEggSpider');
-	if (hideSpiderInput) {
-		spiderHidden = !!hideSpiderInput.checked;
-		if (spiderHidden) {
-			spider.style.display = 'none';
+	const showSpiderInput = document.getElementById('showEasterEggSpider');
+	const enableEggsInput = document.getElementById('enableEasterEggs');
+
+	// Default to hidden until we confirm settings, to avoid flash of unwanted spider
+	if (spider) spider.style.display = 'none';
+	spiderHidden = true;
+
+	function updateSpiderVisibility() {
+		let hide = false;
+
+		// Check specific spider setting
+		if (showSpiderInput) {
+			if (!showSpiderInput.checked) hide = true;
 		}
-		hideSpiderInput.addEventListener('change', (ev) => {
-			const hide = !!ev.target.checked;
+
+		// Check global setting
+		if (enableEggsInput && !enableEggsInput.checked) {
+			hide = true;
+		}
+
+		if (hide !== spiderHidden) {
 			spiderHidden = hide;
 			if (hide) {
 				spider.style.display = 'none';
@@ -162,14 +175,23 @@ document.addEventListener('DOMContentLoaded', () => {
 			} else {
 				spider.style.display = '';
 				// restart scuttle loop and (maybe) peek scheduling
-				prevTime = 0;
-				pickParams();
-				scuttleRAF = requestAnimationFrame(stepScuttle);
-				if (userInteracted) schedulePeek();
-				if (jailActive) showJailOverlay();
+
+				if (!scuttleRAF) {
+					prevTime = 0;
+					pickParams();
+					scuttleRAF = requestAnimationFrame(stepScuttle);
+					if (userInteracted) schedulePeek();
+					if (jailActive) showJailOverlay();
+				}
 			}
-		});
+		}
 	}
+
+	if (showSpiderInput) showSpiderInput.addEventListener('change', updateSpiderVisibility);
+	if (enableEggsInput) enableEggsInput.addEventListener('change', updateSpiderVisibility);
+
+	// Initial check
+	updateSpiderVisibility();
 
 	let scale = 1;
 	let clickCount = 0;
@@ -1212,7 +1234,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			pointerVelX = 0;
 			pointerVelY = 0;
 		}
-		followActive = true;
 
 		if (!dragging) {
 			if (!dragCandidate) return;
@@ -1224,6 +1245,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 			// start dragging after surpassing threshold
 			dragging = true;
+			followActive = true;
 			dragCandidate = false;
 			blockPageScroll();
 			spider.classList.add('dragging');
@@ -1455,31 +1477,62 @@ document.addEventListener('DOMContentLoaded', () => {
 			: null;
 	const storageLocal = storageApi ? storageApi.local : null;
 	// Fallback default independent of options.js load order
-	const defaultHideSpider =
+	const defaultEnable =
 		typeof window.userSettings !== 'undefined' &&
 		window.userSettings &&
-		typeof window.userSettings.hideEasterEggSpider !== 'undefined'
-			? !!window.userSettings.hideEasterEggSpider
-			: false;
+		typeof window.userSettings.enableEasterEggs !== 'undefined'
+			? !!window.userSettings.enableEasterEggs
+			: true;
+
+	function applyStorageItems(items) {
+		let hide = false;
+
+		// 1. Check new show setting
+		if (items && typeof items.showEasterEggSpider !== 'undefined') {
+			if (items.showEasterEggSpider === false) hide = true;
+			else hide = false;
+		}
+
+		// 2. Check global enable
+		if (items && typeof items.enableEasterEggs !== 'undefined') {
+			if (items.enableEasterEggs === false) hide = true;
+		}
+
+		// FORCE update internal state
+		spiderHidden = hide;
+		if (spiderHidden) {
+			spider.style.display = 'none';
+		} else {
+			spider.style.display = '';
+		}
+
+		// Also update the UI toggle if it exists, to keep it in sync
+		if (showSpiderInput) showSpiderInput.checked = !hide;
+		// We don't update global enable checkbox here to avoid fighting with other scripts
+	}
+
 	if (storageLocal && typeof storageLocal.get === 'function' && storageLocal.get.length === 1) {
 		storageLocal
-			.get({ hideEasterEggSpider: defaultHideSpider })
+			.get({
+				showEasterEggSpider: true,
+				enableEasterEggs: defaultEnable,
+			})
 			.then((items) => {
-				if (items && typeof items.hideEasterEggSpider !== 'undefined') {
-					spiderHidden = !!items.hideEasterEggSpider;
-					if (spiderHidden) spider.style.display = 'none';
-				}
+				applyStorageItems(items);
 				startSpiderLoops();
 			})
 			.catch(() => startSpiderLoops());
 	} else if (storageLocal && typeof storageLocal.get === 'function') {
-		storageLocal.get({ hideEasterEggSpider: defaultHideSpider }, (items) => {
-			if (items && typeof items.hideEasterEggSpider !== 'undefined') {
-				spiderHidden = !!items.hideEasterEggSpider;
-				if (spiderHidden) spider.style.display = 'none';
+		storageLocal.get(
+			{
+				showEasterEggSpider: true,
+				enableEasterEggs: defaultEnable,
+			},
+			(items) => {
+				applyStorageItems(items);
+				startSpiderLoops();
 			}
-			startSpiderLoops();
-		});
+		);
 	} else {
 		startSpiderLoops();
 	}
