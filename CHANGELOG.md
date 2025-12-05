@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.2] - 2025-12-05
+
+### Fixed
+
+-   Bug when using both "Scroll Long Titles" and "Per Letter Contrast" when switching from a video with a long title to one with a short title- the short title was still being treat as long
+-   Bug where the hidden timer (as set by "Play Time Display Mode") would unhide when transitioning between limited height mode and standard mode
+-   Bug where the re-focus playlist button showed while the playlist drawer was closed
+-   Fixed YouTube behaviour preventing navbar interaction if any panels were open
+
 ## [2.2.1] - 2025-12-04
 
 ### Fixed

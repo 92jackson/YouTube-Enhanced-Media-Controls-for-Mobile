@@ -3783,7 +3783,6 @@ class YTMediaPlayer {
 			if (key === 'title') this.titleLetterSpans = spans;
 			else this.authorLetterSpans = spans;
 		}
-		if (this.options.enableTitleMarquee) this._ensureTitleCloneForMarquee();
 	}
 
 	_contrastTextForRgb(str) {
@@ -3804,7 +3803,11 @@ class YTMediaPlayer {
 		const hexMatch = (str || '').match(/#([0-9a-fA-F]{3,6})/);
 		if (hexMatch) {
 			let hex = hexMatch[1];
-			if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('');
+			if (hex.length === 3)
+				hex = hex
+					.split('')
+					.map((c) => c + c)
+					.join('');
 			const r = parseInt(hex.slice(0, 2), 16);
 			const g = parseInt(hex.slice(2, 4), 16);
 			const b = parseInt(hex.slice(4, 6), 16);
@@ -3950,6 +3953,29 @@ class YTMediaPlayer {
 				this.videoTimerElement.style.color = 'transparent';
 				this.videoTimerElement.style.webkitTextFillColor = 'transparent';
 			}
+		}
+	}
+
+	_clearTextColorStyles() {
+		const clear = (arr) => {
+			if (!arr || arr.length === 0) return;
+			for (let i = 0; i < arr.length; i++) {
+				arr[i].style.backgroundImage = '';
+				arr[i].style.webkitBackgroundClip = '';
+				arr[i].style.backgroundClip = '';
+				arr[i].style.webkitTextFillColor = '';
+				arr[i].style.color = '';
+			}
+		};
+		clear(this.titleLetterSpans);
+		clear(this.cloneLetterSpans);
+		clear(this.authorLetterSpans);
+		if (this.videoTimerElement) {
+			this.videoTimerElement.style.backgroundImage = '';
+			this.videoTimerElement.style.webkitBackgroundClip = '';
+			this.videoTimerElement.style.backgroundClip = '';
+			this.videoTimerElement.style.webkitTextFillColor = '';
+			this.videoTimerElement.style.color = '';
 		}
 	}
 
@@ -5013,7 +5039,9 @@ class YTMediaPlayer {
 	 */
 	setLayout(layout) {
 		if (this.playerControls) {
-			this.playerControls.className = `yt-player-controls ${layout}`;
+			const cls = this.playerControls.classList;
+			cls.remove('compact', 'large');
+			if (layout === 'compact' || layout === 'large') cls.add(layout);
 			if (this.playerWrapper) {
 				this.playerWrapper.classList.toggle(
 					'yt-per-letter-contrast',
@@ -5021,9 +5049,8 @@ class YTMediaPlayer {
 				);
 			}
 			this._initLetterSpans();
-			this._ensureTitleCloneForMarquee();
 			this._updateContrastingTextColors();
-			this._startMarqueeColorSync();
+			this.setTitleMarqueeEnabled(this.options.enableTitleMarquee);
 			this._invalidateAndRecalculateMeasurements();
 		}
 	}
@@ -5175,6 +5202,9 @@ class YTMediaPlayer {
 	 * Video details
 	 */
 	setCurrentVideoDetails({ title, author, thumbnailUrl, currentTime, totalTime, videoId }) {
+		this._stopMarqueeColorSync();
+		this._clearTextColorStyles();
+		this._removeTitleClone();
 		if (this.videoTitleElement) this.videoTitleElement.textContent = title;
 		if (this.videoAuthorElement) this.videoAuthorElement.textContent = author;
 		if (this.videoAuthorCompactElement) this.videoAuthorCompactElement.textContent = author;
@@ -5193,9 +5223,7 @@ class YTMediaPlayer {
 
 		this.setCurrentTime(currentTime, totalTime);
 		this._initLetterSpans();
-		this._updateContrastingTextColors();
-		logger.log('TitleMarquee', 'Title updated - re-evaluating marquee');
-		this.setTitleMarqueeEnabled(this.options.enableTitleMarquee);
+		logger.log('TitleMarquee', 'Title updated');
 	}
 
 	/**
@@ -5698,8 +5726,10 @@ class YTMediaPlayer {
 		if (!container) return;
 
 		const textEl = this.videoTitleElement || container.querySelector('.yt-video-title-text');
+		this._removeTitleClone();
 		DOMUtils.setMarquee(container, textEl, enabled);
-		if (enabled) {
+		const isMarqueeActive = container.classList.contains('marquee');
+		if (enabled && isMarqueeActive) {
 			this._ensureTitleCloneForMarquee();
 			if (
 				this.options.titleContrastMode === 'per-letter' &&

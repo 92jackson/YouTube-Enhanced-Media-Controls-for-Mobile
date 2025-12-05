@@ -1,6 +1,6 @@
 # YouTube Enhanced Media Controls (for Mobile)
 
-![Version](https://img.shields.io/badge/version-2.2.1-pink.svg)
+![Version](https://img.shields.io/badge/version-2.2.2-pink.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Firefox](https://img.shields.io/badge/Firefox-Compatible-FF7139.svg?logo=firefoxbrowser&logoColor=white)
 ![Kiwi Browser](https://img.shields.io/badge/Kiwi%20Browser-Compatible-00C851.svg)

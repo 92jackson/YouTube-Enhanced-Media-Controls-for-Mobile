@@ -55,6 +55,7 @@ const CSS_SELECTORS = {
 		'.slim-owner-bidi-wrapper a',
 	],
 
+	mobileTopbar: 'ytm-mobile-topbar-renderer',
 	// Voice search elements
 	voiceSearchDialog: 'ytm-voice-search-dialog-renderer',
 	headerVoiceButton: 'button[aria-label="Search with your voice"]',
@@ -887,12 +888,28 @@ async function setAdaptiveColors(url) {
 			logger.log('AccentColor', `Fetching adaptive colors for thumbnail: ${url}`);
 			const colors = await ColorUtils.getAdaptiveColorFromThumbnail(url);
 			setThemeCSS('adaptive', colors);
+			if (ytPlayerInstance) {
+				ytPlayerInstance._updateContrastingTextColors();
+				ytPlayerInstance.setTitleMarqueeEnabled(
+					ytPlayerInstance.options.enableTitleMarquee
+				);
+			}
 		} catch (error) {
 			logger.error('AccentColor', `Failed to fetch adaptive colors: ${error}`);
 			setThemeCSS('red'); // fallback
+			if (ytPlayerInstance) {
+				ytPlayerInstance._updateContrastingTextColors();
+				ytPlayerInstance.setTitleMarqueeEnabled(
+					ytPlayerInstance.options.enableTitleMarquee
+				);
+			}
 		}
 	} else {
 		setThemeCSS(window.userSettings.customPlayerAccentColor);
+		if (ytPlayerInstance) {
+			ytPlayerInstance._updateContrastingTextColors();
+			ytPlayerInstance.setTitleMarqueeEnabled(ytPlayerInstance.options.enableTitleMarquee);
+		}
 	}
 }
 
@@ -2650,12 +2667,9 @@ function preventPageContainerInert() {
 		pageContainerInert.removeAttribute('inert');
 	}
 
-	const chipCloudRenderer = DOMUtils.getElement(CSS_SELECTORS.chipCloudRenderer);
-	if (chipCloudRenderer && chipCloudRenderer.classList.contains('chips-visible')) {
-		document.body.classList.add('chip-cloud-present');
-		chipCloudRenderer.classList.remove('chips-fixed-positioning');
-	} else {
-		document.body.classList.remove('chip-cloud-present');
+	const mobileTopbar = DOMUtils.getElement(CSS_SELECTORS.mobileTopbar);
+	if (mobileTopbar) {
+		mobileTopbar.removeAttribute('inert');
 	}
 }
 

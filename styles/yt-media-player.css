@@ -1026,7 +1026,7 @@ body.yt-auto-hidden-player:not(.yt-limited-height-mode) .yt-player-wrapper * {
 	fill: currentColor;
 }
 
-.yt-drawer-focus-current-button.visible {
+.yt-player-wrapper:not(.drawer-closed) .yt-drawer-focus-current-button.visible {
 	display: block;
 }
 
@@ -3816,15 +3816,15 @@ body.yt-limited-height-mode .yt-player-controls {
 
 /* === VISIBILITY & DISPLAY MODES === */
 
-body.yt-hide-video-player #player-container-id,
-body.yt-hide-video-player .player-placeholder {
+body.yt-hide-video-player:not([faux-fullscreen='true']) #player-container-id,
+body.yt-hide-video-player:not([faux-fullscreen='true']) .player-placeholder {
 	position: absolute !important;
 	z-index: -100 !important;
 	height: 0 !important;
 	opacity: 0 !important;
 }
 
-body.yt-hide-video-player ytm-app.sticky-player {
+body.yt-hide-video-player:not([faux-fullscreen='true']) ytm-app.sticky-player {
 	padding: 0 !important;
 }
 
