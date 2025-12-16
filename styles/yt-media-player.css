@@ -1795,6 +1795,7 @@ body:not(.yt-limited-height-mode)
 	position: relative;
 	z-index: 1;
 	display: flex;
+	gap: 12px;
 	align-items: center;
 	height: 100%;
 	padding: 12px;
@@ -1831,7 +1832,6 @@ body:not(.yt-limited-height-mode)
 	flex: 1;
 	flex-direction: column;
 	min-width: 0;
-	margin: 0 12px;
 	gap: 2px;
 }
 
@@ -3964,7 +3964,6 @@ body.yt-native-search-dialog .yt-player-wrapper .yt-player-drawer {
 }
 
 /* === NATIVE ELEMENT OVERRIDES === */
-
 bottom-sheet-container {
 	z-index: 1000;
 }

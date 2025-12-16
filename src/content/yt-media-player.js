@@ -298,6 +298,8 @@ class YTMediaPlayer {
 
 		// Playlist handlers
 		this._handlePlaylistScroll_bound = this._handlePlaylistScroll.bind(this);
+		this._handlePlaylistTouchStart_bound = this._handlePlaylistTouchStart.bind(this);
+		this._handlePlaylistTouchEnd_bound = this._handlePlaylistTouchEnd.bind(this);
 		this._performAutoScrollFocus_bound = this._performAutoScrollFocus.bind(this);
 		this._handleDrawerFocusButtonClick_bound = (event) => {
 			event.preventDefault();
@@ -2874,6 +2876,9 @@ class YTMediaPlayer {
 
 		clearTimeout(this.autoScrollFocusTimer);
 		this.playlistWrapper.classList.add('scrolling');
+		if (this.playlistTouchActive) {
+			return;
+		}
 		this.autoScrollFocusTimer = setTimeout(() => {
 			this.playlistWrapper.classList.remove('scrolling');
 			this._performAutoScrollFocus_bound();
@@ -2881,6 +2886,38 @@ class YTMediaPlayer {
 		}, this.playlistScrollDebounceDelay);
 	}
 
+	_handlePlaylistTouchStart() {
+		if (
+			this.programmaticScrollInProgress ||
+			!this.hasPlaylist ||
+			!this.playlistWrapper ||
+			this._isContextMenuOpen()
+		) {
+			return;
+		}
+		this._updateDrawerFocusButtonVisibility();
+		this.playlistTouchActive = true;
+		clearTimeout(this.autoScrollFocusTimer);
+		this.playlistWrapper.classList.add('scrolling');
+	}
+
+	_handlePlaylistTouchEnd() {
+		if (
+			this.programmaticScrollInProgress ||
+			!this.hasPlaylist ||
+			!this.playlistWrapper ||
+			this._isContextMenuOpen()
+		) {
+			return;
+		}
+		this.playlistTouchActive = false;
+		clearTimeout(this.autoScrollFocusTimer);
+		this.autoScrollFocusTimer = setTimeout(() => {
+			this.playlistWrapper.classList.remove('scrolling');
+			this._performAutoScrollFocus_bound();
+			this._updateDrawerFocusButtonVisibility();
+		}, this.playlistScrollDebounceDelay);
+	}
 	/**
 	 * Update the centered item overlay during horizontal compact scrolling
 	 */
@@ -3536,6 +3573,19 @@ class YTMediaPlayer {
 			this.playlistWrapper.addEventListener('scroll', this._handlePlaylistScroll_bound, {
 				passive: true,
 			});
+			this.playlistWrapper.addEventListener(
+				'touchstart',
+				this._handlePlaylistTouchStart_bound,
+				{ passive: true }
+			);
+			this.playlistWrapper.addEventListener('touchend', this._handlePlaylistTouchEnd_bound, {
+				passive: true,
+			});
+			this.playlistWrapper.addEventListener(
+				'touchcancel',
+				this._handlePlaylistTouchEnd_bound,
+				{ passive: true }
+			);
 
 			// Independent listener to update centered overlay during any scroll
 			this.playlistWrapper.addEventListener(

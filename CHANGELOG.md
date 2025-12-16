@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.3] - 2025-12-16
+
+## Changed
+
+-   Improved auto-focus logic while scrolling/holding the playlist- previously the autoscroll would trigger if you stopped scrolling but continued to hold your finger on the playlist, now the hold is detected correctly and prevents auto scroll.
+-   Minor changes to current playing area.
+
 ## [2.2.2] - 2025-12-05
 
 ### Fixed
