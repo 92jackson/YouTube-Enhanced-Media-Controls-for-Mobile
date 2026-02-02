@@ -1,6 +1,6 @@
 # YouTube Enhanced Media Controls (for Mobile)
 
-![Version](https://img.shields.io/badge/version-2.2.2-pink.svg)
+![Version](https://img.shields.io/badge/version-3.0.0-purple.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Firefox](https://img.shields.io/badge/Firefox-Compatible-FF7139.svg?logo=firefoxbrowser&logoColor=white)
 ![Kiwi Browser](https://img.shields.io/badge/Kiwi%20Browser-Compatible-00C851.svg)
@@ -16,45 +16,45 @@ This extension was originally developed to provide a more user friendly interfac
 
 ### 🎮 Enhanced Media Player
 
--   **Custom Player Interface**: Modern player wrapper with improved controls
--   **Customizable Themes**: System, light, dark themes with adaptive or fixed accent colors
--   **Advanced Playlist Management**: Enhanced playlist controls with duplicate handling and mix management
--   **Voice Search Integration**: Quick access to YouTube's voice search (with optional "I'm Feeling Lucky")
+- **Custom Player Interface**: Modern player wrapper with improved controls
+- **Customizable Themes**: System, light, dark themes with adaptive or fixed accent colors
+- **Advanced Playlist Management**: Enhanced playlist controls with duplicate handling and mix management
+- **Voice Search Integration**: Quick access to YouTube's voice search (with optional "I'm Feeling Lucky")
 
 ### 🎯 Smart Controls
 
--   **Previous/Next Navigation**: Intelligent previous button behavior (smart restart vs. previous video)
--   **Play Next Queue**: Queue a video to play next and optionally repeat
--   **Custom Seekbar**: Enhanced seeking with visual feedback
--   **Play/Pause Controls**: Improved accessibility and responsiveness
--   **Bottom Controls Bar**: Optional persistent controls for easier access
+- **Previous/Next Navigation**: Intelligent previous button behavior (smart restart vs. previous video)
+- **Play Next Queue**: Queue a video to play next and optionally repeat
+- **Custom Seekbar**: Enhanced seeking with visual feedback
+- **Play/Pause Controls**: Improved accessibility and responsiveness
+- **Bottom Controls Bar**: Optional persistent controls for easier access
 
 ### 👆 Gesture Support
 
--   **Single-finger Swipes**: Left/right swipes for navigation
--   **Two-finger Gestures**: Up/down and left/right swipes for various actions
--   **Two-finger Press**: Customizable press actions
--   **Toggle Favourites**: Gesture to open/close favourites dialog
--   **Visual Feedback**: Optional gesture feedback indicators
--   **Configurable Actions**: Map gestures to different player functions
+- **Single-finger Swipes**: Left/right swipes for navigation
+- **Two-finger Gestures**: Up/down and left/right swipes for various actions
+- **Two-finger Press**: Customizable press actions
+- **Toggle Favourites**: Gesture to open/close favourites dialog
+- **Visual Feedback**: Optional gesture feedback indicators
+- **Configurable Actions**: Map gestures to different player functions
 
 ### ⚙️ Extensive Customization
 
--   **Layout Options**: Multiple player layout configurations
--   **Appearance Settings**: Font size, density, theme customization
--   **Navbar Customization**: Favourites and Mixes buttons with favourites management
--   **Accessibility Features**: Enhanced controls for better usability
+- **Layout Options**: Multiple player layout configurations
+- **Appearance Settings**: Font size, density, theme customization
+- **Navbar Customization**: Favourites and Mixes buttons with favourites management
+- **Accessibility Features**: Enhanced controls for better usability
 
 ### 🎵 Additional Features & Fixes
 
--   **Background Play Support**: Continue playback when switching tabs or minimizing browser
--   **Continue Watching Popup Handling**: Automatic dismissal of YouTube's continue watching overlays
--   **Playlist-only Media Keys**: Prevents Android notification and Bluetooth media keys from skipping outside the current playlist
--   **Auto-skip Ads**: Automatically skip ads when detected during playback (experimental)
--   **Rapid Buffer Auto-Pause**: Pause the video for a set duration when repeated buffering is detected
--   **Playlist Stability Fixes**: Auto-reload stuck playlists
--   **Blacklist Videos**: Manage a list of videos to hide from playlists and suggestions
--   **Update Notifications**: Optional toast when the extension updates
+- **Background Play Support**: Continue playback when switching tabs or minimizing browser
+- **Continue Watching Popup Handling**: Automatic dismissal of YouTube's continue watching overlays
+- **Playlist-only Media Keys**: Prevents Android notification and Bluetooth media keys from skipping outside the current playlist
+- **Auto-skip Ads**: Automatically skip ads when detected during playback (experimental)
+- **Rapid Buffer Auto-Pause**: Pause the video for a set duration when repeated buffering is detected
+- **Playlist Stability Fixes**: Auto-reload stuck playlists
+- **Blacklist Videos**: Manage a list of videos to hide from playlists and suggestions
+- **Update Notifications**: Optional toast when the extension updates
 
 # 📦 Installation
 
@@ -78,8 +78,8 @@ Install the extension from the [FireFox Browser ADD-ONS](https://addons.mozilla.
 
 ## Via build:
 
--   To compile your own, see [/build/README.md](https://github.com/92jackson/YouTube-Enhanced-Media-Controls-for-Mobile/blob/main/build/README.md)
--   Or use the pre-compiled releases here: [Releases](https://github.com/92jackson/YouTube-Enhanced-Media-Controls-for-Mobile/releases)
+- To compile your own, see [/build/README.md](https://github.com/92jackson/YouTube-Enhanced-Media-Controls-for-Mobile/blob/main/build/README.md)
+- Or use the pre-compiled releases here: [Releases](https://github.com/92jackson/YouTube-Enhanced-Media-Controls-for-Mobile/releases)
 
 ### Kiwi Browser (Android)
 
@@ -117,11 +117,11 @@ Install the extension from the [FireFox Browser ADD-ONS](https://addons.mozilla.
 
 ### Browser Compatibility
 
--   ✅ FireFox (Android + Desktop for testing)
--   ✅ FireFox Nightly (Android)
--   ✅ Kiwi Browser (Android)
--   ✅ Microsoft Edge Canary (Android)
--   ✅ Google Chrome/MS Edge (Desktop - recommended for testing only)
+- ✅ FireFox (Android + Desktop for testing)
+- ✅ FireFox Nightly (Android)
+- ✅ Kiwi Browser (Android)
+- ✅ Microsoft Edge Canary (Android)
+- ✅ Google Chrome/MS Edge (Desktop - recommended for testing only)
 
 ## 🎯 Usage
 
@@ -135,7 +135,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
--   Background playback functionality based on [Youtube-Background](https://github.com/alkisqwe/Youtube-Background) (CC0 License)
+- Background playback functionality based on [Youtube-Background](https://github.com/alkisqwe/Youtube-Background) (CC0 License)
 
 ## 📞 Support
 
