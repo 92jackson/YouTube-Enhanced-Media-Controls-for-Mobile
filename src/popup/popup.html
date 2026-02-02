@@ -115,6 +115,80 @@
 			flex-shrink: 0;
 		}
 
+		.changelog-details {
+			background: #ffffff;
+			border: 1px solid #dee2e6;
+			border-radius: 8px;
+			overflow: hidden;
+		}
+
+		.changelog-summary {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 10px;
+			padding: 10px 12px;
+			cursor: pointer;
+			font-size: 13px;
+			font-weight: 600;
+			color: #1a1a1a;
+			list-style: none;
+		}
+
+		.changelog-summary::-webkit-details-marker {
+			display: none;
+		}
+
+		.changelog-range {
+			font-size: 11px;
+			font-weight: 500;
+			color: #666;
+			white-space: nowrap;
+		}
+
+		.changelog-body {
+			border-top: 1px solid #dee2e6;
+			padding: 10px 12px 12px;
+		}
+
+		.changelog-content {
+			font-size: 12px;
+			line-height: 1.35;
+			max-height: 200px;
+			overflow-y: auto;
+		}
+
+		.changelog-version {
+			font-size: 12px;
+			font-weight: 600;
+			margin-top: 10px;
+		}
+
+		.changelog-version:first-child {
+			margin-top: 0;
+		}
+
+		.changelog-date {
+			font-size: 11px;
+			color: #777;
+			font-weight: 500;
+		}
+
+		.changelog-section-title {
+			font-size: 12px;
+			font-weight: 600;
+			margin-top: 8px;
+		}
+
+		.changelog-list {
+			margin-top: 6px;
+			padding-left: 18px;
+		}
+
+		.changelog-list li {
+			margin: 4px 0;
+		}
+
 		/* Dark mode support */
 		@media (prefers-color-scheme: dark) {
 			body {
@@ -138,6 +212,27 @@
 			.popup-link:hover {
 				background: #3d3d3d;
 				color: #ffffff;
+			}
+
+			.changelog-details {
+				background: #202020;
+				border-color: #3a3a3a;
+			}
+
+			.changelog-summary {
+				color: #ffffff;
+			}
+
+			.changelog-range {
+				color: #999;
+			}
+
+			.changelog-body {
+				border-top-color: #3a3a3a;
+			}
+
+			.changelog-date {
+				color: #999;
 			}
 		}
 	</style>
@@ -175,6 +270,16 @@
 					Discord
 				</a>
 			</div>
+
+			<details class="changelog-details" id="popup-changelog" open>
+				<summary class="changelog-summary">
+					<span>Latest changes</span>
+					<span class="changelog-range" id="popup-changelog-range"></span>
+				</summary>
+				<div class="changelog-body">
+					<div class="changelog-content" id="popup-changelog-content">Loading...</div>
+				</div>
+			</details>
 		</div>
 	</div>
 	

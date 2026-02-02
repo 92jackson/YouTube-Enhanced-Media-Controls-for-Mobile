@@ -54,6 +54,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 	if (message.action === 'downloadLogs') {
 		try {
+			const mimeType =
+				typeof message.mimeType === 'string' && message.mimeType.trim()
+					? message.mimeType.trim()
+					: 'text/plain;charset=utf-8';
+
 			// Detect browser type and use appropriate method
 			const isFirefox =
 				typeof browser !== 'undefined' || navigator.userAgent.includes('Firefox');
@@ -63,7 +68,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 				// This works because we're in the background script context, not content script
 				if (typeof URL !== 'undefined' && URL.createObjectURL) {
 					const blob = new Blob([message.logContent], {
-						type: 'text/plain;charset=utf-8',
+						type: mimeType,
 					});
 					const blobUrl = URL.createObjectURL(blob);
 
@@ -91,7 +96,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 				} else {
 					// Fallback: Use data URL for Firefox if blob URL not available
 					const base64Content = btoa(unescape(encodeURIComponent(message.logContent)));
-					const dataUrl = `data:text/plain;charset=utf-8;base64,${base64Content}`;
+					const dataUrl = `data:${mimeType};base64,${base64Content}`;
 
 					const downloadApi =
 						typeof browser !== 'undefined' ? browser.downloads : chrome.downloads;
@@ -116,7 +121,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 			} else {
 				// Chrome: Use data URL approach (service worker compatible)
 				const base64Content = btoa(unescape(encodeURIComponent(message.logContent)));
-				const dataUrl = `data:text/plain;charset=utf-8;base64,${base64Content}`;
+				const dataUrl = `data:${mimeType};base64,${base64Content}`;
 
 				chrome.downloads.download(
 					{

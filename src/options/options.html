@@ -6,7 +6,7 @@ Defines parent-child option logic via data attributes.
 
 PATTERNS
 --------
-1. Disable child when parent disabled (default):
+1. Disable child when parent disabled:
 <div data-parent="parentId" data-parent-value="true">...</div>
 
 2. Hide child when parent condition not met:
@@ -814,7 +814,7 @@ System displays temporary NEW badge automatically.
 			color: var(--md-color-on-surface-medium);
 		}
 
-		.select-item .description > ul {
+		.description > ul {
 			list-style: none;
 			padding-left: 0;
 			margin-top: 5px;
@@ -1217,6 +1217,99 @@ System displays temporary NEW badge automatically.
 		.flex-2 { flex: 2; }
 		.child-group { margin-top: var(--space-lg); padding-left: var(--space-md); }
 		.mb-md { margin-bottom: var(--space-md); }
+		.bottom-controls-editor-overlay {
+			position: fixed;
+			inset: 0;
+			display: none;
+			align-items: center;
+			justify-content: center;
+			background: rgba(0, 0, 0, 0.55);
+			padding: 16px;
+			z-index: 1000;
+		}
+
+		.bottom-controls-editor-overlay.active {
+			display: flex;
+		}
+
+		.bottom-controls-editor-modal {
+			width: 100%;
+			max-width: 520px;
+			background-color: var(--md-color-surface);
+			color: var(--md-color-on-surface);
+			border-radius: 12px;
+			box-shadow: var(--md-elevation-3);
+			padding: 14px;
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+		}
+
+		.bottom-controls-editor-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+		}
+
+		.bottom-controls-editor-header h3 {
+			margin: 0;
+			font-size: 16px;
+		}
+
+		.bottom-controls-editor-buttons {
+			display: flex;
+			gap: 10px;
+			justify-content: flex-end;
+			margin-top: 6px;
+		}
+
+		.bottom-controls-slot-item .blacklisted-video-id {
+			font-size: 14px;
+			font-weight: 600;
+		}
+
+		.bottom-controls-slot-actions {
+			display: flex;
+			flex-direction: column;
+			gap: 4px;
+			line-height: 1.2;
+			font-size: 12px;
+		}
+
+		.bottom-controls-slot-action {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.bottom-controls-slot-action-kind {
+			min-width: 40px;
+			color: var(--md-color-on-surface-medium);
+		}
+
+		.bottom-controls-slot-action-icon {
+			display: inline-flex;
+			width: 16px;
+			height: 16px;
+			color: var(--md-color-on-surface);
+			flex: 0 0 16px;
+		}
+
+		.bottom-controls-slot-action-icon svg {
+			width: 16px;
+			height: 16px;
+			fill: currentColor;
+		}
+
+		.bottom-controls-slot-action-label {
+			color: var(--md-color-on-surface);
+		}
+
+		.bottom-controls-slot-empty {
+			color: var(--md-color-on-surface-medium);
+			font-style: italic;
+		}
 		</style>
 </head>
 
@@ -1256,6 +1349,7 @@ System displays temporary NEW badge automatically.
 				<a href="#section-player-appearance">🎨 Player Appearance</a>
 				<a href="#section-custom-navbar">🧭 Custom Navbar</a>
 				<a href="#section-playlist">🎶 Playlist</a>
+				<a href="#section-snapshots">📸 Snapshots</a>
 				<a href="#section-player-behavior">▶️ Behavior</a>
 				<a href="#section-gesture-controls">🖐️ Gesture Controls</a>
 				<a href="#section-youtube-behaviors">📄 YouTube Behaviors</a>
@@ -1265,6 +1359,29 @@ System displays temporary NEW badge automatically.
 			</div>
 		</div>
 		<main class="main-content">
+			<div class="card" id="section-settings-transfer" data-added-version="3.0.0">
+				<div class="card-header">
+					<span class="icon">💾</span>
+					<h2>Import / Export Settings</h2>
+				</div>
+				<div class="card-content hidden">
+					<div class="description" style="font-size:small">
+						Export your settings to a JSON file, or import them from a previous export.
+						<p>This includes:</p>
+						<ul>
+							<li>&bull; Stored snapshots</li>
+							<li>&bull; Favourites</li>
+							<li>&bull; Blacklisted videos</li>
+							<li>&bull; All options set on this page</li>
+						</ul>
+					</div>
+					<div class="support-row">
+						<button id="export-user-settings" class="section-menu-button" type="button">Export Settings</button>
+						<button id="import-user-settings" class="clear-all-button" type="button">Import Settings</button>
+						<input id="import-user-settings-file" type="file" accept=".json,application/json,text/plain,.txt" class="hidden">
+					</div>
+				</div>
+			</div>
 			<!-- General Settings -->
 			<div class="card" id="section-general">
 				<div class="card-content">
@@ -1379,7 +1496,7 @@ System displays temporary NEW badge automatically.
 						<div class="select-wrapper">
 						<select id="customPlayerAccentColor" aria-labelledby="customPlayerAccentColor-label">
 								<optgroup label="Preset Colors">
-									<option value="red">Red (Default)</option>
+									<option value="red">Red</option>
 									<option value="pink">Pink</option>
 									<option value="babypink">Baby Pink</option>
 									<option value="purple">Purple</option>
@@ -1462,7 +1579,7 @@ System displays temporary NEW badge automatically.
 						<div class="toggle-label-main"><div class="toggle-label-text" id="titleContrastMode-label">Seekbar Text Contrast Mode</div></div>
 						<div class="select-wrapper">
 							<select id="titleContrastMode" aria-labelledby="titleContrastMode-label">
-								<option value="default">Subtle Text Shadow (Default)</option>
+								<option value="default">Subtle Text Shadow</option>
 								<option value="per-letter">Per-Letter Contrast</option>
 							</select>
 						</div>
@@ -1481,44 +1598,121 @@ System displays temporary NEW badge automatically.
 						</div>
 					</div>
 					<fieldset id="bottom-controls-options-fieldset" data-parent="showBottomControls" data-parent-value="true">
-						<div class="setting-item toggle-item toggle-item--compact">
-							<div class="toggle-label-group" data-target-id="showVoiceSearchButton">
-								<div class="toggle-label-main"><div class="toggle-label-text" id="showVoiceSearchButton-label">Show Voice Search Button</div></div>
+						<div class="setting-item" style="pointer-events: none;" data-added-version="3.0.0">
+							<div class="toggle-label-group">
+								<div class="toggle-label-main"><div class="toggle-label-text">Bottom Controls Actions</div></div>
+								<div class="toggle-label-description">Edit tap, double click, and hold actions per slot.</div>
 							</div>
-							<label class="toggle-switch">
-								<input type="checkbox" id="showVoiceSearchButton" aria-labelledby="showVoiceSearchButton-label">
-								<span class="switch-slider"></span>
-							</label>
 						</div>
-						<div class="setting-item toggle-item toggle-item--compact">
-							<div class="toggle-label-group" data-target-id="showPreviousButton">
-								<div class="toggle-label-main"><div class="toggle-label-text" id="showPreviousButton-label">Show 'Previous' Button</div></div>
+						<div id="bottom-controls-actions-list"></div>
+						<fieldset hidden>
+							<select id="layoutBottomLeftSlot1">
+								<option value="none">None</option>
+								<option value="repeat">Repeat</option>
+								<option value="repeat-show-when-active">Repeat (Show When Active)</option>
+								<option value="seek-back">Seek Back</option>
+								<option value="previous">Previous</option>
+								<option value="restart-then-previous">Restart then Previous</option>
+								<option value="play">Play/Pause</option>
+								<option value="skip">Next</option>
+								<option value="seek-forward">Seek Forward</option>
+								<option value="voice-search">Voice Search</option>
+								<option value="limited-height-fab">Limited Height Menu</option>
+							</select>
+							<select id="layoutBottomCenterSlot1">
+								<option value="none">None</option>
+								<option value="repeat">Repeat</option>
+								<option value="repeat-show-when-active">Repeat (Show When Active)</option>
+								<option value="seek-back">Seek Back</option>
+								<option value="previous">Previous</option>
+								<option value="restart-then-previous">Restart then Previous</option>
+								<option value="play">Play/Pause</option>
+								<option value="skip">Next</option>
+								<option value="seek-forward">Seek Forward</option>
+								<option value="voice-search">Voice Search</option>
+								<option value="limited-height-fab">Limited Height Menu</option>
+							</select>
+							<select id="layoutBottomCenterSlot2">
+								<option value="none">None</option>
+								<option value="repeat">Repeat</option>
+								<option value="repeat-show-when-active">Repeat (Show When Active)</option>
+								<option value="seek-back">Seek Back</option>
+								<option value="previous">Previous</option>
+								<option value="restart-then-previous">Restart then Previous</option>
+								<option value="play">Play/Pause</option>
+								<option value="skip">Next</option>
+								<option value="seek-forward">Seek Forward</option>
+								<option value="voice-search">Voice Search</option>
+								<option value="limited-height-fab">Limited Height Menu</option>
+							</select>
+							<select id="layoutBottomCenterSlot3" disabled>
+								<option value="play">Play/Pause</option>
+							</select>
+							<select id="layoutBottomCenterSlot4">
+								<option value="none">None</option>
+								<option value="repeat">Repeat</option>
+								<option value="repeat-show-when-active">Repeat (Show When Active)</option>
+								<option value="seek-back">Seek Back</option>
+								<option value="previous">Previous</option>
+								<option value="restart-then-previous">Restart then Previous</option>
+								<option value="play">Play/Pause</option>
+								<option value="skip">Next</option>
+								<option value="seek-forward">Seek Forward</option>
+								<option value="voice-search">Voice Search</option>
+								<option value="limited-height-fab">Limited Height Menu</option>
+							</select>
+							<select id="layoutBottomCenterSlot5">
+								<option value="none">None</option>
+								<option value="repeat">Repeat</option>
+								<option value="repeat-show-when-active">Repeat (Show When Active)</option>
+								<option value="seek-back">Seek Back</option>
+								<option value="previous">Previous</option>
+								<option value="restart-then-previous">Restart then Previous</option>
+								<option value="play">Play/Pause</option>
+								<option value="skip">Next</option>
+								<option value="seek-forward">Seek Forward</option>
+								<option value="voice-search">Voice Search</option>
+								<option value="limited-height-fab">Limited Height Menu</option>
+							</select>
+							<select id="layoutBottomRightSlot1">
+								<option value="none">None</option>
+								<option value="repeat">Repeat</option>
+								<option value="repeat-show-when-active">Repeat (Show When Active)</option>
+								<option value="seek-back">Seek Back</option>
+								<option value="previous">Previous</option>
+								<option value="restart-then-previous">Restart then Previous</option>
+								<option value="play">Play/Pause</option>
+								<option value="skip">Next</option>
+								<option value="seek-forward">Seek Forward</option>
+								<option value="voice-search">Voice Search</option>
+								<option value="limited-height-fab">Limited Height Menu</option>
+							</select>
+							<select id="layoutBottomRightSlot2" disabled>
+								<option value="limited-height-fab">Limited Height Menu</option>
+							</select>
+							<select id="layoutBottomLeftSlot1DoubleAction"></select>
+							<select id="layoutBottomLeftSlot1HoldAction"></select>
+							<select id="layoutBottomCenterSlot1DoubleAction"></select>
+							<select id="layoutBottomCenterSlot1HoldAction"></select>
+							<select id="layoutBottomCenterSlot2DoubleAction"></select>
+							<select id="layoutBottomCenterSlot2HoldAction"></select>
+							<select id="layoutBottomCenterSlot3DoubleAction"></select>
+							<select id="layoutBottomCenterSlot3HoldAction"></select>
+							<select id="layoutBottomCenterSlot4DoubleAction"></select>
+							<select id="layoutBottomCenterSlot4HoldAction"></select>
+							<select id="layoutBottomCenterSlot5DoubleAction"></select>
+							<select id="layoutBottomCenterSlot5HoldAction"></select>
+							<select id="layoutBottomRightSlot1DoubleAction"></select>
+							<select id="layoutBottomRightSlot1HoldAction"></select>
+							<select id="layoutBottomRightSlot2DoubleAction"></select>
+							<select id="layoutBottomRightSlot2HoldAction"></select>
+						</fieldset>
+						<div class="setting-item text-item">
+							<div class="toggle-label-main"><div class="toggle-label-text" id="bottomControlsDoubleClickDelay-label">Double Click Delay</div></div>
+							<div class="text-wrapper" data-suffix="ms">
+								<input type="number" id="bottomControlsDoubleClickDelay" min="120" max="800" step="10" value="260" aria-labelledby="bottomControlsDoubleClickDelay-label" />
 							</div>
-							<label class="toggle-switch">
-								<input type="checkbox" id="showPreviousButton" aria-labelledby="showPreviousButton-label">
-								<span class="switch-slider"></span>
-							</label>
-						</div>
-						<div class="setting-item toggle-item toggle-item--compact">
-							<div class="toggle-label-group" data-target-id="showSkipButton">
-								<div class="toggle-label-main"><div class="toggle-label-text" id="showSkipButton-label">Show 'Next' Button</div></div>
-							</div>
-							<label class="toggle-switch">
-								<input type="checkbox" id="showSkipButton" aria-labelledby="showSkipButton-label">
-								<span class="switch-slider"></span>
-							</label>
-						</div>
-						<div class="setting-item select-item">
-							<div class="toggle-label-main"><div class="toggle-label-text" id="showRepeatButton-label">Show Repeat Button</div></div>
-							<div class="select-wrapper">
-								<select id="showRepeatButton" aria-labelledby="showRepeatButton-label">
-									<option value="disabled">Disabled</option>
-									<option value="show-when-active" selected>Show When Active</option>
-									<option value="always-show">Always Show</option>
-								</select>
-							</div>
-							<div class="description">Controls when the repeat button is visible. 'Show When Active'
-								hides the button unless repeat mode is enabled.</div>
+							<div class="description">Maximum time between clicks to trigger a double click.</div>
 						</div>
 					</fieldset>
 					<div class="setting-item toggle-item toggle-item--full" data-added-version="2.0.0">
@@ -1610,51 +1804,24 @@ System displays temporary NEW badge automatically.
 								<span class="switch-slider"></span>
 							</label>
 						</div>
-						<div class="setting-item toggle-item toggle-item--compact">
-							<div class="toggle-label-group" data-target-id="navbarShowTextSearch">
-								<div class="toggle-label-main"><div class="toggle-label-text" id="navbarShowTextSearch-label">Show Text Search</div></div>
-							</div>
-							<label class="toggle-switch">
-							<input type="checkbox" id="navbarShowTextSearch" aria-labelledby="navbarShowTextSearch-label">
-								<span class="switch-slider"></span>
-							</label>
-						</div>
-						<div class="setting-item toggle-item toggle-item--compact">
-							<div class="toggle-label-group" data-target-id="navbarShowVoiceSearch">
-								<div class="toggle-label-main"><div class="toggle-label-text" id="navbarShowVoiceSearch-label">Show Voice Search</div></div>
-							</div>
-							<label class="toggle-switch">
-							<input type="checkbox" id="navbarShowVoiceSearch" aria-labelledby="navbarShowVoiceSearch-label">
-								<span class="switch-slider"></span>
-							</label>
-						</div>
-						<div class="setting-item toggle-item toggle-item--full">
-							<div class="toggle-label-group" data-target-id="navbarShowFavourites">
-								<div class="toggle-label-main"><div class="toggle-label-text" id="navbarShowFavourites-label">Show Favourites</div></div>
-							</div>
-							<div class="toggle-subrow">
-								<div class="toggle-label-description">Show a favourites button with popup menu to show
-									saved mixes. <i>Note: Mixes are dynamically generated by YouTube, individual saved
-									links may eventually stop working.</i></div>
-								<label class="toggle-switch">
-									<input type="checkbox" id="navbarShowFavourites" aria-labelledby="navbarShowFavourites-label">
-									<span class="switch-slider"></span>
-								</label>
+						<div class="setting-item" style="pointer-events: none;" data-added-version="3.0.0">
+							<div class="toggle-label-group">
+								<div class="toggle-label-main"><div class="toggle-label-text">Navbar Right Controls Layout</div></div>
+								<div class="toggle-label-description">Choose what each right-side slot shows. Duplicates are ignored.</div>
 							</div>
 						</div>
-						<div class="setting-item toggle-item toggle-item--full">
-							<div class="toggle-label-group" data-target-id="navbarShowVideoToggle">
-								<div class="toggle-label-main"><div class="toggle-label-text" id="navbarShowVideoToggle-label">Show Video Toggle</div></div>
+						<fieldset>
+							<div class="mb-md">
+								<button id="add-navbar-right-slot" class="blacklisted-video-remove">Add Control</button>
+								<button id="clear-navbar-right-slots" class="clear-all-button">Clear All</button>
 							</div>
-							<div class="toggle-subrow">
-								<div class="toggle-label-description">Show a button to quickly toggle video player
-									visibility. Provides a shortcut to the <code>Hide Video Player</code> setting.</div>
-								<label class="toggle-switch">
-									<input type="checkbox" id="navbarShowVideoToggle" aria-labelledby="navbarShowVideoToggle-label">
-									<span class="switch-slider"></span>
-								</label>
+							<div id="navbar-right-slots-container">
+								<div id="navbar-right-slots-list"></div>
+								<div id="no-navbar-right-slots" class="hidden no-results-message">
+									No right controls configured.
+								</div>
 							</div>
-						</div>
+						</fieldset>
 						<div class="setting-item" style="pointer-events: none;">
 							<div class="toggle-label-group" data-badges="experimental">
 								<div class="toggle-label-main"><div class="toggle-label-text">Navbar Links</div></div>
@@ -1777,6 +1944,96 @@ System displays temporary NEW badge automatically.
 									</ul>
 								</div>
 							</div>
+							<div class="setting-item select-item" data-added-version="3.0.0">
+								<div class="toggle-label-main">
+									<div class="toggle-label-text" id="horizontalPlaylistAlignment-label">Horizontal Playlist Alignment</div>
+								</div>
+								<div class="select-wrapper">
+									<select id="horizontalPlaylistAlignment" aria-labelledby="horizontalPlaylistAlignment-label">
+										<option value="center-current">Center current</option>
+										<option value="align-current-left">Align current left</option>
+									</select>
+								</div>
+								<div class="description">Customize how the current item is aligned in horizontal playlists.</div>
+							</div>
+						</fieldset>
+						<div class="setting-item select-item" data-added-version="3.0.0">
+							<div class="toggle-label-main">
+								<div class="toggle-label-text" id="verticalPlaylistAlignment-label">Vertical Playlist Alignment</div>
+							</div>
+							<div class="select-wrapper">
+								<select id="verticalPlaylistAlignment" aria-labelledby="verticalPlaylistAlignment-label">
+									<option value="align-item-before-top">Align item before top - if space</option>
+									<option value="align-current-top">Align current top</option>
+									<option value="center-current">Center current</option>
+								</select>
+							</div>
+							<div class="description">Customize how the current item is aligned in vertical playlists.</div>
+						</div>
+						<div class="setting-item" style="pointer-events: none;" data-added-version="3.0.0">
+							<div class="toggle-label-group">
+								<div class="toggle-label-main"><div class="toggle-label-text">Playlist Drawer Header Layout</div></div>
+								<div class="toggle-label-description">Choose what each header control slot shows. Duplicates are ignored.</div>
+							</div>
+						</div>
+						<fieldset>
+							<div class="setting-item select-item">
+								<div class="toggle-label-main"><div class="toggle-label-text" id="layoutDrawerHeaderSlot1-label">Header Slot 1</div></div>
+								<div class="select-wrapper">
+									<select id="layoutDrawerHeaderSlot1" aria-labelledby="layoutDrawerHeaderSlot1-label">
+										<option value="none">None</option>
+										<option value="focus-current">Focus Current</option>
+										<option value="shuffle-toggle">Shuffle Toggle</option>
+										<option value="shuffle-toggle-show-when-active">Shuffle Toggle (Snapshots Only)</option>
+										<option value="loop-toggle">Loop Toggle</option>
+										<option value="loop-toggle-show-when-active">Loop Toggle (Snapshots Only)</option>
+										<option value="close">Close Playlist Drawer</option>
+									</select>
+								</div>
+							</div>
+							<div class="setting-item select-item">
+								<div class="toggle-label-main"><div class="toggle-label-text" id="layoutDrawerHeaderSlot2-label">Header Slot 2</div></div>
+								<div class="select-wrapper">
+									<select id="layoutDrawerHeaderSlot2" aria-labelledby="layoutDrawerHeaderSlot2-label">
+										<option value="none">None</option>
+										<option value="focus-current">Focus Current</option>
+										<option value="shuffle-toggle">Shuffle Toggle</option>
+										<option value="shuffle-toggle-show-when-active">Shuffle Toggle (Snapshots Only)</option>
+										<option value="loop-toggle">Loop Toggle</option>
+										<option value="loop-toggle-show-when-active">Loop Toggle (Snapshots Only)</option>
+										<option value="close">Close Playlist Drawer</option>
+									</select>
+								</div>
+							</div>
+							<div class="setting-item select-item">
+								<div class="toggle-label-main"><div class="toggle-label-text" id="layoutDrawerHeaderSlot3-label">Header Slot 3</div></div>
+								<div class="select-wrapper">
+									<select id="layoutDrawerHeaderSlot3" aria-labelledby="layoutDrawerHeaderSlot3-label">
+										<option value="none">None</option>
+										<option value="focus-current">Focus Current</option>
+										<option value="shuffle-toggle">Shuffle Toggle</option>
+										<option value="shuffle-toggle-show-when-active">Shuffle Toggle (Snapshots Only)</option>
+										<option value="loop-toggle">Loop Toggle</option>
+										<option value="loop-toggle-show-when-active">Loop Toggle (Snapshots Only)</option>
+										<option value="close">Close Playlist Drawer</option>
+									</select>
+								</div>
+							</div>
+							<div class="setting-item select-item">
+								<div class="toggle-label-main"><div class="toggle-label-text" id="layoutDrawerHeaderSlot4-label">Header Slot 4</div></div>
+								<div class="select-wrapper">
+									<select id="layoutDrawerHeaderSlot4" aria-labelledby="layoutDrawerHeaderSlot4-label">
+										<option value="none">None</option>
+										<option value="focus-current">Focus Current</option>
+										<option value="shuffle-toggle">Shuffle Toggle</option>
+										<option value="shuffle-toggle-show-when-active">Shuffle Toggle (Snapshots Only)</option>
+										<option value="loop-toggle">Loop Toggle</option>
+										<option value="loop-toggle-show-when-active">Loop Toggle (Snapshots Only)</option>
+										<option value="close">Close Playlist Drawer</option>
+									</select>
+								</div>
+								<div class="description">Note: Shuffle and Loop features only work with Snapshots. If you use one of these features on a non Snapshot Playlist, the will automatically be converted to a snapshot playlist.</div>
+							</div>
 						</fieldset>
 						<div class="setting-item select-item">
 							<div class="toggle-label-main"><div class="toggle-label-text" id="playlistColorMode-label">Playlist Colors</div></div>
@@ -1837,6 +2094,52 @@ System displays temporary NEW badge automatically.
 							</div>
 						</fieldset>
 					</fieldset>
+				</div>
+			</div>
+			<!-- Snapshots -->
+			<div class="card" id="section-snapshots" data-parent="enableCustomPlayer" data-parent-value="true">
+				<div class="card-header">
+					<span class="icon">📸</span>
+					<h2>Snapshots</h2>
+				</div>
+				<div class="card-content">
+					<div class="setting-item" data-added-version="3.0.0">
+						<div class="toggle-label-main"><div class="toggle-label-text">What is a snapshot?</div></div>
+						<div class="toggle-label-description">A snapshot saves a static copy of a mix/playlist's video list so it won't change over time. They're used because YouTube mobile doesn't natively support sorting, looping, or shuffling playback on playlists. Also, mixes are dynamic, and playlists may be removed or altered, snapshots negate this.</div>
+					</div>
+					<div class="setting-item">
+						<div class="toggle-label-main"><div class="toggle-label-text">Manage stored snapshots</div></div>
+						<div class="toggle-label-description">You can also manage snapshots from the in-player Favourites dialog:</div>
+						<div class="description">
+							<ul>
+								<li>&bull; Create a snapshot of a playlist or mix</li>
+								<li>&bull; Reorder the videos inside a snapshot</li>
+								<li>&bull; Remove select videos</li>
+								<li>&bull; Add singluar videos or whole playlists to an exsisting snapshot</li>
+								<li>&bull; Merge snapshots</li>
+							</ul>
+						</div>
+					</div>
+					<div class="setting-item select-item" data-added-version="3.0.0">
+						<div class="toggle-label-main"><div class="toggle-label-text" id="snapshotSplashMode-label">Snapshot Splash</div></div>
+						<div class="select-wrapper">
+							<select id="snapshotSplashMode" aria-labelledby="snapshotSplashMode-label">
+								<option value="standard">Use standard splash</option>
+								<option value="spinner" selected>Show colored overlay with spinner</option>
+								<option value="none">No splash (page reload will be visible)</option>
+							</select>
+						</div>
+						<div class="description">This is *hopefully* a temporary compromise: I have not been able to hook into YouTube's internal navigation, so switching videos currently requires a full page reload when the target video is not natively linked within the current rendered page.</div>
+					</div>
+					<div class="mb-md">
+						<button id="clear-all-snapshots" class="clear-all-button">Clear All Snapshots</button>
+					</div>
+					<div id="snapshots-container">
+						<div id="snapshots-list"></div>
+						<div id="no-snapshots" class="hidden no-results-message">
+							No snapshots found.
+						</div>
+					</div>
 				</div>
 			</div>
 			<!-- Player Behavior -->
@@ -1908,25 +2211,36 @@ System displays temporary NEW badge automatically.
 							</label>
 						</div>
 					</div>
-					<div class="setting-item select-item">
-						<div class="toggle-label-main"><div class="toggle-label-text" id="previousButtonBehavior-label">Previous Button Action</div></div>
-						<div class="select-wrapper">
-						<select id="previousButtonBehavior" aria-labelledby="previousButtonBehavior-label">
-								<option value="smart">Dual (Restart first, then Previous)</option>
-								<option value="alwaysPrevious">Always Go to Previous</option>
-							</select>
+					<div class="setting-item text-item">
+						<div class="toggle-label-main"><div class="toggle-label-text" id="smartPreviousThreshold-label">Restart Threshold</div></div>
+						<div class="text-wrapper" data-suffix="seconds">
+						<input type="number" id="smartPreviousThreshold" min="1" max="60" step="1" value="5" aria-labelledby="smartPreviousThreshold-label" />
+						</div>
+						<div class="description">When using 'Restart then Previous', videos will restart if the current play time is
+							above this threshold, otherwise it will go to the previous video. Default: 5 seconds.</div>
+					</div>
+					<div class="setting-item text-item" data-added-version="3.0.0">
+						<div class="toggle-label-main">
+							<div class="toggle-label-text" id="seekSkipSeconds-label">Seek Skip Seconds</div>
+						</div>
+						<div class="text-wrapper" data-suffix="seconds">
+							<input type="number" id="seekSkipSeconds" min="1" max="120" step="1" value="10"
+								aria-labelledby="seekSkipSeconds-label" />
+						</div>
+						<div class="description">How many seconds to skip when tapping seek back/forward.</div>
+					</div>
+					<div class="setting-item toggle-item toggle-item--full" data-added-version="3.0.0">
+						<div class="toggle-label-group" data-target-id="repeatStickyAcrossVideos">
+							<div class="toggle-label-main"><div class="toggle-label-text" id="repeatStickyAcrossVideos-label">Keep Repeat On Across Videos</div></div>
+						</div>
+						<div class="toggle-subrow">
+							<div class="toggle-label-description">When repeat is enabled, keep it enabled for subsequent videos until manually turned off.</div>
+							<label class="toggle-switch">
+								<input type="checkbox" id="repeatStickyAcrossVideos" aria-labelledby="repeatStickyAcrossVideos-label">
+								<span class="switch-slider"></span>
+							</label>
 						</div>
 					</div>
-					<fieldset>
-						<div class="setting-item text-item">
-							<div class="toggle-label-main"><div class="toggle-label-text" id="smartPreviousThreshold-label">Restart Threshold</div></div>
-							<div class="text-wrapper" data-suffix="seconds">
-							<input type="number" id="smartPreviousThreshold" min="1" max="60" step="1" value="5" aria-labelledby="smartPreviousThreshold-label" />
-							</div>
-							<div class="description">When using 'Dual', videos will restart if the current play time is
-								above this threshold, otherwise it will go to the previous video. Default: 5 seconds.</div>
-						</div>
-					</fieldset>
 					<div class="setting-item toggle-item toggle-item--full" data-added-version="2.1.0">
 						<div class="toggle-label-group" data-target-id="voiceSearchFeelingLucky">
 							<div class="toggle-label-main">
@@ -1984,12 +2298,12 @@ System displays temporary NEW badge automatically.
 									<option value="unassigned">Unassigned</option>
 									<option value="restartCurrentVideo">Restart Current Video</option>
 									<option value="previousVideoOnly">Previous Video Only</option>
-									<option value="restartPreviousVideo">Restart then Previous (Dual)</option>
+									<option value="restartPreviousVideo">Restart then Previous</option>
 									<option value="nextVideo">Next Video</option>
 									<option value="playPause">Play/Pause</option>
 									<option value="toggleVoiceSearch">Toggle Voice Search</option>
-									<option value="seekBackward10">Seek Backward (10s)</option>
-									<option value="seekForward10">Seek Forward (10s)</option>
+									<option value="seekBackward10">Seek Back</option>
+									<option value="seekForward10">Seek Forward</option>
 									<option value="togglePlaylist">Toggle Playlist Drawer</option>
 									<option value="toggleFavourites">Toggle Favourites</option>
 									<option value="toggleVideoPlayer">Toggle Video Player</option>
@@ -2003,12 +2317,12 @@ System displays temporary NEW badge automatically.
 									<option value="unassigned">Unassigned</option>
 									<option value="restartCurrentVideo">Restart Current Video</option>
 									<option value="previousVideoOnly">Previous Video Only</option>
-									<option value="restartPreviousVideo">Restart then Previous (Dual)</option>
+									<option value="restartPreviousVideo">Restart then Previous</option>
 									<option value="nextVideo">Next Video</option>
 									<option value="playPause">Play/Pause</option>
 									<option value="toggleVoiceSearch">Toggle Voice Search</option>
-									<option value="seekBackward10">Seek Backward (10s)</option>
-									<option value="seekForward10">Seek Forward (10s)</option>
+									<option value="seekBackward10">Seek Back</option>
+									<option value="seekForward10">Seek Forward</option>
 									<option value="togglePlaylist">Toggle Playlist Drawer</option>
 									<option value="toggleFavourites">Toggle Favourites</option>
 									<option value="toggleVideoPlayer">Toggle Video Player</option>
@@ -2022,12 +2336,12 @@ System displays temporary NEW badge automatically.
 									<option value="unassigned">Unassigned</option>
 									<option value="restartCurrentVideo">Restart Current Video</option>
 									<option value="previousVideoOnly">Previous Video Only</option>
-									<option value="restartPreviousVideo">Restart then Previous (Dual)</option>
+									<option value="restartPreviousVideo">Restart then Previous</option>
 									<option value="nextVideo">Next Video</option>
 									<option value="playPause">Play/Pause</option>
 									<option value="toggleVoiceSearch">Toggle Voice Search</option>
-									<option value="seekBackward10">Seek Backward (10s)</option>
-									<option value="seekForward10">Seek Forward (10s)</option>
+									<option value="seekBackward10">Seek Back</option>
+									<option value="seekForward10">Seek Forward</option>
 									<option value="togglePlaylist">Toggle Playlist Drawer</option>
 									<option value="toggleFavourites">Toggle Favourites</option>
 									<option value="toggleVideoPlayer">Toggle Video Player</option>
@@ -2041,12 +2355,12 @@ System displays temporary NEW badge automatically.
 									<option value="unassigned">Unassigned</option>
 									<option value="restartCurrentVideo">Restart Current Video</option>
 									<option value="previousVideoOnly">Previous Video Only</option>
-									<option value="restartPreviousVideo">Restart then Previous (Dual)</option>
+									<option value="restartPreviousVideo">Restart then Previous</option>
 									<option value="nextVideo">Next Video</option>
 									<option value="playPause">Play/Pause</option>
 									<option value="toggleVoiceSearch">Toggle Voice Search</option>
-									<option value="seekBackward10">Seek Backward (10s)</option>
-									<option value="seekForward10">Seek Forward (10s)</option>
+									<option value="seekBackward10">Seek Back</option>
+									<option value="seekForward10">Seek Forward</option>
 									<option value="togglePlaylist">Toggle Playlist Drawer</option>
 									<option value="toggleFavourites">Toggle Favourites</option>
 									<option value="toggleVideoPlayer">Toggle Video Player</option>
@@ -2060,12 +2374,12 @@ System displays temporary NEW badge automatically.
 									<option value="unassigned">Unassigned</option>
 									<option value="restartCurrentVideo">Restart Current Video</option>
 									<option value="previousVideoOnly">Previous Video Only</option>
-									<option value="restartPreviousVideo">Restart then Previous (Dual)</option>
+									<option value="restartPreviousVideo">Restart then Previous</option>
 									<option value="nextVideo">Next Video</option>
 									<option value="playPause">Play/Pause</option>
 									<option value="toggleVoiceSearch">Toggle Voice Search</option>
-									<option value="seekBackward10">Seek Backward (10s)</option>
-									<option value="seekForward10">Seek Forward (10s)</option>
+									<option value="seekBackward10">Seek Back</option>
+									<option value="seekForward10">Seek Forward</option>
 									<option value="togglePlaylist">Toggle Playlist Drawer</option>
 									<option value="toggleFavourites">Toggle Favourites</option>
 									<option value="toggleVideoPlayer">Toggle Video Player</option>
@@ -2079,12 +2393,12 @@ System displays temporary NEW badge automatically.
 									<option value="unassigned">Unassigned</option>
 									<option value="restartCurrentVideo">Restart Current Video</option>
 									<option value="previousVideoOnly">Previous Video Only</option>
-									<option value="restartPreviousVideo">Restart then Previous (Dual)</option>
+									<option value="restartPreviousVideo">Restart then Previous</option>
 									<option value="nextVideo">Next Video</option>
 									<option value="playPause">Play/Pause</option>
 									<option value="toggleVoiceSearch">Toggle Voice Search</option>
-									<option value="seekBackward10">Seek Backward (10s)</option>
-									<option value="seekForward10">Seek Forward (10s)</option>
+									<option value="seekBackward10">Seek Back</option>
+									<option value="seekForward10">Seek Forward</option>
 									<option value="togglePlaylist">Toggle Playlist Drawer</option>
 									<option value="toggleFavourites">Toggle Favourites</option>
 									<option value="toggleVideoPlayer">Toggle Video Player</option>
@@ -2098,12 +2412,12 @@ System displays temporary NEW badge automatically.
 									<option value="unassigned">Unassigned</option>
 									<option value="restartCurrentVideo">Restart Current Video</option>
 									<option value="previousVideoOnly">Previous Video Only</option>
-									<option value="restartPreviousVideo">Restart then Previous (Dual)</option>
+									<option value="restartPreviousVideo">Restart then Previous</option>
 									<option value="nextVideo">Next Video</option>
 									<option value="playPause">Play/Pause</option>
 									<option value="toggleVoiceSearch">Toggle Voice Search</option>
-									<option value="seekBackward10">Seek Backward (10s)</option>
-									<option value="seekForward10">Seek Forward (10s)</option>
+									<option value="seekBackward10">Seek Back</option>
+									<option value="seekForward10">Seek Forward</option>
 									<option value="togglePlaylist">Toggle Playlist Drawer</option>
 									<option value="toggleFavourites">Toggle Favourites</option>
 									<option value="toggleVideoPlayer">Toggle Video Player</option>
@@ -2115,7 +2429,7 @@ System displays temporary NEW badge automatically.
 							<div class="select-wrapper">
 								<select id="gestureSensitivity" aria-labelledby="gestureSensitivity2-label">
 									<option value="low">Low (More distance required)</option>
-									<option value="normal">Normal (Default)</option>
+									<option value="normal">Normal</option>
 									<option value="high">High (Less distance required)</option>
 								</select>
 							</div>
@@ -2505,7 +2819,7 @@ System displays temporary NEW badge automatically.
 					<span class="icon">🐞</span>
 					<h2>Developer</h2>
 				</div>
-				<div class="card-content">
+				<div class="card-content hidden">
 					<div class="setting-item toggle-item toggle-item--full">
 						<div class="toggle-label-group" data-target-id="enableDebugLogging">
 							<div class="toggle-label-main"><div class="toggle-label-text" id="enableDebugLogging-label">Enable Debug Logging</div></div>
@@ -2618,6 +2932,36 @@ System displays temporary NEW badge automatically.
 			<div class="mb-md">🔍</div>
 			<div>No results found</div>
 			<div>Try adjusting your search terms</div>
+		</div>
+	</div>
+	<div id="bottom-controls-editor-overlay" class="bottom-controls-editor-overlay" role="dialog" aria-modal="true" aria-labelledby="bottom-controls-editor-title" aria-hidden="true">
+		<div class="bottom-controls-editor-modal">
+			<div class="bottom-controls-editor-header">
+				<h3 id="bottom-controls-editor-title">Edit Bottom Control Slot</h3>
+				<button id="bottom-controls-editor-close" class="clear-all-button" type="button">✕</button>
+			</div>
+			<div class="setting-item select-item">
+				<div class="toggle-label-main"><div class="toggle-label-text" id="bottom-controls-editor-tap-label">Tap Action</div></div>
+				<div class="select-wrapper">
+					<select id="bottom-controls-editor-tap" aria-labelledby="bottom-controls-editor-tap-label" data-ignore-save="true"></select>
+				</div>
+			</div>
+			<div class="setting-item select-item">
+				<div class="toggle-label-main"><div class="toggle-label-text" id="bottom-controls-editor-double-label">Double Click</div></div>
+				<div class="select-wrapper">
+					<select id="bottom-controls-editor-double" aria-labelledby="bottom-controls-editor-double-label" data-ignore-save="true"></select>
+				</div>
+			</div>
+			<div class="setting-item select-item">
+				<div class="toggle-label-main"><div class="toggle-label-text" id="bottom-controls-editor-hold-label">Hold</div></div>
+				<div class="select-wrapper">
+					<select id="bottom-controls-editor-hold" aria-labelledby="bottom-controls-editor-hold-label" data-ignore-save="true"></select>
+				</div>
+			</div>
+			<div class="bottom-controls-editor-buttons">
+				<button id="bottom-controls-editor-save" class="blacklisted-video-remove" type="button">Save</button>
+				<button id="bottom-controls-editor-cancel" class="clear-all-button" type="button">Cancel</button>
+			</div>
 		</div>
 	</div>
 	<div id="status-snackbar">Settings saved!</div>

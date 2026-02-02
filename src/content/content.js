@@ -764,6 +764,29 @@ function applyTheme() {
 	}
 }
 
+function persistSplashThemeColors() {
+	try {
+		if (!document.body) return;
+		const styles = window.getComputedStyle(document.body);
+		const bgPrimary = (styles.getPropertyValue('--yt-player-bg-primary') || '').trim();
+		const accentPrimary = (styles.getPropertyValue('--yt-player-accent-primary') || '').trim();
+
+		let isLight = document.body.classList.contains('yt-theme-light');
+		if (document.body.classList.contains('yt-theme-system')) {
+			const isDark =
+				typeof window.matchMedia === 'function' &&
+				window.matchMedia('(prefers-color-scheme: dark)').matches;
+			isLight = !isDark;
+		}
+
+		const payload = JSON.stringify({ bgPrimary, accentPrimary, isLight });
+		window.sessionStorage?.setItem('mc_splash_theme', payload);
+		window.localStorage?.setItem('mc_splash_theme', payload);
+	} catch (error) {
+		void error;
+	}
+}
+
 /**
  * Sets the accent color CSS custom properties
  * @param {string} colorName - The name of the color from the predefined map
@@ -876,6 +899,7 @@ function setThemeCSS(colorName, colors = {}) {
 
 	// Update browser theme color (called for all cases to handle theme changes)
 	updateBrowserThemeColor(primary);
+	persistSplashThemeColors();
 }
 
 /**
@@ -1148,8 +1172,9 @@ function clickNativePlayPause(requestedState, sourceIsCustomPlayer = false) {
 /**
  * Enhanced previous handling with better logic separation
  */
-function native_handlePrevious() {
-	if (window.userSettings.previousButtonBehavior === 'alwaysPrevious') {
+function native_handlePrevious(actionId) {
+	actionId = actionId || 'previous';
+	if (actionId === 'previous') {
 		_handleStandardPrevious();
 	} else {
 		_handleSmartPrevious();
@@ -1163,6 +1188,8 @@ async function _handleStandardPrevious() {
 	await handlePreemptiveYouTubeButtons();
 
 	if (!handlePreviousWhenAdPlayingInPlaylist()) {
+		// Prefer custom playlist navigation when available
+		if (_attemptPreviousViaCustomPlaylist()) return;
 		DOMUtils.clickElement(CSS_SELECTORS.previousButton);
 		logger.log('NativePlayer', '[Standard] Previous video button clicked');
 	}
@@ -1180,7 +1207,7 @@ async function _handleRestartCurrent() {
 }
 
 /**
- * Navigates to a specific video using YouTube's SPA routing without page reload
+ * Navigates to a specific video
  * @param {string} videoId - The video ID to navigate to
  */
 function _navigateToVideo(videoId) {
@@ -1189,18 +1216,14 @@ function _navigateToVideo(videoId) {
 		return;
 	}
 
-	// Construct the watch URL
-	const watchUrl = `/watch?v=${videoId}`;
-
-	// Preserve playlist parameter if currently on a playlist page
 	const currentPlaylistId = PageUtils.getCurrentPlaylistIdFromUrl();
-	const finalUrl = currentPlaylistId ? `${watchUrl}&list=${currentPlaylistId}` : watchUrl;
+	const useListParam = !window.userSettings.activeMixSnapshotId && !!currentPlaylistId;
+	const baseUrl = `${window.location.origin}/watch?v=${videoId}`;
+	const finalUrl = useListParam ? `${baseUrl}&list=${currentPlaylistId}` : baseUrl;
 
-	logger.log('Navigation', `Navigating to video ${videoId} via SPA routing: ${finalUrl}`);
+	logger.log('Navigation', `Navigating to video ${videoId}: ${finalUrl}`);
 
-	// Use YouTube's SPA routing pattern
-	window.history.pushState({}, '', finalUrl);
-	window.dispatchEvent(new PopStateEvent('popstate'));
+	window.location.href = finalUrl;
 }
 
 async function _handleSmartPrevious() {
@@ -1208,18 +1231,14 @@ async function _handleSmartPrevious() {
 	logger.log('NativePlayer', '[Smart] Checking previous video button');
 	if (!handlePreviousWhenAdPlayingInPlaylist()) {
 		const videoElement = DOMHelper.findVideoElement();
-		if (videoElement) {
-			const threshold = window.userSettings.smartPreviousThreshold || 5;
-			if (videoElement.currentTime > threshold) {
-				_handleRestartCurrent();
-			} else {
-				DOMUtils.clickElement(CSS_SELECTORS.previousButton);
-				logger.log('NativePlayer', '[Smart] Previous video button clicked');
-			}
-		} else {
-			DOMUtils.clickElement(CSS_SELECTORS.previousButton);
-			logger.log('NativePlayer', '[Smart] Previous video button clicked');
+		const threshold = window.userSettings.smartPreviousThreshold || 5;
+		if (videoElement && videoElement.currentTime > threshold) {
+			_handleRestartCurrent();
+			return;
 		}
+		if (_attemptPreviousViaCustomPlaylist()) return;
+		DOMUtils.clickElement(CSS_SELECTORS.previousButton);
+		logger.log('NativePlayer', '[Smart] Previous video button clicked');
 	}
 }
 
@@ -1241,6 +1260,28 @@ function handlePreviousWhenAdPlayingInPlaylist() {
 				return true;
 			}
 		}
+	}
+	return false;
+}
+
+/**
+ * Attempts previous navigation via custom playlist
+ */
+function _attemptPreviousViaCustomPlaylist() {
+	const curId = PageUtils.getCurrentVideoIdFromUrl();
+	const items =
+		ytPlayerInstance &&
+		ytPlayerInstance.options &&
+		ytPlayerInstance.options.currentPlaylist &&
+		Array.isArray(ytPlayerInstance.options.currentPlaylist.items)
+			? ytPlayerInstance.options.currentPlaylist.items
+			: null;
+	if (!items || !items.length || !curId) return false;
+
+	const prevVideo = ytPlayerInstance.getAdjacentVideo(curId, 'backward');
+	if (prevVideo && prevVideo.id) {
+		customPlayer_onPlaylistItemClick(prevVideo.id);
+		return true;
 	}
 	return false;
 }
@@ -1323,7 +1364,14 @@ async function native_handleSkip(resquestByAdSkip = false) {
 
 	// If we're repeating, clear the repeat when skipping to next video
 	if (!resquestByAdSkip) {
-		clearRepeatMode();
+		if (
+			!window.userSettings.repeatStickyAcrossVideos ||
+			!window.userSettings.repeatCurrentlyOn
+		) {
+			clearRepeatMode();
+		} else {
+			repeatIndefinitely = true;
+		}
 	}
 
 	await handlePreemptiveYouTubeButtons();
@@ -1338,7 +1386,7 @@ async function native_handleSkip(resquestByAdSkip = false) {
 		}
 	} else {
 		// Check if there's a "Play Next" video set and play it
-		if (!playNextVideo()) {
+		if (!playNextVideo(true)) {
 			// If no "Play Next" video was set, use default skip behavior
 			DOMUtils.clickElement(CSS_SELECTORS.nextButton);
 			logger.log('NativePlayer', 'Next video button clicked');
@@ -1408,14 +1456,107 @@ function customPlayer_onPlayPauseClick(requestedState, details) {
 /**
  * Handles previous button clicks in the custom player
  */
-function customPlayer_onPreviousClick() {
-	native_handlePrevious();
+function customPlayer_onPreviousClick(actionId) {
+	// Honor explicit "Play Next" reverse only when repeating current; otherwise use shuffle prev when active
+	const activeMixId = window.userSettings.activeMixSnapshotId;
+	if (activeMixId && window.userSettings.mixSnapshots?.[activeMixId]) {
+		const snap = window.userSettings.mixSnapshots[activeMixId];
+		if (snap.shuffleEnabled) {
+			const curId = PageUtils.getCurrentVideoIdFromUrl();
+			const items = snap.items || [];
+			let order = Array.isArray(snap.shuffledOrder) ? snap.shuffledOrder.slice() : null;
+			const itemIds = items.map((it) => it.id);
+			const isOrderValid =
+				order &&
+				order.length === itemIds.length &&
+				order.every((id) => itemIds.includes(id));
+			if (!isOrderValid) {
+				order = itemIds.slice();
+			}
+			const idx = order.indexOf(curId);
+			const prevId = idx > 0 ? order[idx - 1] : null;
+			if (prevId) {
+				const prevItem = items.find((it) => it.id === prevId);
+				if (prevItem?.id) {
+					if (PageUtils.isPlaylistPage() && ytPlayerInstance) {
+						customPlayer_onPlaylistItemClick(prevItem.id);
+						return;
+					} else {
+						_navigateToVideo(prevItem.id);
+						return;
+					}
+				}
+			}
+		}
+	}
+	native_handlePrevious(actionId);
 }
 
 /**
  * Handles skip button clicks in the custom player
  */
 function customPlayer_onSkipClick() {
+	if (DOMHelper.isAdPlaying()) {
+		native_handleSkip();
+		return;
+	}
+	// Honor explicit "Play Next" request first
+	if (nextUpVideoId && nextUpVideoId !== currentVideoId) {
+		if (PageUtils.isPlaylistPage() && ytPlayerInstance) {
+			customPlayer_onPlaylistItemClick(nextUpVideoId);
+			return;
+		} else {
+			_navigateToVideo(nextUpVideoId);
+			return;
+		}
+	}
+	// If active snapshot with shuffle, follow shuffled order
+	{
+		const activeMixId = window.userSettings.activeMixSnapshotId;
+		const snap = activeMixId && (window.userSettings.mixSnapshots || {})[activeMixId];
+		if (snap?.shuffleEnabled) {
+			const items = snap.items || [];
+			const curId = PageUtils.getCurrentVideoIdFromUrl();
+			let order = Array.isArray(snap.shuffledOrder) ? snap.shuffledOrder.slice() : null;
+			const itemIds = items.map((it) => it.id);
+			const isOrderValid =
+				order &&
+				order.length === itemIds.length &&
+				order.every((id) => itemIds.includes(id));
+			if (!isOrderValid) {
+				order = itemIds.slice();
+			}
+			const idx = order.indexOf(curId);
+			const nextId = idx >= 0 ? order[idx + 1] : order[0];
+			if (nextId) {
+				if (PageUtils.isPlaylistPage() && ytPlayerInstance) {
+					customPlayer_onPlaylistItemClick(nextId);
+				} else {
+					_navigateToVideo(nextId);
+				}
+				return;
+			}
+		}
+	}
+	// While repeating, allow skipping forward using helper
+	if (repeatIndefinitely && nextUpVideoId) {
+		if (playNextVideo(true)) return;
+	}
+	const curId = PageUtils.getCurrentVideoIdFromUrl();
+	const items =
+		ytPlayerInstance &&
+		ytPlayerInstance.options &&
+		ytPlayerInstance.options.currentPlaylist &&
+		Array.isArray(ytPlayerInstance.options.currentPlaylist.items)
+			? ytPlayerInstance.options.currentPlaylist.items
+			: null;
+	if (items && items.length && curId) {
+		const nextVideo = ytPlayerInstance.getAdjacentVideo(curId, 'forward');
+		if (nextVideo && nextVideo.id) {
+			customPlayer_onPlaylistItemClick(nextVideo.id);
+			return;
+		}
+	}
 	native_handleSkip();
 }
 
@@ -1433,10 +1574,12 @@ function customPlayer_onRepeatClick(isEnabled) {
 			nextUpVideoId = currentVideoId;
 			ytPlayerInstance._setRepeatCurrent(currentVideoId);
 			logger.log('RepeatButton', `Set repeat for current video: ${currentVideoId}`);
+			window.saveUserSetting?.('repeatCurrentlyOn', true);
 		}
 	} else {
 		// Disable repeat mode
 		clearRepeatMode();
+		window.saveUserSetting?.('repeatCurrentlyOn', false);
 	}
 }
 
@@ -1457,7 +1600,16 @@ function customPlayer_onSeekbarUpdate(newTimePercentage, newTimeSeconds, isFinal
 function customPlayer_onPlaylistItemClick(itemId, manualClick = false) {
 	// If we're repeating and the requested video is different, clear the repeat
 	if (repeatIndefinitely && nextUpVideoId && itemId !== nextUpVideoId) {
-		clearRepeatMode();
+		if (userSettings.repeatStickyAcrossVideos) {
+			nextUpVideoId = itemId;
+			repeatIndefinitely = true;
+			if (ytPlayerInstance) {
+				ytPlayerInstance._setRepeatCurrent(itemId);
+			}
+			window.saveUserSetting?.('repeatCurrentlyOn', true);
+		} else {
+			clearRepeatMode();
+		}
 	}
 
 	// Reset any buffer detection
@@ -1576,6 +1728,11 @@ function customPlayer_onPlayNextSet(videoId, repeats = false) {
 	logger.log('Callbacks', `Play Next set to video: ${videoId}, repeats: ${repeats}`);
 	nextUpVideoId = videoId;
 	repeatIndefinitely = repeats;
+	// Persist request across reloads
+	window.saveUserSetting?.('nextUpVideoId', videoId);
+	if (repeats) {
+		window.saveUserSetting?.('repeatCurrentlyOn', true);
+	}
 
 	if (repeats && currentVideoId !== videoId) playNextVideo();
 }
@@ -1591,34 +1748,140 @@ function clearRepeatMode() {
 		if (ytPlayerInstance) {
 			ytPlayerInstance.clearPlayNext();
 		}
+		window.saveUserSetting?.('repeatCurrentlyOn', false);
 	}
 }
 
 /**
  * Play the next video that was set via "Play Next" context menu
  */
-function playNextVideo() {
+function playNextVideo(allowSkipWhileRepeating = false) {
+	// If an explicit next video has been requested, honor it before snapshot logic
+	if (nextUpVideoId && nextUpVideoId !== currentVideoId) {
+		if (PageUtils.isPlaylistPage()) {
+			logger.log('PlayNext', `Honoring explicit next: ${nextUpVideoId}`);
+			customPlayer_onPlaylistItemClick(nextUpVideoId);
+		} else {
+			_navigateToVideo(nextUpVideoId);
+		}
+		return true;
+	}
+	const activeMixId = window.userSettings.activeMixSnapshotId;
+	let snap = null;
+	let snapType = null;
+	if (activeMixId && window.userSettings.mixSnapshots?.[activeMixId]) {
+		snap = window.userSettings.mixSnapshots[activeMixId];
+		snapType = 'persisted';
+	} else if (
+		activeMixId &&
+		window.userSettings.tempMixSnapshot &&
+		window.userSettings.tempMixSnapshot.id === activeMixId
+	) {
+		snap = window.userSettings.tempMixSnapshot;
+		snapType = 'temp';
+	}
+	if (snap) {
+		const items = snap.items || [];
+		if (items.length) {
+			const curId = PageUtils.getCurrentVideoIdFromUrl();
+			let nextItem = null;
+			if (snap.shuffleEnabled) {
+				let order = Array.isArray(snap.shuffledOrder) ? snap.shuffledOrder.slice() : null;
+				const itemIds = items.map((it) => it.id);
+				const isOrderValid =
+					order &&
+					order.length === itemIds.length &&
+					order.every((id) => itemIds.includes(id));
+				if (!isOrderValid) {
+					order = itemIds.slice();
+					for (let i = order.length - 1; i > 0; i--) {
+						const j = Math.floor(Math.random() * (i + 1));
+						[order[i], order[j]] = [order[j], order[i]];
+					}
+					const startId = curId && itemIds.includes(curId) ? curId : order[0];
+					const startIndex = order.indexOf(startId);
+					if (startIndex > 0) {
+						order = order.slice(startIndex).concat(order.slice(0, startIndex));
+					}
+					if (snapType === 'persisted') {
+						const current = window.userSettings.mixSnapshots || {};
+						const updated = Object.assign({}, current);
+						if (updated[activeMixId]) {
+							updated[activeMixId] = Object.assign({}, updated[activeMixId], {
+								shuffledOrder: order,
+								shuffleStartId: order[0],
+							});
+							window.saveUserSetting?.('mixSnapshots', updated);
+						}
+					} else {
+						const updatedTemp = Object.assign({}, snap, {
+							shuffledOrder: order,
+							shuffleStartId: order[0],
+						});
+						window.saveUserSetting?.('tempMixSnapshot', updatedTemp);
+					}
+				}
+				const idx = order.indexOf(curId);
+				const nextId = idx >= 0 ? order[idx + 1] : order[0];
+				nextItem = nextId ? items.find((it) => it.id === nextId) : null;
+				if (!nextItem && snap.loopEnabled) {
+					const firstId = order[0];
+					nextItem = firstId ? items.find((it) => it.id === firstId) : null;
+				}
+			} else {
+				const idx = items.findIndex((it) => it.id === curId);
+				nextItem = idx >= 0 ? items[idx + 1] : items[0];
+				if (!nextItem && snap.loopEnabled) {
+					nextItem = items[0];
+				}
+			}
+			if (nextItem?.id) {
+				nextUpVideoId = nextItem.id;
+				const fullUrl = `https://m.youtube.com/watch?v=${nextItem.id}`;
+				window.location.href = fullUrl;
+				return true;
+			}
+		}
+	}
 	if (!nextUpVideoId) {
 		logger.log('PlayNext', 'No next video set, using default next video logic.');
 		return false;
 	}
 
 	if (repeatIndefinitely && nextUpVideoId === currentVideoId) {
-		logger.log('PlayNext', 'Repeating current video');
-		_handleRestartCurrent();
+		if (!allowSkipWhileRepeating) {
+			logger.log('PlayNext', 'Repeating current video');
+			_handleRestartCurrent();
 
-		// Backup method: If page navigates away, force navigation back to current video
-		setTimeout(() => {
-			const currentUrlVideoId = PageUtils.getCurrentVideoIdFromUrl();
-			if (currentUrlVideoId !== currentVideoId && repeatIndefinitely) {
-				logger.log(
-					'PlayNext',
-					`Page navigated away during repeat (${currentUrlVideoId} !== ${currentVideoId}), forcing navigation back`
-				);
-				_navigateToVideo(currentVideoId);
+			// Backup method: If page navigates away, force navigation back to current video
+			setTimeout(() => {
+				const currentUrlVideoId = PageUtils.getCurrentVideoIdFromUrl();
+				if (currentUrlVideoId !== currentVideoId && repeatIndefinitely) {
+					logger.log(
+						'PlayNext',
+						`Page navigated away during repeat (${currentUrlVideoId} !== ${currentVideoId}), forcing navigation back`
+					);
+					_navigateToVideo(currentVideoId);
+				}
+			}, 1000); // Check after 1 second
+
+			return true;
+		}
+
+		// Allow skipping forward while repeating (sticky repeat)
+		logger.log('PlayNext', 'Skip requested while repeating - moving to next video');
+		if (PageUtils.isPlaylistPage() && ytPlayerInstance) {
+			const nextVideo = ytPlayerInstance.getAdjacentVideo(currentVideoId, 'forward');
+			if (nextVideo?.id) {
+				nextUpVideoId = nextVideo.id;
+				ytPlayerInstance._setRepeatCurrent(nextUpVideoId);
+				customPlayer_onPlaylistItemClick(nextUpVideoId);
+				return true;
 			}
-		}, 1000); // Check after 1 second
+		}
 
+		// Fallback: click native next button
+		DOMUtils.clickElement(CSS_SELECTORS.nextButton);
 		return true;
 	}
 
@@ -1633,19 +1896,108 @@ function playNextVideo() {
 			ytPlayerInstance.clearPlayNext();
 		}
 		nextUpVideoId = null;
+		window.saveUserSetting?.('nextUpVideoId', null);
 	}
 
 	return true;
 }
 
+function _resetActiveMixSnapshotIfInvalid() {
+	const activeId = window.userSettings.activeMixSnapshotId;
+	if (!activeId) return;
+	if (!PageUtils.isVideoWatchPage()) {
+		window.saveUserSetting('activeMixSnapshotId', null);
+		if (window.userSettings.tempMixSnapshot) {
+			window.saveUserSetting('tempMixSnapshot', null);
+		}
+		return;
+	}
+	const urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.get('list')) {
+		window.saveUserSetting('activeMixSnapshotId', null);
+		if (window.userSettings.tempMixSnapshot) {
+			window.saveUserSetting('tempMixSnapshot', null);
+		}
+		return;
+	}
+	let snap = (window.userSettings.mixSnapshots || {})[activeId];
+	if (!snap && window.userSettings.tempMixSnapshot?.id === activeId) {
+		snap = window.userSettings.tempMixSnapshot;
+	}
+	if (!snap || !Array.isArray(snap.items) || !snap.items.length) {
+		window.saveUserSetting('activeMixSnapshotId', null);
+		return;
+	}
+	const curId = PageUtils.getCurrentVideoIdFromUrl();
+	if (!curId || !snap.items.some((it) => it.id === curId)) {
+		window.saveUserSetting('activeMixSnapshotId', null);
+	}
+}
+function createMixSnapshotFromCurrentMix() {
+	const listId = PageUtils.getCurrentPlaylistIdFromUrl();
+	if (!listId || !ytPlayerInstance) return false;
+	const cached = ytPlayerInstance.getCachedPlaylistData();
+	const items = (cached.items || []).map((item) => ({
+		id: item.id,
+		title: item.title,
+		artist: item.artist,
+		duration: item.duration,
+	}));
+	const title = ytPlayerInstance.options.currentPlaylist?.title || '';
+	const snapshot = {
+		id: listId,
+		title,
+		createdAt: Date.now(),
+		items,
+		loopEnabled: false,
+		shuffleEnabled: false,
+		shuffledOrder: null,
+		shuffleStartId: null,
+	};
+	const current = window.userSettings.mixSnapshots || {};
+	const updated = Object.assign({}, current, { [listId]: snapshot });
+	window.saveUserSetting('mixSnapshots', updated);
+	return true;
+}
+
+function startPlayingMixSnapshot(mixId) {
+	const snapshots = window.userSettings.mixSnapshots || {};
+	const snap = snapshots[mixId];
+	if (!snap || !snap.items?.length) return false;
+	window.saveUserSetting('activeMixSnapshotId', mixId);
+	const currentId = PageUtils.getCurrentVideoIdFromUrl();
+	const items = snap.items;
+	let index = items.findIndex((it) => it.id === currentId);
+	if (index === -1) index = 0;
+	const target = items[index];
+	if (currentId !== target.id) {
+		const fullUrl = `https://m.youtube.com/watch?v=${target.id}`;
+		window.location.href = fullUrl;
+	}
+	return true;
+}
+
+// expose snapshot helpers
+window.createMixSnapshotFromCurrentMix = createMixSnapshotFromCurrentMix;
+window.startPlayingMixSnapshot = startPlayingMixSnapshot;
+
 // --- Enhanced Voice Search Handling ---
+
+function isVoiceSearchEnabledByLayout() {
+	return Object.keys(window.userSettings || {}).some((key) => {
+		if (!key.startsWith('layoutBottom') && !key.startsWith('layoutNavbarRight')) {
+			return false;
+		}
+		return window.userSettings[key] === 'voice-search';
+	});
+}
 
 /**
  * Handles voice search button clicks in the custom player
  * @param {string} requestedState - The requested voice search state ('listening' or 'normal')
  */
 async function customPlayer_onVoiceSearchClick(requestedState) {
-	if (!window.userSettings.showVoiceSearchButton || !ytPlayerInstance) return;
+	if (!isVoiceSearchEnabledByLayout() || !ytPlayerInstance) return;
 
 	const dialog = DOMUtils.getElement(CSS_SELECTORS.voiceSearchDialog);
 	if (requestedState === 'listening') {
@@ -1700,7 +2052,7 @@ function handleVoiceSearchDialogChanges() {
 		);
 		document.body.classList.add('yt-native-search-dialog');
 
-		if (ytPlayerInstance && window.userSettings.showVoiceSearchButton) {
+		if (ytPlayerInstance && isVoiceSearchEnabledByLayout()) {
 			ytPlayerInstance.setVoiceSearchState('listening'); // Initial state when dialog opens
 			logger.log(
 				'VoiceSearch',
@@ -1724,7 +2076,7 @@ function handleVoiceSearchDialogChanges() {
 		);
 		document.body.classList.remove('yt-native-search-dialog');
 
-		if (ytPlayerInstance && window.userSettings.showVoiceSearchButton) {
+		if (ytPlayerInstance && isVoiceSearchEnabledByLayout()) {
 			ytPlayerInstance.setVoiceSearchState('normal'); // Reset state when dialog closes
 			logger.log('VoiceSearch', "Set custom voice search state to 'normal' (dialog closed).");
 
@@ -1745,7 +2097,7 @@ function handleVoiceSearchDialogChanges() {
  * @param {Element} voiceDialog - The voice dialog element to observe
  */
 async function setupVoiceDialogStateObserver(voiceDialog) {
-	if (!window.userSettings.showVoiceSearchButton || !ytPlayerInstance || !voiceDialog) {
+	if (!isVoiceSearchEnabledByLayout() || !ytPlayerInstance || !voiceDialog) {
 		logger.log(
 			'VoiceSearch',
 			'Skipping voice dialog state observer setup: prerequisites not met.'
@@ -2325,6 +2677,21 @@ async function setupCustomPlayerPageObservers() {
 			// Video about to end, handle repeat play
 			if (videoElement.currentTime >= videoElement.duration - 1 && repeatIndefinitely) {
 				playNextVideo();
+				return;
+			}
+			// Video about to end, honor explicit "Play Next" when set
+			if (
+				videoElement.currentTime >= videoElement.duration - 1 &&
+				!repeatIndefinitely &&
+				nextUpVideoId &&
+				nextUpVideoId !== currentVideoId
+			) {
+				if (PageUtils.isPlaylistPage() && ytPlayerInstance) {
+					customPlayer_onPlaylistItemClick(nextUpVideoId);
+				} else {
+					_navigateToVideo(nextUpVideoId);
+				}
+				return;
 			}
 		},
 		onPlay: () => {
@@ -2376,7 +2743,8 @@ async function setupCustomPlayerPageObservers() {
 			handlePreemptiveAdMuting(true);
 			//}
 
-			if (!PageUtils.isPlaylistPage()) playNextVideo();
+			if (!PageUtils.isPlaylistPage() || window.userSettings.activeMixSnapshotId)
+				playNextVideo();
 		},
 		onLoadedData: async () => {
 			logger.log('Observers', "Video 'loadeddata' event fired.");
@@ -2620,6 +2988,28 @@ function handleNativePlaylistChanges() {
 					playlistUpdateDebounceTimer = setTimeout(() => {
 						if (!ytPlayerInstance || !ytPlayerInstance.isPlayerVisible) return;
 
+						// If a mix snapshot is active, do not override it with native playlist updates
+						const activeSnapshotId = window.userSettings.activeMixSnapshotId;
+						let activeSnapshot =
+							activeSnapshotId &&
+							(window.userSettings.mixSnapshots || {})[activeSnapshotId];
+						if (!activeSnapshot && window.userSettings.tempMixSnapshot) {
+							const tmp = window.userSettings.tempMixSnapshot;
+							if (tmp && tmp.id === activeSnapshotId) {
+								activeSnapshot = tmp;
+							}
+						}
+						if (
+							activeSnapshot &&
+							Array.isArray(activeSnapshot.items) &&
+							activeSnapshot.items.length
+						) {
+							logger.log(
+								'Observers',
+								'Active mix snapshot detected; skipping native playlist update.'
+							);
+							return;
+						}
 						logger.log('Observers', 'Debounced playlist update triggered.');
 						const data = getPlaylistItemsFromPage();
 						if (data.items.length === 0) {
@@ -2832,9 +3222,40 @@ async function manageCustomPlayerLifecycle() {
 
 				// Make ytPlayerInstance globally accessible
 				window.ytPlayerInstance = ytPlayerInstance;
+				if (
+					window.userSettings.repeatStickyAcrossVideos &&
+					window.userSettings.repeatCurrentlyOn
+				) {
+					repeatIndefinitely = true;
+					nextUpVideoId = currentVideoId;
+					if (ytPlayerInstance) {
+						ytPlayerInstance._setRepeatCurrent(currentVideoId);
+					}
+				}
 
 				// Initialize playlist with proper data immediately
-				if (PageUtils.isPlaylistPage()) {
+				// Prefer an active mix snapshot when available
+				const activeSnapshotId = window.userSettings.activeMixSnapshotId;
+				let activeSnapshot =
+					activeSnapshotId && (window.userSettings.mixSnapshots || {})[activeSnapshotId];
+				if (!activeSnapshot && window.userSettings.tempMixSnapshot) {
+					const tmp = window.userSettings.tempMixSnapshot;
+					if (tmp && tmp.id === activeSnapshotId) {
+						activeSnapshot = tmp;
+					}
+				}
+				if (
+					activeSnapshot &&
+					Array.isArray(activeSnapshot.items) &&
+					activeSnapshot.items.length
+				) {
+					const title = activeSnapshot.title || 'Mix Snapshot';
+					ytPlayerInstance.updatePlaylist(activeSnapshot.items, activeSnapshot.id, title);
+					// Align active item with current video immediately if present
+					if (newVideoId) {
+						ytPlayerInstance.setActivePlaylistItem(newVideoId);
+					}
+				} else if (PageUtils.isPlaylistPage()) {
 					const playlistData = getPlaylistItemsFromPage();
 					ytPlayerInstance.updatePlaylist(
 						playlistData.items,
@@ -2843,6 +3264,35 @@ async function manageCustomPlayerLifecycle() {
 					);
 				} else {
 					ytPlayerInstance.updatePlaylist(null, null);
+				}
+				if (
+					window.userSettings.repeatStickyAcrossVideos &&
+					window.userSettings.repeatCurrentlyOn &&
+					currentVideoId &&
+					ytPlayerInstance
+				) {
+					repeatIndefinitely = true;
+					nextUpVideoId = currentVideoId;
+					ytPlayerInstance._setRepeatCurrent(currentVideoId);
+				}
+				// Restore "Play Next" or "Repeat Current" selection if present
+				const savedNext = window.userSettings.nextUpVideoId;
+				if (savedNext && ytPlayerInstance?.options.currentPlaylist?.items?.length) {
+					const exists = ytPlayerInstance.options.currentPlaylist.items.some(
+						(it) => String(it.id) === String(savedNext)
+					);
+					if (exists) {
+						nextUpVideoId = savedNext;
+						if (
+							window.userSettings.repeatStickyAcrossVideos &&
+							window.userSettings.repeatCurrentlyOn
+						) {
+							repeatIndefinitely = true;
+							ytPlayerInstance._setRepeatCurrent(savedNext);
+						} else {
+							ytPlayerInstance._setPlayNext(savedNext, false);
+						}
+					}
 				}
 
 				document.body.appendChild(ytPlayerInstance.playerWrapper);
@@ -2857,6 +3307,15 @@ async function manageCustomPlayerLifecycle() {
 					);
 					currentVideoId = newVideoId;
 					initialAutoplayDoneForCurrentVideo = false;
+					if (
+						window.userSettings.repeatStickyAcrossVideos &&
+						window.userSettings.repeatCurrentlyOn &&
+						ytPlayerInstance
+					) {
+						repeatIndefinitely = true;
+						nextUpVideoId = currentVideoId;
+						ytPlayerInstance._setRepeatCurrent(currentVideoId);
+					}
 
 					let detailsFromCache = null;
 					if (
@@ -2957,6 +3416,12 @@ async function manageCustomPlayerLifecycle() {
 			manualDrawerTargetHeightThisSession = null;
 			document.body.classList.remove('yt-custom-controls-drawn');
 		}
+		if (window.userSettings.activeMixSnapshotId) {
+			window.saveUserSetting('activeMixSnapshotId', null);
+			if (window.userSettings.tempMixSnapshot) {
+				window.saveUserSetting('tempMixSnapshot', null);
+			}
+		}
 	}
 }
 
@@ -2986,10 +3451,7 @@ async function manageCustomNavbarLifecycle() {
 			showPlaylists: window.userSettings.navbarShowPlaylists,
 			showLive: window.userSettings.navbarShowLive,
 			showMusic: window.userSettings.navbarShowMusic,
-			showTextSearch: window.userSettings.navbarShowTextSearch,
-			showVoiceSearch: window.userSettings.navbarShowVoiceSearch,
 			showHomeButton: window.userSettings.navbarShowHomeButton,
-			showFavourites: window.userSettings.navbarShowFavourites,
 			enableDebugLogging: window.userSettings.enableDebugLogging,
 		});
 	}
@@ -3123,7 +3585,7 @@ async function manageFeatures() {
 			window.userSettings.customPlaylistMode !== 'disabled',
 		'yt-auto-continue-active': window.userSettings.autoClickContinueWatching,
 		'yt-custom-voice-search-active':
-			window.userSettings.enableCustomPlayer && window.userSettings.showVoiceSearchButton,
+			window.userSettings.enableCustomPlayer && isVoiceSearchEnabledByLayout(),
 		'yt-playlist-light': window.userSettings.playlistColorMode === 'light',
 		'yt-playlist-dark': window.userSettings.playlistColorMode === 'dark',
 		'yt-hide-video-player': window.userSettings.hideVideoPlayer,
@@ -3220,6 +3682,8 @@ function initializeEventListenersAndObservers() {
 					}
 				}
 
+				_resetActiveMixSnapshotIfInvalid();
+
 				await manageFeatures();
 				applyTheme();
 			} else {
@@ -3314,15 +3778,25 @@ function initializeEventListenersAndObservers() {
 								'enableCustomPlayer',
 								'defaultPlayerLayout',
 								'customPlaylistMode',
-								'showVoiceSearchButton',
 								'enableCustomNavbar',
-								'showRepeatButton',
 								'hideVideoPlayer',
 								'enableLimitedHeightMode',
 								'hideNavbarInLimitedHeightMode',
 								'enableHorizontalPlaylistBelowVideo',
 								'horizontalPlaylistDetailsInHeaderControls',
 								'enableFixedVideoHeight',
+								'layoutBottomLeftSlot1',
+								'layoutBottomCenterSlot1',
+								'layoutBottomCenterSlot2',
+								'layoutBottomCenterSlot3',
+								'layoutBottomCenterSlot4',
+								'layoutBottomCenterSlot5',
+								'layoutBottomRightSlot1',
+								'layoutBottomRightSlot2',
+								'layoutDrawerHeaderSlot1',
+								'layoutDrawerHeaderSlot2',
+								'layoutDrawerHeaderSlot3',
+								'layoutDrawerHeaderSlot4',
 							];
 							if (rebuildSettings.includes(key)) {
 								playerRebuildNeeded = true;
@@ -3371,10 +3845,11 @@ function initializeEventListenersAndObservers() {
 											currentAccentColorIndex = 0;
 										}
 									},
-									showPreviousButton: () =>
-										ytPlayerInstance.setButtonVisibility('Previous', newValue),
-									showSkipButton: () =>
-										ytPlayerInstance.setButtonVisibility('Skip', newValue),
+									seekSkipSeconds: () => {
+										if (ytPlayerInstance && ytPlayerInstance.options) {
+											ytPlayerInstance.options.seekSkipSeconds = newValue;
+										}
+									},
 									customPlayerFontMultiplier: () =>
 										ytPlayerInstance.setFontSizeMultiplier(newValue),
 									playlistItemDensity: () =>
@@ -3403,6 +3878,10 @@ function initializeEventListenersAndObservers() {
 										ytPlayerInstance.setGesturesEnabled(newValue),
 									gestureSensitivity: () =>
 										ytPlayerInstance.setGestureSensitivity(newValue),
+									bottomControlsDoubleClickDelay: () =>
+										ytPlayerInstance.setBottomControlsDoubleClickDelay(
+											newValue
+										),
 									enableDebugLogging: () => {
 										if (ytPlayerInstance && ytPlayerInstance.options) {
 											ytPlayerInstance.options.enableDebugLogging = newValue;
@@ -3445,6 +3924,42 @@ function initializeEventListenersAndObservers() {
 											ytPlayerInstance.setTitleContrastMode(newValue);
 										}
 									},
+									horizontalPlaylistAlignment: () => {
+										if (ytPlayerInstance && ytPlayerInstance.options) {
+											ytPlayerInstance.options.horizontalPlaylistAlignment =
+												newValue;
+											ytPlayerInstance._updateBodyDrawerState();
+										}
+									},
+									verticalPlaylistAlignment: () => {
+										if (ytPlayerInstance && ytPlayerInstance.options) {
+											ytPlayerInstance.options.verticalPlaylistAlignment =
+												newValue;
+											ytPlayerInstance._updateBodyDrawerState();
+										}
+									},
+									repeatStickyAcrossVideos: () => {
+										if (
+											newValue === true &&
+											ytPlayerInstance &&
+											currentVideoId &&
+											window.userSettings.repeatCurrentlyOn
+										) {
+											repeatIndefinitely = true;
+											nextUpVideoId = currentVideoId;
+											ytPlayerInstance._setRepeatCurrent(currentVideoId);
+										}
+									},
+									snapshotSplashMode: () => {
+										try {
+											window.sessionStorage?.setItem(
+												'mc_snapshotSplashMode',
+												String(newValue)
+											);
+										} catch (error) {
+											void error;
+										}
+									},
 								};
 
 								// Handle navbar settings
@@ -3453,10 +3968,14 @@ function initializeEventListenersAndObservers() {
 									'navbarShowPlaylists',
 									'navbarShowLive',
 									'navbarShowMusic',
-									'navbarShowTextSearch',
-									'navbarShowVoiceSearch',
-									'navbarShowFavourites',
-									'navbarShowVideoToggle',
+									'navbarShowHomeButton',
+									'navbarRightSlots',
+									'navbarRightSlotCount',
+									'layoutNavbarRightSlot1',
+									'layoutNavbarRightSlot2',
+									'layoutNavbarRightSlot3',
+									'layoutNavbarRightSlot4',
+									'layoutNavbarRightSlot5',
 								];
 								if (navbarSettings.includes(key) && ytNavbarInstance) {
 									const linkOptions = {
@@ -3464,11 +3983,7 @@ function initializeEventListenersAndObservers() {
 										showPlaylists: window.userSettings.navbarShowPlaylists,
 										showLive: window.userSettings.navbarShowLive,
 										showMusic: window.userSettings.navbarShowMusic,
-										showTextSearch: window.userSettings.navbarShowTextSearch,
-										showVoiceSearch: window.userSettings.navbarShowVoiceSearch,
 										showHomeButton: window.userSettings.navbarShowHomeButton,
-										showFavourites: window.userSettings.navbarShowFavourites,
-										showVideoToggle: window.userSettings.navbarShowVideoToggle,
 									};
 									ytNavbarInstance.updateLinks(linkOptions);
 								}

@@ -601,6 +601,510 @@ function updateControlStates() {
 	}
 }
 
+function getNavbarRightActionOptions() {
+	return [
+		{ value: 'none', label: 'None' },
+		{ value: 'play', label: 'Play/Pause' },
+		{ value: 'previous', label: 'Previous' },
+		{ value: 'restart-then-previous', label: 'Restart then Previous' },
+		{ value: 'skip', label: 'Next' },
+		{ value: 'seek-back', label: 'Seek Back' },
+		{ value: 'seek-forward', label: 'Seek Forward' },
+		{ value: 'repeat', label: 'Repeat' },
+		{ value: 'text-search', label: 'Text Search' },
+		{ value: 'voice-search', label: 'Voice Search' },
+		{ value: 'favourites', label: 'Favourites' },
+		{ value: 'video-toggle', label: 'Video Toggle' },
+		{ value: 'debug-logs', label: 'Debug Logs (Visible when Debug Mode is enabled)' },
+	];
+}
+
+function getBottomControlsGestureActionOptions() {
+	return [
+		{ value: 'none', label: 'None' },
+		{ value: 'repeat', label: 'Repeat' },
+		{ value: 'seek-back', label: 'Seek Back' },
+		{ value: 'previous', label: 'Previous' },
+		{ value: 'restart-then-previous', label: 'Restart then Previous' },
+		{ value: 'play', label: 'Play/Pause' },
+		{ value: 'skip', label: 'Next' },
+		{ value: 'seek-forward', label: 'Seek Forward' },
+		{ value: 'voice-search', label: 'Voice Search' },
+		{ value: 'limited-height-fab', label: 'Limited Height Menu' },
+		{ value: 'text-search', label: 'Text Search' },
+		{ value: 'favourites', label: 'Favourites' },
+		{ value: 'video-toggle', label: 'Video Toggle' },
+		{ value: 'debug-logs', label: 'Debug Logs' },
+	];
+}
+
+function populateSelectWithOptions(select, options) {
+	if (!select) return;
+	const currentValue = select.value;
+	while (select.firstChild) {
+		select.removeChild(select.firstChild);
+	}
+	options.forEach((opt) => {
+		const option = document.createElement('option');
+		option.value = opt.value;
+		option.textContent = opt.label;
+		select.appendChild(option);
+	});
+	if (currentValue) {
+		select.value = currentValue;
+	}
+}
+
+function initLegacyBottomControlsGestureSelects() {
+	const options = getBottomControlsGestureActionOptions();
+	const ids = new Set(BOTTOM_CONTROL_SLOT_SPECS.flatMap((s) => [s.doubleId, s.holdId]));
+	ids.forEach((id) => {
+		const select = document.getElementById(id);
+		if (!select) return;
+		if (select.options && select.options.length > 0) return;
+		populateSelectWithOptions(select, options);
+	});
+}
+
+function readNavbarRightSlotsFromUI() {
+	const list = document.getElementById('navbar-right-slots-list');
+	if (!list) return null;
+	return Array.from(list.querySelectorAll('select[data-navbar-right-slot]')).map(
+		(el) => el.value
+	);
+}
+
+function renderNavbarRightSlots(slots) {
+	const list = document.getElementById('navbar-right-slots-list');
+	const noSlotsMessage = document.getElementById('no-navbar-right-slots');
+	if (!list) return;
+
+	while (list.firstChild) {
+		list.removeChild(list.firstChild);
+	}
+
+	if (!Array.isArray(slots) || slots.length === 0) {
+		showElement(noSlotsMessage);
+		return;
+	}
+
+	hideElement(noSlotsMessage);
+
+	const options = getNavbarRightActionOptions();
+	slots.forEach((actionId, index) => {
+		const slotItem = document.createElement('div');
+		slotItem.className = 'blacklisted-video-item';
+
+		const slotInfo = document.createElement('div');
+		slotInfo.className = 'blacklisted-video-info';
+
+		const slotLabel = document.createElement('div');
+		slotLabel.className = 'blacklisted-video-id';
+		slotLabel.textContent = `Slot ${index + 1}`;
+
+		const selectWrapper = document.createElement('div');
+		selectWrapper.className = 'select-wrapper';
+
+		const select = document.createElement('select');
+		select.setAttribute('data-navbar-right-slot', String(index));
+
+		options.forEach((opt) => {
+			const option = document.createElement('option');
+			option.value = opt.value;
+			option.textContent = opt.label;
+			select.appendChild(option);
+		});
+
+		select.value = typeof actionId === 'string' ? actionId : 'none';
+
+		selectWrapper.appendChild(select);
+		slotInfo.appendChild(slotLabel);
+		slotInfo.appendChild(selectWrapper);
+
+		const removeButton = document.createElement('button');
+		removeButton.className = 'blacklisted-video-remove';
+		removeButton.textContent = '✕';
+		removeButton.setAttribute('aria-label', `Remove slot ${index + 1}`);
+		removeButton.setAttribute('title', `Remove slot ${index + 1}`);
+		removeButton.addEventListener('click', () => {
+			const current = readNavbarRightSlotsFromUI() || [];
+			current.splice(index, 1);
+			renderNavbarRightSlots(current);
+			save_options();
+		});
+
+		slotItem.appendChild(slotInfo);
+		slotItem.appendChild(removeButton);
+		list.appendChild(slotItem);
+	});
+}
+
+let navbarRightSlotsEditorInitialized = false;
+function initNavbarRightSlotsEditor(slots) {
+	const addButton = document.getElementById('add-navbar-right-slot');
+	const clearButton = document.getElementById('clear-navbar-right-slots');
+	const list = document.getElementById('navbar-right-slots-list');
+	if (!list) return;
+
+	if (!navbarRightSlotsEditorInitialized) {
+		list.addEventListener('change', (e) => {
+			if (e.target && e.target.matches('select[data-navbar-right-slot]')) {
+				save_options();
+			}
+		});
+		if (addButton) {
+			addButton.addEventListener('click', () => {
+				const current = readNavbarRightSlotsFromUI() || [];
+				current.push('none');
+				renderNavbarRightSlots(current);
+				save_options();
+			});
+		}
+		if (clearButton) {
+			clearButton.addEventListener('click', () => {
+				const confirmed = confirm(
+					'Are you sure you want to clear all navbar right controls?'
+				);
+				if (!confirmed) return;
+				renderNavbarRightSlots([]);
+				save_options();
+			});
+		}
+		navbarRightSlotsEditorInitialized = true;
+	}
+
+	renderNavbarRightSlots(Array.isArray(slots) ? slots : []);
+}
+
+const BOTTOM_CONTROL_SLOT_SPECS = [
+	{
+		label: 'Left Slot 1',
+		tapId: 'layoutBottomLeftSlot1',
+		doubleId: 'layoutBottomLeftSlot1DoubleAction',
+		holdId: 'layoutBottomLeftSlot1HoldAction',
+	},
+	{
+		label: 'Center Slot 1',
+		tapId: 'layoutBottomCenterSlot1',
+		doubleId: 'layoutBottomCenterSlot1DoubleAction',
+		holdId: 'layoutBottomCenterSlot1HoldAction',
+	},
+	{
+		label: 'Center Slot 2',
+		tapId: 'layoutBottomCenterSlot2',
+		doubleId: 'layoutBottomCenterSlot2DoubleAction',
+		holdId: 'layoutBottomCenterSlot2HoldAction',
+	},
+	{
+		label: 'Center Slot 3',
+		tapId: 'layoutBottomCenterSlot3',
+		doubleId: 'layoutBottomCenterSlot3DoubleAction',
+		holdId: 'layoutBottomCenterSlot3HoldAction',
+	},
+	{
+		label: 'Center Slot 4',
+		tapId: 'layoutBottomCenterSlot4',
+		doubleId: 'layoutBottomCenterSlot4DoubleAction',
+		holdId: 'layoutBottomCenterSlot4HoldAction',
+	},
+	{
+		label: 'Center Slot 5',
+		tapId: 'layoutBottomCenterSlot5',
+		doubleId: 'layoutBottomCenterSlot5DoubleAction',
+		holdId: 'layoutBottomCenterSlot5HoldAction',
+	},
+	{
+		label: 'Right Slot 1',
+		tapId: 'layoutBottomRightSlot1',
+		doubleId: 'layoutBottomRightSlot1DoubleAction',
+		holdId: 'layoutBottomRightSlot1HoldAction',
+	},
+	{
+		label: 'Right Slot 2',
+		tapId: 'layoutBottomRightSlot2',
+		doubleId: 'layoutBottomRightSlot2DoubleAction',
+		holdId: 'layoutBottomRightSlot2HoldAction',
+	},
+];
+
+function getSelectValueLabel(selectEl) {
+	if (!selectEl) return 'None';
+	const value = selectEl.value;
+	const option = Array.from(selectEl.options || []).find((opt) => opt.value === value);
+	return option?.textContent || value || 'None';
+}
+
+const BOTTOM_CONTROL_ACTION_ICON_SVGS = {
+	play: {
+		viewBox: '0 0 24 24',
+		paths: ['M8 5v14l11-7z'],
+	},
+	previous: {
+		viewBox: '0 0 24 24',
+		paths: ['M6 6h2v12H6zm3.5 6l8.5 6V6z'],
+	},
+	'restart-then-previous': {
+		viewBox: '0 0 24 24',
+		paths: [
+			'M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6s-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8S16.42 4 12 4z',
+		],
+	},
+	skip: {
+		viewBox: '0 0 24 24',
+		paths: ['M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z'],
+	},
+	'seek-back': {
+		viewBox: '0 0 24 24',
+		paths: ['M11 18l-6.5-6L11 6v12zM19 18l-6.5-6L19 6v12z'],
+	},
+	'seek-forward': {
+		viewBox: '0 0 24 24',
+		paths: ['M13 6l6.5 6L13 18V6zM5 6l6.5 6L5 18V6z'],
+	},
+	repeat: {
+		viewBox: '0 0 24 24',
+		paths: ['M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z'],
+	},
+	'voice-search': {
+		viewBox: '0 0 24 24',
+		paths: [
+			'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z',
+			'M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z',
+		],
+	},
+	'limited-height-fab': {
+		viewBox: '0 0 24 24',
+		paths: ['M3 18h18v-2H3v2z', 'M3 13h18v-2H3v2z', 'M3 8h18V6H3z'],
+	},
+};
+
+function createActionIconSVG(actionId) {
+	if (!actionId || actionId === 'none') return null;
+	const normalized = actionId === 'repeat-show-when-active' ? 'repeat' : actionId;
+	const def = BOTTOM_CONTROL_ACTION_ICON_SVGS[normalized];
+	if (!def) return null;
+
+	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	svg.setAttribute('viewBox', def.viewBox);
+	svg.setAttribute('aria-hidden', 'true');
+	def.paths.forEach((d) => {
+		const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		path.setAttribute('d', d);
+		svg.appendChild(path);
+	});
+	return svg;
+}
+
+function syncSelectOptions(fromSelect, toSelect) {
+	if (!fromSelect || !toSelect) return;
+	while (toSelect.firstChild) {
+		toSelect.removeChild(toSelect.firstChild);
+	}
+	Array.from(fromSelect.options || []).forEach((opt) => {
+		const next = document.createElement('option');
+		next.value = opt.value;
+		next.textContent = opt.textContent;
+		toSelect.appendChild(next);
+	});
+}
+
+function dispatchChange(el) {
+	if (!el) return;
+	el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function appendBottomControlsActionLine(container, kindLabel, selectEl) {
+	if (!container || !selectEl) return;
+	const actionId = selectEl.value;
+	if (!actionId || actionId === 'none') return;
+	const line = document.createElement('div');
+	line.className = 'bottom-controls-slot-action';
+
+	const kind = document.createElement('div');
+	kind.className = 'bottom-controls-slot-action-kind';
+	kind.textContent = `${kindLabel}:`;
+
+	const iconWrap = document.createElement('div');
+	iconWrap.className = 'bottom-controls-slot-action-icon';
+	const svg = createActionIconSVG(actionId);
+	if (svg) iconWrap.appendChild(svg);
+
+	const label = document.createElement('div');
+	label.className = 'bottom-controls-slot-action-label';
+	label.textContent = getSelectValueLabel(selectEl);
+
+	line.appendChild(kind);
+	line.appendChild(iconWrap);
+	line.appendChild(label);
+	container.appendChild(line);
+}
+
+function renderBottomControlsActionsList() {
+	const list = document.getElementById('bottom-controls-actions-list');
+	if (!list) return;
+
+	while (list.firstChild) {
+		list.removeChild(list.firstChild);
+	}
+
+	BOTTOM_CONTROL_SLOT_SPECS.forEach((spec, index) => {
+		const tapEl = document.getElementById(spec.tapId);
+		const doubleEl = document.getElementById(spec.doubleId);
+		const holdEl = document.getElementById(spec.holdId);
+
+		const row = document.createElement('div');
+		row.className = 'blacklisted-video-item bottom-controls-slot-item';
+
+		const info = document.createElement('div');
+		info.className = 'blacklisted-video-info';
+
+		const label = document.createElement('div');
+		label.className = 'blacklisted-video-id';
+		label.textContent = spec.label;
+
+		const summary = document.createElement('div');
+		summary.className = 'bottom-controls-slot-actions';
+		appendBottomControlsActionLine(summary, 'Tap', tapEl);
+		appendBottomControlsActionLine(summary, 'Double', doubleEl);
+		appendBottomControlsActionLine(summary, 'Hold', holdEl);
+		if (!summary.firstChild) {
+			const empty = document.createElement('div');
+			empty.className = 'bottom-controls-slot-empty';
+			empty.textContent = 'No actions configured';
+			summary.appendChild(empty);
+		}
+
+		info.appendChild(label);
+		info.appendChild(summary);
+
+		const editButton = document.createElement('button');
+		editButton.className = 'clear-all-button';
+		editButton.type = 'button';
+		editButton.textContent = 'Edit';
+		editButton.setAttribute('data-bottom-controls-slot-index', String(index));
+
+		row.appendChild(info);
+		row.appendChild(editButton);
+		list.appendChild(row);
+	});
+}
+
+let bottomControlsEditorInitialized = false;
+function initBottomControlsActionsEditor() {
+	const list = document.getElementById('bottom-controls-actions-list');
+	const overlay = document.getElementById('bottom-controls-editor-overlay');
+	const title = document.getElementById('bottom-controls-editor-title');
+	const closeBtn = document.getElementById('bottom-controls-editor-close');
+	const cancelBtn = document.getElementById('bottom-controls-editor-cancel');
+	const saveBtn = document.getElementById('bottom-controls-editor-save');
+	const tapSelect = document.getElementById('bottom-controls-editor-tap');
+	const doubleSelect = document.getElementById('bottom-controls-editor-double');
+	const holdSelect = document.getElementById('bottom-controls-editor-hold');
+
+	if (!list || !overlay || !title || !closeBtn || !cancelBtn || !saveBtn) return;
+	if (!tapSelect || !doubleSelect || !holdSelect) return;
+
+	const modal = overlay.querySelector('.bottom-controls-editor-modal');
+	let activeSpec = null;
+
+	const close = () => {
+		activeSpec = null;
+		overlay.classList.remove('active');
+		overlay.setAttribute('aria-hidden', 'true');
+	};
+
+	const openForSpec = (spec) => {
+		activeSpec = spec;
+		title.textContent = `Edit ${spec.label}`;
+
+		const tapEl = document.getElementById(spec.tapId);
+		const doubleEl = document.getElementById(spec.doubleId);
+		const holdEl = document.getElementById(spec.holdId);
+
+		syncSelectOptions(tapEl, tapSelect);
+		syncSelectOptions(doubleEl, doubleSelect);
+		syncSelectOptions(holdEl, holdSelect);
+
+		tapSelect.value = tapEl?.value ?? 'none';
+		doubleSelect.value = doubleEl?.value ?? 'none';
+		holdSelect.value = holdEl?.value ?? 'none';
+
+		tapSelect.disabled = !!tapEl?.disabled;
+		doubleSelect.disabled = !!doubleEl?.disabled;
+		holdSelect.disabled = !!holdEl?.disabled;
+
+		overlay.classList.add('active');
+		overlay.setAttribute('aria-hidden', 'false');
+		tapSelect.focus();
+	};
+
+	const apply = () => {
+		if (!activeSpec) return;
+
+		const tapEl = document.getElementById(activeSpec.tapId);
+		const doubleEl = document.getElementById(activeSpec.doubleId);
+		const holdEl = document.getElementById(activeSpec.holdId);
+
+		if (tapEl && !tapEl.disabled && tapEl.value !== tapSelect.value) {
+			tapEl.value = tapSelect.value;
+			dispatchChange(tapEl);
+		}
+		if (doubleEl && !doubleEl.disabled && doubleEl.value !== doubleSelect.value) {
+			doubleEl.value = doubleSelect.value;
+			dispatchChange(doubleEl);
+		}
+		if (holdEl && !holdEl.disabled && holdEl.value !== holdSelect.value) {
+			holdEl.value = holdSelect.value;
+			dispatchChange(holdEl);
+		}
+
+		renderBottomControlsActionsList();
+		close();
+	};
+
+	if (!bottomControlsEditorInitialized) {
+		list.addEventListener('click', (e) => {
+			const btn = e.target && e.target.closest('button[data-bottom-controls-slot-index]');
+			if (!btn) return;
+			const idx = parseInt(btn.getAttribute('data-bottom-controls-slot-index'), 10);
+			const spec = BOTTOM_CONTROL_SLOT_SPECS[idx];
+			if (!spec) return;
+			openForSpec(spec);
+		});
+
+		closeBtn.addEventListener('click', close);
+		cancelBtn.addEventListener('click', close);
+		saveBtn.addEventListener('click', apply);
+
+		overlay.addEventListener('pointerdown', (e) => {
+			if (e.target === overlay) close();
+		});
+
+		document.addEventListener('keydown', (e) => {
+			if (e.key !== 'Escape') return;
+			if (overlay.classList.contains('active')) close();
+		});
+
+		if (modal) {
+			modal.addEventListener('pointerdown', (e) => e.stopPropagation());
+		}
+
+		const ids = new Set(
+			BOTTOM_CONTROL_SLOT_SPECS.flatMap((s) => [s.tapId, s.doubleId, s.holdId])
+		);
+		document.addEventListener('change', (e) => {
+			const target = e.target;
+			if (!target || !target.id) return;
+			if (!ids.has(target.id)) return;
+			renderBottomControlsActionsList();
+		});
+
+		bottomControlsEditorInitialized = true;
+	}
+
+	renderBottomControlsActionsList();
+}
+
 function save_options() {
 	const settingsToSave = {};
 	for (const key in window.userSettings) {
@@ -614,6 +1118,8 @@ function save_options() {
 				settingsToSave[key] = increments[index] ?? 1;
 			} else if (key === 'smartPreviousThreshold') {
 				settingsToSave[key] = parseInt(element.value) || 5;
+			} else if (key === 'bottomControlsDoubleClickDelay') {
+				settingsToSave[key] = parseInt(element.value) || 260;
 			} else if (key === 'playlistScrollDebounceDelay') {
 				settingsToSave[key] = parseFloat(element.value) || 2.5;
 			} else if (key === 'bufferDetectionEventCount') {
@@ -624,6 +1130,11 @@ function save_options() {
 				settingsToSave[key] = element.value;
 			}
 		}
+	}
+
+	const navbarRightSlots = readNavbarRightSlotsFromUI();
+	if (navbarRightSlots) {
+		settingsToSave.navbarRightSlots = navbarRightSlots;
 	}
 
 	const storageApi = typeof browser !== 'undefined' ? browser.storage : chrome.storage;
@@ -675,6 +1186,8 @@ async function restore_options() {
 	const items = window.userSettings;
 	console.log('Applying settings:', items);
 
+	initLegacyBottomControlsGestureSelects();
+
 	for (const key in items) {
 		const element = document.getElementById(key);
 		if (element) {
@@ -692,6 +1205,8 @@ async function restore_options() {
 				element.value = String(items[key]);
 			} else if (key === 'smartPreviousThreshold') {
 				element.value = parseInt(items[key]) || 5;
+			} else if (key === 'bottomControlsDoubleClickDelay') {
+				element.value = parseInt(items[key]) || 260;
 			} else if (key === 'playlistScrollDebounceDelay') {
 				element.value = parseFloat(items[key]) || 2.5;
 			} else {
@@ -699,6 +1214,9 @@ async function restore_options() {
 			}
 		}
 	}
+
+	initNavbarRightSlotsEditor(items.navbarRightSlots);
+	initBottomControlsActionsEditor();
 
 	const fontSlider = document.getElementById('customPlayerFontMultiplier');
 	if (fontSlider) {
@@ -711,7 +1229,7 @@ async function restore_options() {
 	}
 
 	const inputs = document.querySelectorAll(
-		'input[type="checkbox"], input[type="range"], input[type="number"], select'
+		'input[type="checkbox"], input[type="range"], input[type="number"], select:not([data-navbar-right-slot]):not([data-ignore-save])'
 	);
 	inputs.forEach((input) => {
 		input.addEventListener('change', save_options);
@@ -857,8 +1375,8 @@ function loadBlacklistedVideos() {
 		typeof browser !== 'undefined' && browser.storage
 			? browser.storage
 			: typeof chrome !== 'undefined' && chrome.storage
-			? chrome.storage
-			: null;
+				? chrome.storage
+				: null;
 	const storageLocal = storageApi ? storageApi.local : null;
 
 	const displayBlacklistedVideos = (items) => {
@@ -949,8 +1467,8 @@ function removeFromBlacklist(videoId) {
 		typeof browser !== 'undefined' && browser.storage
 			? browser.storage
 			: typeof chrome !== 'undefined' && chrome.storage
-			? chrome.storage
-			: null;
+				? chrome.storage
+				: null;
 	const storageLocal = storageApi ? storageApi.local : null;
 
 	const updateBlacklist = (items) => {
@@ -1041,8 +1559,8 @@ function clearAllBlacklistedVideos() {
 		typeof browser !== 'undefined' && browser.storage
 			? browser.storage
 			: typeof chrome !== 'undefined' && chrome.storage
-			? chrome.storage
-			: null;
+				? chrome.storage
+				: null;
 	const storageLocal = storageApi ? storageApi.local : null;
 
 	const settingsToSave = { videoBlacklist: [] };
@@ -1081,6 +1599,334 @@ function initClearAllButton() {
 	}
 }
 
+function loadMixSnapshots() {
+	const storageApi =
+		typeof browser !== 'undefined' && browser.storage
+			? browser.storage
+			: typeof chrome !== 'undefined' && chrome.storage
+				? chrome.storage
+				: null;
+	const storageLocal = storageApi ? storageApi.local : null;
+
+	const displaySnapshots = (items) => {
+		const snapshotsObj = items.mixSnapshots || {};
+		const listContainer = document.getElementById('snapshots-list');
+		const emptyMessage = document.getElementById('no-snapshots');
+
+		if (!listContainer) return;
+
+		while (listContainer.firstChild) {
+			listContainer.removeChild(listContainer.firstChild);
+		}
+
+		const snapshots = Object.values(snapshotsObj).filter((snap) => snap && snap.id);
+		snapshots.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+		if (!snapshots.length) {
+			showElement(emptyMessage);
+			return;
+		}
+
+		hideElement(emptyMessage);
+
+		snapshots.forEach((snap) => {
+			const snapshotItem = document.createElement('div');
+			snapshotItem.className = 'blacklisted-video-item';
+
+			const firstVideoId =
+				Array.isArray(snap.items) && snap.items[0] && snap.items[0].id
+					? snap.items[0].id
+					: '';
+			if (firstVideoId) {
+				const thumbnail = document.createElement('img');
+				thumbnail.className = 'blacklisted-video-thumbnail';
+				thumbnail.src = getStandardThumbnailUrl(firstVideoId);
+				thumbnail.alt = 'Snapshot thumbnail';
+				thumbnail.loading = 'lazy';
+				snapshotItem.appendChild(thumbnail);
+			}
+
+			const info = document.createElement('div');
+			info.className = 'blacklisted-video-info';
+
+			const idEl = document.createElement('div');
+			idEl.className = 'blacklisted-video-id';
+			idEl.textContent = snap.id;
+
+			const titleEl = document.createElement('div');
+			titleEl.className = 'blacklisted-video-title';
+			titleEl.textContent = snap.title || 'Mix Snapshot';
+
+			const metaEl = document.createElement('div');
+			metaEl.className = 'blacklisted-video-id';
+			const count = Array.isArray(snap.items) ? snap.items.length : 0;
+			const createdAt = snap.createdAt ? new Date(snap.createdAt).toLocaleDateString() : '';
+			metaEl.textContent = createdAt ? `${count} items • ${createdAt}` : `${count} items`;
+
+			const removeButton = document.createElement('button');
+			removeButton.className = 'blacklisted-video-remove';
+			removeButton.textContent = 'Remove';
+			removeButton.addEventListener('click', () => removeMixSnapshot(snap.id));
+
+			info.appendChild(idEl);
+			info.appendChild(titleEl);
+			info.appendChild(metaEl);
+
+			snapshotItem.appendChild(info);
+			snapshotItem.appendChild(removeButton);
+			listContainer.appendChild(snapshotItem);
+		});
+	};
+
+	if (storageLocal) {
+		if (typeof storageLocal.get === 'function' && storageLocal.get.length === 1) {
+			storageLocal
+				.get(['mixSnapshots'])
+				.then(displaySnapshots)
+				.catch((err) => {
+					console.error('Error loading snapshots:', err);
+					displaySnapshots({ mixSnapshots: {} });
+				});
+		} else {
+			storageLocal.get(['mixSnapshots'], displaySnapshots);
+		}
+	} else {
+		console.warn('Enhanced Player: Storage API not available.');
+		displaySnapshots({ mixSnapshots: {} });
+	}
+}
+
+function removeMixSnapshot(snapshotId) {
+	const storageApi =
+		typeof browser !== 'undefined' && browser.storage
+			? browser.storage
+			: typeof chrome !== 'undefined' && chrome.storage
+				? chrome.storage
+				: null;
+	const storageLocal = storageApi ? storageApi.local : null;
+
+	const updateSnapshots = (items) => {
+		const current = items.mixSnapshots || {};
+		const updated = Object.assign({}, current);
+		delete updated[snapshotId];
+
+		const settingsToSave = { mixSnapshots: updated };
+		if (items.activeMixSnapshotId === snapshotId) {
+			settingsToSave.activeMixSnapshotId = null;
+		}
+
+		if (storageLocal) {
+			if (typeof storageLocal.set === 'function' && storageLocal.set.length === 1) {
+				storageLocal
+					.set(settingsToSave)
+					.then(() => {
+						showSaveSnackbar();
+						loadMixSnapshots();
+					})
+					.catch((err) => {
+						console.error('Enhanced Player: Failed to remove snapshot', err);
+					});
+			} else {
+				storageLocal.set(settingsToSave, () => {
+					if (chrome.runtime.lastError) {
+						console.error(
+							'Enhanced Player: Failed to remove snapshot',
+							chrome.runtime.lastError
+						);
+					} else {
+						showSaveSnackbar();
+						loadMixSnapshots();
+					}
+				});
+			}
+		}
+	};
+
+	if (storageLocal) {
+		const keys = ['mixSnapshots', 'activeMixSnapshotId'];
+		if (typeof storageLocal.get === 'function' && storageLocal.get.length === 1) {
+			storageLocal
+				.get(keys)
+				.then(updateSnapshots)
+				.catch((err) => {
+					console.error('Error loading snapshots for removal:', err);
+				});
+		} else {
+			storageLocal.get(keys, updateSnapshots);
+		}
+	}
+}
+
+function clearAllMixSnapshots() {
+	const confirmed = confirm(
+		'Are you sure you want to clear all snapshots? This action cannot be undone.'
+	);
+	if (!confirmed) return;
+
+	const storageApi =
+		typeof browser !== 'undefined' && browser.storage
+			? browser.storage
+			: typeof chrome !== 'undefined' && chrome.storage
+				? chrome.storage
+				: null;
+	const storageLocal = storageApi ? storageApi.local : null;
+
+	const settingsToSave = { mixSnapshots: {}, activeMixSnapshotId: null };
+
+	if (storageLocal) {
+		if (typeof storageLocal.set === 'function' && storageLocal.set.length === 1) {
+			storageLocal
+				.set(settingsToSave)
+				.then(() => {
+					showSaveSnackbar();
+					loadMixSnapshots();
+				})
+				.catch((err) => {
+					console.error('Enhanced Player: Failed to clear snapshots', err);
+				});
+		} else {
+			storageLocal.set(settingsToSave, () => {
+				if (chrome.runtime.lastError) {
+					console.error(
+						'Enhanced Player: Failed to clear snapshots',
+						chrome.runtime.lastError
+					);
+				} else {
+					showSaveSnackbar();
+					loadMixSnapshots();
+				}
+			});
+		}
+	}
+}
+
+function initClearAllSnapshotsButton() {
+	const clearAllButton = document.getElementById('clear-all-snapshots');
+	if (clearAllButton) {
+		clearAllButton.addEventListener('click', clearAllMixSnapshots);
+	}
+}
+
+function getRuntimeApi() {
+	if (
+		typeof browser !== 'undefined' &&
+		browser.runtime &&
+		typeof browser.runtime.sendMessage === 'function'
+	) {
+		return browser.runtime;
+	}
+	if (
+		typeof chrome !== 'undefined' &&
+		chrome.runtime &&
+		typeof chrome.runtime.sendMessage === 'function'
+	) {
+		return chrome.runtime;
+	}
+	return null;
+}
+
+async function sendRuntimeMessage(message) {
+	const runtime = getRuntimeApi();
+	if (!runtime) return null;
+	const isBrowserRuntime =
+		typeof browser !== 'undefined' && browser.runtime && runtime === browser.runtime;
+	if (isBrowserRuntime) return await runtime.sendMessage(message);
+	return await new Promise((resolve) => runtime.sendMessage(message, resolve));
+}
+
+async function exportUserSettings() {
+	if (typeof window.loadUserSettings === 'function') {
+		await window.loadUserSettings();
+	}
+	const payload = {
+		format: 'yt-emc-user-settings',
+		exportedAt: new Date().toISOString(),
+		version: currentVersion,
+		settings: window.userSettings || {},
+	};
+	const json = JSON.stringify(payload, null, '\t');
+	const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+	const filename = `yt-emc-settings-${currentVersion || 'unknown'}-${timestamp}.json`;
+	const response = await sendRuntimeMessage({
+		action: 'downloadLogs',
+		logContent: json,
+		filename,
+		mimeType: 'application/json;charset=utf-8',
+	});
+	if (response && response.success === false) {
+		console.error('Enhanced Player: Failed to export settings', response.error || response);
+	}
+}
+
+async function importUserSettingsObject(imported) {
+	if (!imported || typeof imported !== 'object' || Array.isArray(imported)) {
+		throw new Error('Invalid settings file');
+	}
+	const settings =
+		imported.settings &&
+		typeof imported.settings === 'object' &&
+		!Array.isArray(imported.settings)
+			? imported.settings
+			: imported;
+	if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+		throw new Error('Invalid settings payload');
+	}
+	const knownKeys = window.userSettings ? Object.keys(window.userSettings) : [];
+	const knownKeySet = new Set(knownKeys);
+	for (const key of Object.keys(settings)) {
+		if (!knownKeySet.has(key)) continue;
+		if (typeof window.saveUserSetting !== 'function') continue;
+		await window.saveUserSetting(key, settings[key]);
+	}
+}
+
+function initSettingsTransfer() {
+	const exportButton = document.getElementById('export-user-settings');
+	const importButton = document.getElementById('import-user-settings');
+	const importFile = document.getElementById('import-user-settings-file');
+
+	if (exportButton) {
+		exportButton.addEventListener('click', async () => {
+			exportButton.disabled = true;
+			try {
+				await exportUserSettings();
+			} finally {
+				exportButton.disabled = false;
+			}
+		});
+	}
+
+	if (importButton && importFile) {
+		importButton.addEventListener('click', () => {
+			const confirmed = confirm(
+				'Importing will overwrite your current settings. You can export first as a backup. Continue?'
+			);
+			if (!confirmed) return;
+			importFile.value = '';
+			importFile.click();
+		});
+
+		importFile.addEventListener('change', async () => {
+			const file = importFile.files && importFile.files[0] ? importFile.files[0] : null;
+			if (!file) return;
+
+			importButton.disabled = true;
+			if (exportButton) exportButton.disabled = true;
+			try {
+				const text = await file.text();
+				const parsed = JSON.parse(text);
+				await importUserSettingsObject(parsed);
+				location.reload();
+			} catch (e) {
+				console.error('Enhanced Player: Failed to import settings', e);
+			} finally {
+				importButton.disabled = false;
+				if (exportButton) exportButton.disabled = false;
+			}
+		});
+	}
+}
+
 function loadVersionNumber() {
 	if (
 		typeof chrome !== 'undefined' &&
@@ -1113,8 +1959,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 	// Now restore options - this will call updateControlStates which uses the dependency manager
 	await restore_options();
+	initSettingsTransfer();
 	loadBlacklistedVideos();
 	initClearAllButton();
+	loadMixSnapshots();
+	initClearAllSnapshotsButton();
 	initCollapsibleSections();
 	initGlobalCollapseButton();
 	initSectionLinks();
@@ -1525,8 +2374,8 @@ async function initNewOptionIndicators() {
 		typeof browser !== 'undefined' && browser.storage
 			? browser.storage
 			: typeof chrome !== 'undefined' && chrome.storage
-			? chrome.storage
-			: null;
+				? chrome.storage
+				: null;
 	const storageLocal = storageApi ? storageApi.local : null;
 
 	const processNewOptions = (items) => {
@@ -1551,6 +2400,13 @@ async function initNewOptionIndicators() {
 				newOptionsList.push(optionElement);
 			}
 		});
+
+		const newCards = new Set();
+		newOptionsList.forEach((optionElement) => {
+			const card = optionElement.closest ? optionElement.closest('.card') : null;
+			if (card) newCards.add(card);
+		});
+		newCards.forEach((card) => addNewCardBadge(card));
 
 		// Show/hide cycle button based on new options
 		const cycleButton = document.getElementById('cycle-new-options');
@@ -1664,7 +2520,29 @@ async function initNewOptionIndicators() {
 	}
 }
 
+function addNewCardBadge(cardElement) {
+	if (!cardElement) return;
+	const header = cardElement.querySelector('.card-header');
+	if (!header) return;
+	if (header.querySelector('.new-option-badge')) return;
+
+	const title = header.querySelector('h2');
+	if (!title) return;
+
+	const badge = document.createElement('span');
+	badge.className = 'badge badge--new new-option-badge';
+	badge.textContent = 'NEW';
+
+	title.appendChild(document.createTextNode(' '));
+	title.appendChild(badge);
+}
+
 function addNewOptionBadge(optionElement) {
+	if (optionElement && optionElement.classList && optionElement.classList.contains('card')) {
+		addNewCardBadge(optionElement);
+		return;
+	}
+
 	// Check if badge already exists
 	if (optionElement.querySelector('.new-option-badge')) return;
 

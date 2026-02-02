@@ -47,20 +47,13 @@ class YTMediaPlayer {
 			customPlaylistMode: window.userSettings.customPlaylistMode,
 			returnToDefaultModeOnVideoSelect: window.userSettings.returnToDefaultModeOnVideoSelect,
 			showBottomControls: window.userSettings.showBottomControls,
-			showVoiceButton: window.userSettings.showVoiceSearchButton,
-			previousButtonBehavior: window.userSettings.previousButtonBehavior,
 			navbarShowHomeButton: window.userSettings.navbarShowHomeButton,
-			navbarShowFavourites: window.userSettings.navbarShowFavourites,
-			navbarShowVideoToggle: window.userSettings.navbarShowVideoToggle,
-			navbarShowTextSearch: window.userSettings.navbarShowTextSearch,
-			navbarShowVoiceSearch: window.userSettings.navbarShowVoiceSearch,
 
 			// Appearance
 			customPlayerTheme: window.userSettings.customPlayerTheme,
 			customPlayerAccentColor: window.userSettings.customPlayerAccentColor,
-			showPreviousButton: window.userSettings.showPreviousButton,
-			showSkipButton: window.userSettings.showSkipButton,
-			showRepeatButton: window.userSettings.showRepeatButton,
+			seekSkipSeconds: window.userSettings.seekSkipSeconds,
+			bottomControlsDoubleClickDelay: window.userSettings.bottomControlsDoubleClickDelay,
 			customPlayerFontMultiplier: window.userSettings.customPlayerFontMultiplier,
 			playlistItemDensity: window.userSettings.playlistItemDensity,
 			allowMultilinePlaylistTitles: window.userSettings.allowMultilinePlaylistTitles,
@@ -72,6 +65,10 @@ class YTMediaPlayer {
 			titleContrastMode: window.userSettings.titleContrastMode || 'default',
 			horizontalPlaylistDetailsInHeaderControls:
 				window.userSettings.horizontalPlaylistDetailsInHeaderControls,
+			horizontalPlaylistAlignment:
+				window.userSettings.horizontalPlaylistAlignment || 'center-current',
+			verticalPlaylistAlignment:
+				window.userSettings.verticalPlaylistAlignment || 'align-item-before-top',
 
 			// Playlist Duplicate Handling
 			playlistRemoveSame: window.userSettings.playlistRemoveSame,
@@ -126,6 +123,7 @@ class YTMediaPlayer {
 		this.playerWrapper = null;
 		this.isPlayerVisible = true;
 		this.hasPlaylist = false;
+		this._previousActionId = null;
 
 		// Auto-hide scroll tracking
 		this.lastScrollY = 0;
@@ -136,6 +134,8 @@ class YTMediaPlayer {
 		this.isAutoHidden = false;
 		this.watchBelowPlayerElement = null;
 		this.scrollEventCount = 0; // Debug counter
+		this._lastOverlayScrollLeft = -1;
+		this._overlaySuppressUntil = 0;
 
 		// Playback state
 		this.trackTime = this.options.nowPlayingVideoDetails.currentTime;
@@ -458,33 +458,77 @@ class YTMediaPlayer {
 		const mainControls = document.createElement('div');
 		mainControls.className = 'yt-main-controls';
 
+		const wrapControlSlot = (slotClassName, el) => {
+			if (!el) return null;
+			const slot = document.createElement('div');
+			slot.className = `yt-control-slot ${slotClassName}`;
+			slot.appendChild(el);
+			return slot;
+		};
+
+		const lockedBottomControlActions = new Set(['play', 'limited-height-fab']);
+		const usedBottomControlActions = new Set(lockedBottomControlActions);
+		const appendBottomControlSlot = (parent, slotClassName, actionId) => {
+			if (!actionId || actionId === 'none' || usedBottomControlActions.has(actionId)) {
+				return;
+			}
+			const el = this._createBottomControlsElementForAction(actionId);
+			if (!el) return;
+			usedBottomControlActions.add(actionId);
+			const wrapped = wrapControlSlot(slotClassName, el);
+			if (wrapped) parent.appendChild(wrapped);
+		};
+		const appendLockedBottomControlSlot = (parent, slotClassName, actionId) => {
+			if (!actionId || actionId === 'none') {
+				return;
+			}
+			const el = this._createBottomControlsElementForAction(actionId);
+			if (!el) return;
+			const wrapped = wrapControlSlot(slotClassName, el);
+			if (wrapped) parent.appendChild(wrapped);
+		};
+
 		// Create left section
 		const leftSection = document.createElement('div');
 		leftSection.className = 'yt-left-section';
-		leftSection.appendChild(this._createRepeatButton());
+		const leftSlot1Action = window.userSettings.layoutBottomLeftSlot1 || 'repeat';
+		appendBottomControlSlot(leftSection, 'yt-bottom-left-slot1', leftSlot1Action);
 		mainControls.appendChild(leftSection);
 
-		// Create button group
+		// Create center section with seek buttons flanking the button group
+		const centerSection = document.createElement('div');
+		centerSection.className = 'yt-center-section';
 		const buttonGroup = document.createElement('div');
 		buttonGroup.className = 'yt-button-group';
-		buttonGroup.appendChild(this._createPreviousButton());
-		buttonGroup.appendChild(this._createPlayButton());
-		buttonGroup.appendChild(this._createSkipButton());
-		mainControls.appendChild(buttonGroup);
+		const centerSlot1Action = window.userSettings.layoutBottomCenterSlot1 || 'seek-back';
+		const centerSlot2Action = window.userSettings.layoutBottomCenterSlot2 || 'previous';
+		const centerSlot3Action = 'play';
+		const centerSlot4Action = window.userSettings.layoutBottomCenterSlot4 || 'skip';
+		const centerSlot5Action = window.userSettings.layoutBottomCenterSlot5 || 'seek-forward';
+
+		appendBottomControlSlot(centerSection, 'yt-bottom-center-slot1', centerSlot1Action);
+
+		appendBottomControlSlot(buttonGroup, 'yt-bottom-center-slot2', centerSlot2Action);
+		appendLockedBottomControlSlot(buttonGroup, 'yt-bottom-center-slot3', centerSlot3Action);
+		appendBottomControlSlot(buttonGroup, 'yt-bottom-center-slot4', centerSlot4Action);
+		centerSection.appendChild(buttonGroup);
+
+		appendBottomControlSlot(centerSection, 'yt-bottom-center-slot5', centerSlot5Action);
+		mainControls.appendChild(centerSection);
 
 		// Create right section
 		const rightSection = document.createElement('div');
 		rightSection.className = 'yt-right-section';
-		if (this.options.showVoiceButton) {
-			rightSection.appendChild(this._createVoiceButton());
-		}
+		const rightSlot1Action = window.userSettings.layoutBottomRightSlot1 || 'voice-search';
+		const rightSlot2Action = 'limited-height-fab';
 
-		// Add FAB for limited height mode
+		appendBottomControlSlot(rightSection, 'yt-bottom-right-slot1', rightSlot1Action);
+		appendLockedBottomControlSlot(rightSection, 'yt-bottom-right-slot2', rightSlot2Action);
+
 		if (this.options.enableLimitedHeightMode && this.options.hideNavbarInLimitedHeightMode) {
-			// Add body class for limited height mode with hidden navbar IF we're currently in reduced height mode
-			if (this._isLimitedHeightActive)
+			if (this._isLimitedHeightActive) {
 				document.body.classList.add('yt-limited-height-mode-navbar-hidden');
-			rightSection.appendChild(this._createLimitedHeightFAB());
+			}
 		} else {
 			document.body.classList.remove('yt-limited-height-mode-navbar-hidden');
 		}
@@ -537,14 +581,6 @@ class YTMediaPlayer {
 			classes.push('bottom-controls-hidden');
 		}
 
-		if (!this.options.showPreviousButton) {
-			classes.push('hide-prev-button');
-		}
-
-		if (!this.options.showSkipButton) {
-			classes.push('hide-skip-button');
-		}
-
 		return classes.join(' ');
 	}
 
@@ -587,7 +623,14 @@ class YTMediaPlayer {
 		const speedDialActions = document.createElement('div');
 		speedDialActions.className = 'yt-limited-height-fab-actions';
 
-		// Add conditional buttons based on navbar settings
+		const navbarActions = new Set(
+			(Array.isArray(window.userSettings.navbarRightSlots)
+				? window.userSettings.navbarRightSlots
+				: []
+			).filter((actionId) => typeof actionId === 'string' && actionId !== 'none')
+		);
+
+		// Add conditional buttons based on navbar layout
 		if (this.options.navbarShowHomeButton) {
 			const homeButton = document.createElement('button');
 			homeButton.className = 'yt-limited-height-fab-action';
@@ -624,7 +667,7 @@ class YTMediaPlayer {
 			speedDialActions.appendChild(homeButton);
 		}
 
-		if (this.options.navbarShowTextSearch) {
+		if (navbarActions.has('text-search')) {
 			const textSearchButton = document.createElement('button');
 			textSearchButton.className = 'yt-limited-height-fab-action';
 			textSearchButton.setAttribute('data-action', 'text-search');
@@ -646,7 +689,7 @@ class YTMediaPlayer {
 			speedDialActions.appendChild(textSearchButton);
 		}
 
-		if (this.options.navbarShowFavourites) {
+		if (navbarActions.has('favourites')) {
 			const favouritesButton = document.createElement('button');
 			favouritesButton.className = 'yt-limited-height-fab-action';
 			favouritesButton.setAttribute('data-action', 'favourites');
@@ -668,7 +711,7 @@ class YTMediaPlayer {
 			speedDialActions.appendChild(favouritesButton);
 		}
 
-		if (this.options.navbarShowVideoToggle) {
+		if (navbarActions.has('video-toggle')) {
 			const videoToggleButton = document.createElement('button');
 			videoToggleButton.className = 'yt-limited-height-fab-action';
 			videoToggleButton.setAttribute('data-action', 'video-toggle');
@@ -702,7 +745,14 @@ class YTMediaPlayer {
 			speedDialActions.appendChild(videoToggleButton);
 		}
 
-		if (this.options.navbarShowVoiceSearch || this.options.showVoiceButton) {
+		const bottomActions = new Set(
+			Object.keys(window.userSettings)
+				.filter((key) => key.startsWith('layoutBottom'))
+				.map((key) => window.userSettings[key])
+				.filter((actionId) => typeof actionId === 'string' && actionId !== 'none')
+		);
+
+		if (navbarActions.has('voice-search') || bottomActions.has('voice-search')) {
 			const voiceButton = document.createElement('button');
 			voiceButton.className = 'yt-limited-height-fab-action';
 			voiceButton.setAttribute('data-action', 'voice-search');
@@ -732,7 +782,6 @@ class YTMediaPlayer {
 		mainFab.addEventListener('click', (e) => {
 			e.preventDefault();
 			e.stopPropagation();
-			console.log('Main FAB clicked');
 			speedDial.classList.toggle('yt-speed-dial-open');
 		});
 
@@ -742,7 +791,6 @@ class YTMediaPlayer {
 			e.stopPropagation();
 			const button = e.target.closest('.yt-limited-height-fab-action');
 			if (button) {
-				console.log('Action button clicked:', button.getAttribute('data-action'));
 				const action = button.getAttribute('data-action');
 				this._handleSpeedDialAction(action);
 				speedDial.classList.remove('yt-speed-dial-open');
@@ -763,14 +811,10 @@ class YTMediaPlayer {
 	 * Handle speed dial actions by delegating to yt-navbar.js
 	 */
 	_handleSpeedDialAction(action) {
-		console.log('Speed dial action triggered:', action);
-
 		// Get the custom navbar instance from window
 		if (window.customNavbar && typeof window.customNavbar.handleAction === 'function') {
-			console.log('Using handleAction method');
 			window.customNavbar.handleAction(action);
 		} else {
-			console.log('Using fallback method calls');
 			// Fallback: try to call the individual methods directly
 			switch (action) {
 				case 'voice-search':
@@ -778,7 +822,6 @@ class YTMediaPlayer {
 						window.customNavbar &&
 						typeof window.customNavbar._handleVoiceSearchClick === 'function'
 					) {
-						console.log('Calling _handleVoiceSearchClick');
 						window.customNavbar._handleVoiceSearchClick();
 					}
 					break;
@@ -787,7 +830,6 @@ class YTMediaPlayer {
 						window.customNavbar &&
 						typeof window.customNavbar._handleTextSearchClick === 'function'
 					) {
-						console.log('Calling _handleTextSearchClick');
 						window.customNavbar._handleTextSearchClick();
 					}
 					break;
@@ -796,7 +838,6 @@ class YTMediaPlayer {
 						window.customNavbar &&
 						typeof window.customNavbar._handleLogoClick === 'function'
 					) {
-						console.log('Calling _handleLogoClick');
 						window.customNavbar._handleLogoClick();
 					}
 					break;
@@ -805,7 +846,6 @@ class YTMediaPlayer {
 						window.customNavbar &&
 						typeof window.customNavbar._handleFavouritesClick === 'function'
 					) {
-						console.log('Calling _handleFavouritesClick');
 						window.customNavbar._handleFavouritesClick();
 					}
 					break;
@@ -814,7 +854,6 @@ class YTMediaPlayer {
 						window.customNavbar &&
 						typeof window.customNavbar._handleVideoToggleClick === 'function'
 					) {
-						console.log('Calling _handleVideoToggleClick');
 						window.customNavbar._handleVideoToggleClick();
 					}
 					break;
@@ -851,12 +890,41 @@ class YTMediaPlayer {
 		dragCue.className = 'yt-drawer-drag-cue';
 		dragHandle.appendChild(dragCue);
 
+		// Create header row container
+		const headerRow = document.createElement('div');
+		headerRow.className = 'yt-drawer-header-row';
+
 		// Create close button
 		const closeButton = document.createElement('button');
 		closeButton.className = 'yt-drawer-close-button';
 		closeButton.setAttribute('aria-label', 'Close playlist');
-		closeButton.textContent = '×';
-		dragHandle.appendChild(closeButton);
+		const closeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		closeSvg.setAttribute('viewBox', '0 0 24 24');
+		const closePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		closePath.setAttribute(
+			'd',
+			'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'
+		);
+		closeSvg.appendChild(closePath);
+		closeButton.appendChild(closeSvg);
+		// Create loop toggle button
+		const loopButton = document.createElement('button');
+		loopButton.className = 'yt-drawer-loop-toggle-button';
+		loopButton.setAttribute('aria-label', 'Toggle snapshot loop');
+		const loopSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		loopSvg.setAttribute('class', 'icon loop-toggle');
+		loopSvg.setAttribute('viewBox', '0 0 24 24');
+		const loopPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		loopPath.setAttribute(
+			'd',
+			'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z'
+		);
+		loopSvg.appendChild(loopPath);
+		loopButton.appendChild(loopSvg);
+
+		// Group top-right controls
+		const topRightControls = document.createElement('div');
+		topRightControls.className = 'yt-drawer-top-right-controls';
 
 		const focusButton = document.createElement('button');
 		focusButton.className = 'yt-drawer-focus-current-button';
@@ -894,9 +962,241 @@ class YTMediaPlayer {
 		subheaderContainer.appendChild(restoreAllButton);
 		headerContent.appendChild(subheaderContainer);
 
-		dragHandle.appendChild(headerContent);
-		headerContent.appendChild(focusButton);
+		// Assemble header row
+		headerRow.appendChild(headerContent);
+		headerRow.appendChild(topRightControls);
+		dragHandle.appendChild(headerRow);
+		const shuffleButton = document.createElement('button');
+		shuffleButton.className = 'yt-drawer-shuffle-toggle-button';
+		shuffleButton.setAttribute('aria-label', 'Toggle snapshot shuffle');
+		const shuffleSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		shuffleSvg.setAttribute('class', 'icon shuffle-toggle');
+		shuffleSvg.setAttribute('viewBox', '-1 -3 29 29');
+		const shufflePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		shufflePath.setAttribute(
+			'd',
+			'M384.528,638.166 C384.23,637.871 383.299,637.948 383,638.244 L383,641 L379,641 L375.465,636.161 L374.207,637.792 L378,642.909 L383,642.909 L383,645.781 C383.299,646.076 384.23,645.945 384.528,645.649 L388.771,642.442 C389.069,642.147 389.069,641.669 388.771,641.373 L384.528,638.166 L384.528,638.166 Z M383,628 L383,630.688 C383.299,630.982 384.23,631.105 384.528,630.811 L388.771,627.604 C389.069,627.308 389.069,626.829 388.771,626.534 L384.528,623.326 C384.23,623.031 383.299,622.861 383,623.156 L383,626 L378,626 L367,641 L363,641 C362.447,641 362,641.373 362,641.92 C362,642.466 362.447,643 363,643 L368,643 L379,628 L383,628 L383,628 Z M363,628 L367,628 L370.508,632.803 L371.766,631.172 C371.766,631.172 368.254,626.323 368,626 L363,626 C362.447,626 362,626.534 362,627.08 C362,627.627 362.447,628 363,628 L363,628 Z'
+		);
+		shufflePath.setAttribute('transform', 'translate(-362 -623)');
+		shuffleSvg.appendChild(shufflePath);
+		shuffleButton.appendChild(shuffleSvg);
+
+		const headerSlot1Action = window.userSettings.layoutDrawerHeaderSlot1 || 'focus-current';
+		const headerSlot2Action = window.userSettings.layoutDrawerHeaderSlot2 || 'shuffle-toggle';
+		const headerSlot3Action = window.userSettings.layoutDrawerHeaderSlot3 || 'loop-toggle';
+		const headerSlot4Action = window.userSettings.layoutDrawerHeaderSlot4 || 'close';
+
+		const controlsByAction = {
+			'focus-current': focusButton,
+			'shuffle-toggle': shuffleButton,
+			'shuffle-toggle-show-when-active': shuffleButton,
+			'loop-toggle': loopButton,
+			'loop-toggle-show-when-active': loopButton,
+			close: closeButton,
+		};
+
+		const usedActions = new Set();
+		[
+			{ actionId: headerSlot1Action, slotClassName: 'yt-drawer-header-slot1' },
+			{ actionId: headerSlot2Action, slotClassName: 'yt-drawer-header-slot2' },
+			{ actionId: headerSlot3Action, slotClassName: 'yt-drawer-header-slot3' },
+			{ actionId: headerSlot4Action, slotClassName: 'yt-drawer-header-slot4' },
+		].forEach(({ actionId, slotClassName }) => {
+			if (!actionId || actionId === 'none') {
+				return;
+			}
+			const normalizedActionId =
+				actionId === 'loop-toggle-show-when-active'
+					? 'loop-toggle'
+					: actionId === 'shuffle-toggle-show-when-active'
+						? 'shuffle-toggle'
+						: actionId;
+
+			if (normalizedActionId === 'loop-toggle') {
+				this._drawerLoopVisibilityMode =
+					actionId === 'loop-toggle-show-when-active' ? 'active-only' : 'all';
+			} else if (normalizedActionId === 'shuffle-toggle') {
+				this._drawerShuffleVisibilityMode =
+					actionId === 'shuffle-toggle-show-when-active' ? 'active-only' : 'all';
+			}
+
+			if (usedActions.has(normalizedActionId)) {
+				return;
+			}
+			const el = controlsByAction[actionId];
+			if (!el) {
+				return;
+			}
+			el.classList.add(slotClassName);
+			usedActions.add(normalizedActionId);
+			topRightControls.appendChild(el);
+		});
 		fragment.appendChild(dragHandle);
+
+		loopButton.addEventListener('click', async (ev) => {
+			ev.stopPropagation();
+			const currentListId = this.options.currentPlaylist?.listId;
+			if (!currentListId) return;
+			const activeId = window.userSettings.activeMixSnapshotId;
+			const persisted = window.userSettings.mixSnapshots || {};
+			const tempSnap = window.userSettings.tempMixSnapshot || null;
+			let snap = null;
+			let snapType = null;
+			if (activeId && persisted[activeId] && activeId === currentListId) {
+				snap = persisted[activeId];
+				snapType = 'persisted';
+			} else if (tempSnap && tempSnap.id === currentListId && activeId === tempSnap.id) {
+				snap = tempSnap;
+				snapType = 'temp';
+			}
+			if (!snap) {
+				const items = (this.options.currentPlaylist?.items || []).map((it) => ({
+					id: it.id,
+					title: it.title,
+					duration: it.duration,
+				}));
+				const title = this.options.currentPlaylist?.title || '';
+				const newSnap = {
+					id: currentListId,
+					title,
+					createdAt: Date.now(),
+					items,
+					loopEnabled: true,
+					shuffleEnabled: false,
+					shuffledOrder: null,
+					shuffleStartId: null,
+				};
+				const ok1 = await window.saveUserSetting('tempMixSnapshot', newSnap);
+				const ok2 = await window.saveUserSetting('activeMixSnapshotId', currentListId);
+				if (ok1 && ok2) {
+					const curVid = this.options.nowPlayingVideoDetails?.videoId;
+					if (curVid) {
+						const fullUrl = `https://m.youtube.com/watch?v=${curVid}`;
+						window.location.href = fullUrl;
+					}
+				}
+				return;
+			}
+			const newVal = !snap.loopEnabled;
+			if (snapType === 'persisted') {
+				const updated = Object.assign({}, persisted);
+				updated[activeId] = Object.assign({}, updated[activeId], { loopEnabled: newVal });
+				const ok = await window.saveUserSetting('mixSnapshots', updated);
+				if (ok) {
+					loopButton.classList.toggle('active', newVal);
+					loopButton.setAttribute('aria-pressed', String(newVal));
+					this._updateDrawerLoopButtonVisibility();
+				}
+			} else {
+				const updatedTemp = Object.assign({}, snap, { loopEnabled: newVal });
+				const ok = await window.saveUserSetting('tempMixSnapshot', updatedTemp);
+				if (ok) {
+					loopButton.classList.toggle('active', newVal);
+					loopButton.setAttribute('aria-pressed', String(newVal));
+					this._updateDrawerLoopButtonVisibility();
+				}
+			}
+		});
+
+		shuffleButton.addEventListener('click', async (ev) => {
+			ev.stopPropagation();
+			const currentListId = this.options.currentPlaylist?.listId;
+			if (!currentListId) return;
+			const activeId = window.userSettings.activeMixSnapshotId;
+			const persisted = window.userSettings.mixSnapshots || {};
+			const tempSnap = window.userSettings.tempMixSnapshot || null;
+			let snap = null;
+			let snapType = null;
+			if (activeId && persisted[activeId] && activeId === currentListId) {
+				snap = persisted[activeId];
+				snapType = 'persisted';
+			} else if (tempSnap && tempSnap.id === currentListId && activeId === tempSnap.id) {
+				snap = tempSnap;
+				snapType = 'temp';
+			}
+			const computeShuffle = (items) => {
+				const ids = items.map((it) => it.id);
+				let order = ids.slice();
+				for (let i = order.length - 1; i > 0; i--) {
+					const j = Math.floor(Math.random() * (i + 1));
+					[order[i], order[j]] = [order[j], order[i]];
+				}
+				const curId = this.options.nowPlayingVideoDetails?.videoId;
+				const startId = curId && ids.includes(curId) ? curId : order[0];
+				const startIndex = order.indexOf(startId);
+				if (startIndex > 0) {
+					order = order.slice(startIndex).concat(order.slice(0, startIndex));
+				}
+				return { order, startId: order[0] };
+			};
+			if (!snap) {
+				const items = (this.options.currentPlaylist?.items || []).map((it) => ({
+					id: it.id,
+					title: it.title,
+					duration: it.duration,
+				}));
+				const title = this.options.currentPlaylist?.title || '';
+				const shuf = computeShuffle(items);
+				const newSnap = {
+					id: currentListId,
+					title,
+					createdAt: Date.now(),
+					items,
+					loopEnabled: false,
+					shuffleEnabled: true,
+					shuffledOrder: shuf.order,
+					shuffleStartId: shuf.startId,
+				};
+				const ok1 = await window.saveUserSetting('tempMixSnapshot', newSnap);
+				const ok2 = await window.saveUserSetting('activeMixSnapshotId', currentListId);
+				if (ok1 && ok2) {
+					const curVid = this.options.nowPlayingVideoDetails?.videoId;
+					if (curVid) {
+						const fullUrl = `https://m.youtube.com/watch?v=${curVid}`;
+						window.location.href = fullUrl;
+					}
+				}
+				return;
+			}
+			const newVal = !snap.shuffleEnabled;
+			let shuffledOrder = snap.shuffledOrder;
+			let shuffleStartId = snap.shuffleStartId;
+			if (newVal) {
+				const items = snap.items || [];
+				const shuf = computeShuffle(items);
+				shuffledOrder = shuf.order;
+				shuffleStartId = shuf.startId;
+			} else {
+				shuffledOrder = null;
+				shuffleStartId = null;
+			}
+			if (snapType === 'persisted') {
+				const updated = Object.assign({}, persisted);
+				updated[activeId] = Object.assign({}, updated[activeId], {
+					shuffleEnabled: newVal,
+					shuffledOrder,
+					shuffleStartId,
+				});
+				const ok = await window.saveUserSetting('mixSnapshots', updated);
+				if (ok) {
+					shuffleButton.classList.toggle('active', newVal);
+					shuffleButton.setAttribute('aria-pressed', String(newVal));
+					this._updateDrawerShuffleButtonVisibility();
+				}
+			} else {
+				const updatedTemp = Object.assign({}, snap, {
+					shuffleEnabled: newVal,
+					shuffledOrder,
+					shuffleStartId,
+				});
+				const ok = await window.saveUserSetting('tempMixSnapshot', updatedTemp);
+				if (ok) {
+					shuffleButton.classList.toggle('active', newVal);
+					shuffleButton.setAttribute('aria-pressed', String(newVal));
+					this._updateDrawerShuffleButtonVisibility();
+				}
+			}
+		});
 
 		// Create player drawer
 		const playerDrawer = document.createElement('div');
@@ -960,7 +1260,105 @@ class YTMediaPlayer {
 	/**
 	 * Create button elements using DOM APIs
 	 */
-	_createPreviousButton() {
+	_createBottomControlsElementForAction(actionId) {
+		switch (actionId) {
+			case 'none':
+				return null;
+			case 'repeat':
+				if (!this._repeatVisibilityMode) {
+					this._repeatVisibilityMode = 'always-show';
+				}
+				return this._createRepeatButton();
+			case 'repeat-show-when-active':
+				this._repeatVisibilityMode = 'show-when-active';
+				return this._createRepeatButton();
+			case 'seek-back':
+				return this._createSeekBackButton();
+			case 'previous':
+				return this._createPreviousButton('previous');
+			case 'restart-then-previous':
+				return this._createPreviousButton('restart-then-previous');
+			case 'play':
+				return this._createPlayButton();
+			case 'skip':
+				return this._createSkipButton();
+			case 'seek-forward':
+				return this._createSeekForwardButton();
+			case 'text-search':
+			case 'favourites':
+			case 'video-toggle':
+			case 'debug-logs':
+				return this._createNavbarActionButton(actionId);
+			case 'voice-search':
+				return this._createVoiceButton();
+			case 'limited-height-fab':
+				return this.options.enableLimitedHeightMode &&
+					this.options.hideNavbarInLimitedHeightMode
+					? this._createLimitedHeightFAB()
+					: null;
+			default:
+				return null;
+		}
+	}
+
+	_createNavbarActionButton(actionId) {
+		const button = document.createElement('button');
+		button.className = 'yt-control-button yt-navbar-action-button';
+		button.setAttribute('data-action', actionId);
+
+		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		svg.setAttribute('class', 'icon default');
+		svg.setAttribute('viewBox', '0 0 24 24');
+		const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+		if (actionId === 'debug-logs') {
+			path.setAttribute(
+				'd',
+				'M20,8H17.19C16.74,7.22 16.12,6.55 15.37,6.04L17,4.41L15.59,3L13.42,5.17C12.96,5.06 12.49,5 12,5C11.51,5 11.04,5.06 10.59,5.17L8.41,3L7,4.41L8.62,6.04C7.88,6.55 7.26,7.22 6.81,8H4V10H6.09C6.04,10.33 6,10.66 6,11V12H4V14H6V15C6,15.34 6.04,15.67 6.09,16H4V18H6.81C7.85,19.79 9.78,21 12,21C14.22,21 16.15,19.79 17.19,18H20V16H17.91C17.96,15.67 18,15.34 18,15V14H20V12H18V11C18,10.66 17.96,10.33 17.91,10H20V8M16,15A4,4 0 0,1 12,19A4,4 0 0,1 8,15V11A4,4 0 0,1 12,7A4,4 0 0,1 16,11V15M14,10V12L15.5,13.5L14.5,14.5L12.5,12.5V10H14Z'
+			);
+		} else if (actionId === 'video-toggle') {
+			const isVideoHidden = document.body.classList.contains('yt-hide-video-player');
+			path.setAttribute(
+				'd',
+				isVideoHidden
+					? 'M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM14 13h-3v3H9v-3H6v-2h3V8h2v3h3v2z'
+					: 'M21 6.5l-4 4V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11zM9.5 16L8 14.5 10.5 12 8 9.5 9.5 8 12 10.5 14.5 8 16 9.5 13.5 12 16 14.5 14.5 16 12 13.5 9.5 16z'
+			);
+		} else if (actionId === 'favourites') {
+			path.setAttribute(
+				'd',
+				'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'
+			);
+		} else if (actionId === 'text-search') {
+			path.setAttribute(
+				'd',
+				'M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'
+			);
+		} else {
+			return null;
+		}
+
+		svg.appendChild(path);
+		button.appendChild(svg);
+
+		button.addEventListener('click', () => {
+			this._handleSpeedDialAction(actionId);
+			if (actionId === 'video-toggle') {
+				const nowHidden = document.body.classList.contains('yt-hide-video-player');
+				path.setAttribute(
+					'd',
+					nowHidden
+						? 'M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM14 13h-3v3H9v-3H6v-2h3V8h2v3h3v2z'
+						: 'M21 6.5l-4 4V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11zM9.5 16L8 14.5 10.5 12 8 9.5 9.5 8 12 10.5 14.5 8 16 9.5 13.5 12 16 14.5 14.5 16 12 13.5 9.5 16z'
+				);
+			}
+		});
+
+		return button;
+	}
+
+	_createPreviousButton(actionId) {
+		this._previousActionId = actionId || 'previous';
 		const button = document.createElement('button');
 		button.className = 'yt-control-button yt-prev-button previous';
 
@@ -1072,6 +1470,32 @@ class YTMediaPlayer {
 		return button;
 	}
 
+	_createSeekBackButton() {
+		const button = document.createElement('button');
+		button.className = 'yt-control-button yt-seek-back-button';
+		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		svg.setAttribute('class', 'icon default');
+		svg.setAttribute('viewBox', '0 0 24 24');
+		const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		path.setAttribute('d', 'M11 18l-6.5-6L11 6v12zM19 18l-6.5-6L19 6v12z');
+		svg.appendChild(path);
+		button.appendChild(svg);
+		return button;
+	}
+
+	_createSeekForwardButton() {
+		const button = document.createElement('button');
+		button.className = 'yt-control-button yt-seek-forward-button';
+		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		svg.setAttribute('class', 'icon default');
+		svg.setAttribute('viewBox', '0 0 24 24');
+		const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		path.setAttribute('d', 'M13 6l6.5 6L13 18V6zM5 6l6.5 6L5 18V6z');
+		svg.appendChild(path);
+		button.appendChild(svg);
+		return button;
+	}
+
 	_createVoiceButton() {
 		const button = document.createElement('button');
 		button.className = 'yt-voice-search-button normal';
@@ -1162,6 +1586,12 @@ class YTMediaPlayer {
 			this.drawerFocusButton = this.playerWrapper.querySelector(
 				'.yt-drawer-focus-current-button'
 			);
+			this.drawerLoopButton = this.playerWrapper.querySelector(
+				'.yt-drawer-loop-toggle-button'
+			);
+			this.drawerShuffleButton = this.playerWrapper.querySelector(
+				'.yt-drawer-shuffle-toggle-button'
+			);
 			this.drawerHeader = this.playerWrapper.querySelector('.yt-drawer-header');
 			this.drawerSubheader = this.playerWrapper.querySelector('.yt-drawer-subheader');
 			this.playlistWrapper = this.playerWrapper.querySelector('.yt-playlist-wrapper');
@@ -1197,9 +1627,9 @@ class YTMediaPlayer {
 		this.playButton = this.playerWrapper.querySelector('.yt-play-button');
 		this.bufferCountdown = this.playerWrapper.querySelector('.yt-buffer-countdown');
 		this.skipButton = this.playerWrapper.querySelector('.yt-skip-button');
-		this.voiceButton = this.options.showVoiceButton
-			? this.playerWrapper.querySelector('.yt-voice-search-button')
-			: null;
+		this.seekBackButton = this.playerWrapper.querySelector('.yt-seek-back-button');
+		this.seekForwardButton = this.playerWrapper.querySelector('.yt-seek-forward-button');
+		this.voiceButton = this.playerWrapper.querySelector('.yt-voice-search-button');
 		this.repeatButton = this.playerWrapper.querySelector('.yt-repeat-button');
 
 		// Gesture feedback
@@ -1230,14 +1660,6 @@ class YTMediaPlayer {
 			this.playerWrapper.classList.add('playlist-multiline-titles');
 		}
 
-		// Button visibility
-		if (!this.options.showPreviousButton) {
-			this.playerWrapper.classList.add('hide-prev-button');
-		}
-		if (!this.options.showSkipButton) {
-			this.playerWrapper.classList.add('hide-skip-button');
-		}
-
 		// Playlist item duration visibility
 		if (this.options.hidePlaylistItemDurations) {
 			this.playerWrapper.classList.add('hide-durations');
@@ -1259,10 +1681,14 @@ class YTMediaPlayer {
 			document.body.classList.add('yt-player-hide-for-panel-active');
 		}
 
-		// Repeat button visibility
-		if (this.options.showRepeatButton === 'disabled') {
+		const repeatVisibilityMode = this._repeatVisibilityMode || 'always-show';
+		this.playerWrapper.classList.remove(
+			'hide-repeat-button',
+			'hide-repeat-button-when-inactive'
+		);
+		if (repeatVisibilityMode === 'disabled') {
 			this.playerWrapper.classList.add('hide-repeat-button');
-		} else if (this.options.showRepeatButton === 'show-when-active') {
+		} else if (repeatVisibilityMode === 'show-when-active') {
 			this.playerWrapper.classList.add('hide-repeat-button-when-inactive');
 		}
 
@@ -1826,9 +2252,24 @@ class YTMediaPlayer {
 			document.body.classList.add('yt-horizontal-playlist');
 			if (this.playlistWrapper) {
 				this.playlistWrapper.classList.add('horizontal-playlist');
+				this.playlistWrapper.classList.toggle(
+					'horizontal-align-left',
+					this.options.horizontalPlaylistAlignment === 'align-current-left'
+				);
+				if (this.options.horizontalPlaylistAlignment === 'align-current-left') {
+					const padVar = getComputedStyle(this.playerWrapper).getPropertyValue(
+						'--drawer-height-px'
+					);
+					const base = parseFloat(padVar) || 0;
+					const px = Math.max(0, Math.round(base * 0.03));
+					this.playlistWrapper.style.scrollPaddingLeft = `${px}px`;
+				} else {
+					this.playlistWrapper.style.scrollPaddingLeft = '';
+				}
 			}
 		} else if (this.playlistWrapper) {
 			this.playlistWrapper.classList.remove('horizontal-playlist');
+			this.playlistWrapper.classList.remove('horizontal-align-left');
 		}
 
 		switch (this.drawerState) {
@@ -1845,7 +2286,12 @@ class YTMediaPlayer {
 
 		// Update centered overlay and edge padding depending on horizontal state
 		if (horizontalActive) {
-			this._updatePlaylistEdgePaddingForCentering();
+			if (this.options.horizontalPlaylistAlignment === 'center-current') {
+				this._updatePlaylistEdgePaddingForCentering();
+			} else if (this.playlistWrapper) {
+				this.playlistWrapper.style.paddingLeft = '0px';
+				this.playlistWrapper.style.paddingRight = '0px';
+			}
 		} else {
 			this._hideCenteredOverlay(true);
 			if (this.playlistWrapper) {
@@ -1929,11 +2375,20 @@ class YTMediaPlayer {
 			this.drawerHeader.textContent = '';
 
 			// Check if this is a mix (use original title for badge check)
+			const isSnap =
+				window.userSettings.activeMixSnapshotId &&
+				this.options.currentPlaylist &&
+				this.options.currentPlaylist.listId === window.userSettings.activeMixSnapshotId;
 			const isMix = /^(?:my\s+)?mix/i.test(
 				this._originalPlaylistTitle || this._fullPlaylistTitle
 			);
 
-			if (isMix) {
+			if (isSnap) {
+				const snapBadge = document.createElement('span');
+				snapBadge.className = 'yt-mix-badge';
+				snapBadge.textContent = 'Snap';
+				this.drawerHeader.appendChild(snapBadge);
+			} else if (isMix) {
 				// Add Mix badge before title
 				const mixBadge = document.createElement('span');
 				mixBadge.className = 'yt-mix-badge';
@@ -1981,8 +2436,8 @@ class YTMediaPlayer {
 		const videoHeight = isVideoPlayerHidden
 			? 0
 			: videoElement
-			? videoElement.getBoundingClientRect().height
-			: 0;
+				? videoElement.getBoundingClientRect().height
+				: 0;
 
 		// Calculate below-player height
 		const navbarHeight = 48;
@@ -2537,6 +2992,7 @@ class YTMediaPlayer {
 			'.yt-seekbar-handle',
 			'.yt-seekbar-background',
 			'.yt-drawer-close-button',
+			'.yt-drawer-loop-toggle-button',
 			'[data-action]',
 			'ytm-related-chip-cloud-renderer',
 			'.ytm-infocards-creator-custom-url-buttons',
@@ -2718,6 +3174,7 @@ class YTMediaPlayer {
 			restartPreviousVideo: () => this.options.callbacks.onGestureSmartPrevious?.(),
 			nextVideo: () => this.options.callbacks.onSkipClick?.(),
 			playPause: () => {
+				if (!this.playButton) return;
 				const currentState = this.playButton.classList.contains('playing')
 					? 'playing'
 					: 'paused';
@@ -2733,8 +3190,10 @@ class YTMediaPlayer {
 					this.options.callbacks.onVoiceSearchClick?.(newState);
 				}
 			},
-			seekBackward10: () => this.options.callbacks.onGestureSeek?.(-10),
-			seekForward10: () => this.options.callbacks.onGestureSeek?.(10),
+			seekBackward10: () =>
+				this.options.callbacks.onGestureSeek?.(-this.options.seekSkipSeconds),
+			seekForward10: () =>
+				this.options.callbacks.onGestureSeek?.(this.options.seekSkipSeconds),
 			togglePlaylist: () => {
 				this._togglePlaylistDrawer();
 				this.options.callbacks.onGestureTogglePlaylist?.();
@@ -2873,6 +3332,9 @@ class YTMediaPlayer {
 		}
 
 		this._updateDrawerFocusButtonVisibility();
+		if (this._overlaySuppressUntil && Date.now() < this._overlaySuppressUntil) {
+			return;
+		}
 
 		clearTimeout(this.autoScrollFocusTimer);
 		this.playlistWrapper.classList.add('scrolling');
@@ -2881,6 +3343,7 @@ class YTMediaPlayer {
 		}
 		this.autoScrollFocusTimer = setTimeout(() => {
 			this.playlistWrapper.classList.remove('scrolling');
+			this._lastOverlayScrollLeft = -1;
 			this._performAutoScrollFocus_bound();
 			this._updateDrawerFocusButtonVisibility();
 		}, this.playlistScrollDebounceDelay);
@@ -2914,6 +3377,7 @@ class YTMediaPlayer {
 		clearTimeout(this.autoScrollFocusTimer);
 		this.autoScrollFocusTimer = setTimeout(() => {
 			this.playlistWrapper.classList.remove('scrolling');
+			this._lastOverlayScrollLeft = -1;
 			this._performAutoScrollFocus_bound();
 			this._updateDrawerFocusButtonVisibility();
 		}, this.playlistScrollDebounceDelay);
@@ -2925,15 +3389,38 @@ class YTMediaPlayer {
 		if (!this._isHorizontalPlaylistActive() || !this.playlistWrapper || !this.hasPlaylist)
 			return;
 
+		if (this._overlaySuppressUntil && Date.now() < this._overlaySuppressUntil) return;
+		if (!this.playlistWrapper.classList.contains('scrolling')) return;
+		const currentX = this.playlistWrapper.scrollLeft;
+		const minDelta = this.options.horizontalPlaylistAlignment === 'align-current-left' ? 8 : 2;
+		if (
+			typeof this._lastOverlayScrollLeft === 'number' &&
+			Math.abs(currentX - this._lastOverlayScrollLeft) < minDelta
+		) {
+			return;
+		}
+		this._lastOverlayScrollLeft = currentX;
+
 		const items = Array.from(this.playlistWrapper.querySelectorAll('.yt-playlist-item'));
 		if (!items.length || !this.centeredOverlayElement) return;
 
-		const centerX = this.playlistWrapper.scrollLeft + this.playlistWrapper.clientWidth / 2;
+		const useLeftAlign = this.options.horizontalPlaylistAlignment === 'align-current-left';
+		const anchorX = (() => {
+			if (useLeftAlign) {
+				const sp = parseInt(
+					getComputedStyle(this.playlistWrapper).getPropertyValue('scroll-padding-left')
+				);
+				return this.playlistWrapper.scrollLeft + (isNaN(sp) ? 0 : sp);
+			}
+			return this.playlistWrapper.scrollLeft + this.playlistWrapper.clientWidth / 2;
+		})();
 		let closestItem = null;
 		let closestDist = Infinity;
 		for (const item of items) {
-			const itemCenter = item.offsetLeft + item.offsetWidth / 2;
-			const dist = Math.abs(itemCenter - centerX);
+			const itemAnchor = useLeftAlign
+				? item.offsetLeft
+				: item.offsetLeft + item.offsetWidth / 2;
+			const dist = Math.abs(itemAnchor - anchorX);
 			if (dist < closestDist) {
 				closestDist = dist;
 				closestItem = item;
@@ -3026,6 +3513,7 @@ class YTMediaPlayer {
 			this.controlsCenteredOverlay.classList.remove('visible');
 		}
 		clearTimeout(this.centeredOverlayHideTimer);
+		this._overlaySuppressUntil = Date.now() + 300;
 		if (resetHighlight && this.playlistWrapper) {
 			this.playlistWrapper
 				.querySelectorAll('.yt-playlist-item.centered')
@@ -3124,15 +3612,84 @@ class YTMediaPlayer {
 	}
 
 	_updateDrawerFocusButtonVisibility() {
-		if (!this.drawerFocusButton) return;
-		const shouldShow =
-			!this.options.keepPlaylistFocused &&
-			this.hasPlaylist &&
-			!!this.playlistWrapper &&
-			!this._isActiveItemVisible();
-		this.drawerFocusButton.classList.toggle('visible', shouldShow);
+		if (this.drawerFocusButton) {
+			const shouldShow =
+				!this.options.keepPlaylistFocused &&
+				this.hasPlaylist &&
+				!!this.playlistWrapper &&
+				!this._isActiveItemVisible();
+			this.drawerFocusButton.classList.toggle('visible', shouldShow);
+		}
+		this._updateDrawerCloseButtonVisibility();
+		this._updateDrawerLoopButtonVisibility();
+		this._updateDrawerShuffleButtonVisibility();
 	}
 
+	_updateDrawerCloseButtonVisibility() {
+		if (!this.drawerCloseButton) return;
+		const shouldShow = !!this.hasPlaylist && this._canDragDrawer();
+		this.drawerCloseButton.classList.toggle('visible', shouldShow);
+	}
+
+	_updateDrawerLoopButtonVisibility() {
+		if (!this.drawerLoopButton) return;
+		const mode = this._drawerLoopVisibilityMode || 'all';
+		const activeId = window.userSettings.activeMixSnapshotId;
+		const listId = this.options.currentPlaylist?.listId;
+		const persisted = (window.userSettings.mixSnapshots || {})[activeId];
+		const tempSnap = window.userSettings.tempMixSnapshot;
+		const isActiveSnap =
+			!!activeId &&
+			!!listId &&
+			listId === activeId &&
+			(!!persisted || (tempSnap && tempSnap.id === activeId));
+		const shouldShow =
+			mode === 'hidden'
+				? false
+				: mode === 'all'
+					? !!this.hasPlaylist
+					: mode === 'active-only'
+						? isActiveSnap
+						: isActiveSnap;
+		this.drawerLoopButton.classList.toggle('visible', !!shouldShow);
+		let enabled = false;
+		if (isActiveSnap) {
+			const snap = persisted || tempSnap;
+			enabled = !!snap?.loopEnabled;
+		}
+		this.drawerLoopButton.classList.toggle('active', enabled);
+		this.drawerLoopButton.setAttribute('aria-pressed', String(enabled));
+	}
+
+	_updateDrawerShuffleButtonVisibility() {
+		if (!this.drawerShuffleButton) return;
+		const mode = this._drawerShuffleVisibilityMode || 'all';
+		const activeId = window.userSettings.activeMixSnapshotId;
+		const listId = this.options.currentPlaylist?.listId;
+		const persisted = (window.userSettings.mixSnapshots || {})[activeId];
+		const tempSnap = window.userSettings.tempMixSnapshot;
+		const isActiveSnap =
+			!!activeId &&
+			!!listId &&
+			listId === activeId &&
+			(!!persisted || (tempSnap && tempSnap.id === activeId));
+		const shouldShow =
+			mode === 'hidden'
+				? false
+				: mode === 'all'
+					? !!this.hasPlaylist
+					: mode === 'active-only'
+						? isActiveSnap
+						: isActiveSnap;
+		this.drawerShuffleButton.classList.toggle('visible', !!shouldShow);
+		let enabled = false;
+		if (isActiveSnap) {
+			const snap = persisted || tempSnap;
+			enabled = !!snap?.shuffleEnabled;
+		}
+		this.drawerShuffleButton.classList.toggle('active', enabled);
+		this.drawerShuffleButton.setAttribute('aria-pressed', String(enabled));
+	}
 	_scrollActiveItemIntoView(activeItem, behavior = 'smooth') {
 		if (!activeItem || !this.playlistWrapper || !activeItem.offsetParent) return;
 
@@ -3140,8 +3697,13 @@ class YTMediaPlayer {
 		if (this._isHorizontalPlaylistActive()) {
 			const wrapperWidth = this.playlistWrapper.clientWidth;
 			const itemWidth = activeItem.offsetWidth;
-			const itemCenter = activeItem.offsetLeft + itemWidth / 2;
-			let targetScrollLeft = itemCenter - wrapperWidth / 2;
+			let targetScrollLeft;
+			if (this.options.horizontalPlaylistAlignment === 'align-current-left') {
+				targetScrollLeft = activeItem.offsetLeft;
+			} else {
+				const itemCenter = activeItem.offsetLeft + itemWidth / 2;
+				targetScrollLeft = itemCenter - wrapperWidth / 2;
+			}
 
 			// Clamp to valid scroll range
 			const maxScrollLeft = Math.max(0, this.playlistWrapper.scrollWidth - wrapperWidth);
@@ -3164,13 +3726,20 @@ class YTMediaPlayer {
 		}
 
 		// Default vertical behavior
-		const previousItem = activeItem.previousElementSibling;
 		const playlistHeight = this.playlistWrapper.offsetHeight;
 		const itemHeight = activeItem.offsetHeight;
 
-		let targetScrollTop = activeItem.offsetTop;
-		if (previousItem && playlistHeight >= itemHeight * 3) {
-			targetScrollTop = previousItem.offsetTop;
+		let targetScrollTop;
+		if (this.options.verticalPlaylistAlignment === 'center-current') {
+			targetScrollTop = activeItem.offsetTop - Math.max(0, (playlistHeight - itemHeight) / 2);
+		} else if (this.options.verticalPlaylistAlignment === 'align-current-top') {
+			targetScrollTop = activeItem.offsetTop;
+		} else {
+			const previousItem = activeItem.previousElementSibling;
+			targetScrollTop = activeItem.offsetTop;
+			if (previousItem && playlistHeight >= itemHeight * 3) {
+				targetScrollTop = previousItem.offsetTop;
+			}
 		}
 
 		targetScrollTop = Math.max(0, targetScrollTop);
@@ -3250,8 +3819,8 @@ class YTMediaPlayer {
 				const tooltip = useInlineTooltip
 					? this.seekTooltipInlineElement
 					: isBackground
-					? this.seekTooltipElement
-					: this.seekTooltipInlineElement;
+						? this.seekTooltipElement
+						: this.seekTooltipInlineElement;
 				if (tooltip) {
 					tooltip.style.display = 'block';
 				}
@@ -3302,8 +3871,8 @@ class YTMediaPlayer {
 				const tooltip = useInlineTooltip
 					? this.seekTooltipInlineElement
 					: isBackground
-					? this.seekTooltipElement
-					: this.seekTooltipInlineElement;
+						? this.seekTooltipElement
+						: this.seekTooltipInlineElement;
 				const posRect =
 					useInlineTooltip && this.seekbarInline
 						? this.seekbarInline.getBoundingClientRect()
@@ -3347,8 +3916,8 @@ class YTMediaPlayer {
 				const tooltip = useInlineTooltip
 					? this.seekTooltipInlineElement
 					: isBackground
-					? this.seekTooltipElement
-					: this.seekTooltipInlineElement;
+						? this.seekTooltipElement
+						: this.seekTooltipInlineElement;
 				if (tooltip) {
 					tooltip.style.display = 'none';
 				}
@@ -3408,8 +3977,8 @@ class YTMediaPlayer {
 						const tooltip = useInlineTooltip
 							? this.seekTooltipInlineElement
 							: isBackground
-							? this.seekTooltipElement
-							: this.seekTooltipInlineElement;
+								? this.seekTooltipElement
+								: this.seekTooltipInlineElement;
 						if (tooltip) {
 							const posRect =
 								useInlineTooltip && this.seekbarInline
@@ -3443,6 +4012,508 @@ class YTMediaPlayer {
 				handleElement.addEventListener(eventType, onDragStart, { passive: false });
 			});
 		}
+	}
+
+	_setupBottomControlsGestures() {
+		if (!this.playerWrapper) return;
+
+		const getDoubleClickDelay = () =>
+			Math.max(
+				120,
+				Math.min(800, parseInt(window.userSettings?.bottomControlsDoubleClickDelay) || 260)
+			);
+		const HOLD_TRIGGER_DELAY = 350;
+		const HOLD_REPEAT_INTERVAL = 160;
+		const HOLD_REPEAT_SEEK_STEP = 2;
+
+		const slotConfigs = [
+			{
+				slotClass: 'yt-bottom-left-slot1',
+				baseKey: 'layoutBottomLeftSlot1',
+				defaultAction: 'repeat',
+			},
+			{
+				slotClass: 'yt-bottom-center-slot1',
+				baseKey: 'layoutBottomCenterSlot1',
+				defaultAction: 'seek-back',
+			},
+			{
+				slotClass: 'yt-bottom-center-slot2',
+				baseKey: 'layoutBottomCenterSlot2',
+				defaultAction: 'previous',
+			},
+			{
+				slotClass: 'yt-bottom-center-slot3',
+				baseKey: 'layoutBottomCenterSlot3',
+				defaultAction: 'play',
+			},
+			{
+				slotClass: 'yt-bottom-center-slot4',
+				baseKey: 'layoutBottomCenterSlot4',
+				defaultAction: 'skip',
+			},
+			{
+				slotClass: 'yt-bottom-center-slot5',
+				baseKey: 'layoutBottomCenterSlot5',
+				defaultAction: 'seek-forward',
+			},
+			{
+				slotClass: 'yt-bottom-right-slot1',
+				baseKey: 'layoutBottomRightSlot1',
+				defaultAction: 'voice-search',
+			},
+			{
+				slotClass: 'yt-bottom-right-slot2',
+				baseKey: 'layoutBottomRightSlot2',
+				defaultAction: 'limited-height-fab',
+			},
+		];
+
+		const lockedPrimaryActions = {
+			layoutBottomCenterSlot3: 'play',
+			layoutBottomRightSlot2: 'limited-height-fab',
+		};
+
+		const getPrimaryAction = (baseKey, fallback) => {
+			if (lockedPrimaryActions[baseKey]) return lockedPrimaryActions[baseKey];
+			return window.userSettings?.[baseKey] || fallback;
+		};
+
+		const getDoubleAction = (baseKey) =>
+			window.userSettings?.[`${baseKey}DoubleAction`] || 'none';
+		const getHoldAction = (baseKey) => window.userSettings?.[`${baseKey}HoldAction`] || 'none';
+
+		const isSeekAction = (actionId) => actionId === 'seek-back' || actionId === 'seek-forward';
+		const getSeekDirection = (actionId) => (actionId === 'seek-forward' ? 1 : -1);
+
+		for (const { slotClass, baseKey, defaultAction } of slotConfigs) {
+			const slotEl = this.playerWrapper.querySelector(`.yt-control-slot.${slotClass}`);
+			if (!slotEl) continue;
+
+			const buttonEl =
+				slotEl.querySelector('.yt-limited-height-fab-main') ||
+				slotEl.querySelector('button');
+			if (!buttonEl) continue;
+
+			let clickTimeout = null;
+			let holdTimeout = null;
+			let holdInterval = null;
+			let lastClickAt = 0;
+			let didHold = false;
+			let pointerDownActive = false;
+			let activePointerId = null;
+
+			const clearTimers = () => {
+				if (clickTimeout) {
+					clearTimeout(clickTimeout);
+					clickTimeout = null;
+				}
+				if (holdTimeout) {
+					clearTimeout(holdTimeout);
+					holdTimeout = null;
+				}
+				if (holdInterval) {
+					clearInterval(holdInterval);
+					holdInterval = null;
+				}
+			};
+
+			const stopHold = () => {
+				if (holdTimeout) {
+					clearTimeout(holdTimeout);
+					holdTimeout = null;
+				}
+				if (holdInterval) {
+					clearInterval(holdInterval);
+					holdInterval = null;
+				}
+				this._clearBottomControlHoldIcon(buttonEl);
+			};
+
+			const executeAction = (actionId, { isGesture } = {}) => {
+				if (!this.isPlayerVisible) return;
+				if (!actionId || actionId === 'none') return;
+				this._executeBottomControlAction(actionId, buttonEl);
+				if (isGesture) {
+					this._showBottomControlGestureIcon(buttonEl, actionId);
+				}
+			};
+
+			const startHold = () => {
+				const holdAction = getHoldAction(baseKey);
+				if (!holdAction || holdAction === 'none') return;
+				didHold = false;
+				if (holdTimeout) clearTimeout(holdTimeout);
+				holdTimeout = setTimeout(() => {
+					didHold = true;
+					this._setBottomControlHoldIcon(buttonEl, holdAction);
+					if (isSeekAction(holdAction)) {
+						const dir = getSeekDirection(holdAction);
+						holdInterval = setInterval(() => {
+							this.options.callbacks.onGestureSeek?.(dir * HOLD_REPEAT_SEEK_STEP);
+						}, HOLD_REPEAT_INTERVAL);
+						return;
+					}
+					executeAction(holdAction);
+				}, HOLD_TRIGGER_DELAY);
+			};
+
+			const handleSingleClick = () => {
+				const primaryAction = getPrimaryAction(baseKey, defaultAction);
+				executeAction(primaryAction);
+			};
+
+			const handleClick = (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				e.stopImmediatePropagation();
+				if (didHold) {
+					didHold = false;
+					return;
+				}
+				const doubleAction = getDoubleAction(baseKey);
+				if (!doubleAction || doubleAction === 'none') {
+					handleSingleClick();
+					return;
+				}
+				const DOUBLE_CLICK_DELAY = getDoubleClickDelay();
+				const now = Date.now();
+				if (now - lastClickAt <= DOUBLE_CLICK_DELAY) {
+					lastClickAt = 0;
+					if (clickTimeout) {
+						clearTimeout(clickTimeout);
+						clickTimeout = null;
+					}
+					executeAction(doubleAction, { isGesture: true });
+					return;
+				}
+				lastClickAt = now;
+				if (clickTimeout) clearTimeout(clickTimeout);
+				clickTimeout = setTimeout(() => {
+					clickTimeout = null;
+					handleSingleClick();
+				}, DOUBLE_CLICK_DELAY);
+			};
+
+			const onPointerDown = (e) => {
+				if (typeof e.button === 'number' && e.button !== 0) return;
+				if (pointerDownActive) return;
+				pointerDownActive = true;
+				activePointerId = typeof e.pointerId === 'number' ? e.pointerId : 'mouse';
+				if (window.PointerEvent && typeof buttonEl.setPointerCapture === 'function') {
+					try {
+						buttonEl.setPointerCapture(e.pointerId);
+					} catch (err) {}
+				}
+				stopHold();
+				startHold();
+			};
+
+			const onPointerUp = (e) => {
+				if (!pointerDownActive) return;
+				if (typeof e.pointerId === 'number' && activePointerId !== e.pointerId) return;
+				pointerDownActive = false;
+				activePointerId = null;
+				if (window.PointerEvent && typeof buttonEl.releasePointerCapture === 'function') {
+					try {
+						buttonEl.releasePointerCapture(e.pointerId);
+					} catch (err) {}
+				}
+				stopHold();
+			};
+
+			const onPointerCancel = (e) => {
+				if (!pointerDownActive) return;
+				if (typeof e.pointerId === 'number' && activePointerId !== e.pointerId) return;
+				pointerDownActive = false;
+				activePointerId = null;
+				clearTimers();
+				didHold = false;
+			};
+
+			const isEventFromButton = (e) => {
+				const path = typeof e.composedPath === 'function' ? e.composedPath() : null;
+				if (path && Array.isArray(path)) return path.includes(buttonEl);
+				return buttonEl.contains(e.target);
+			};
+
+			const onGlobalPointerDown = (e) => {
+				if (!isEventFromButton(e)) return;
+				onPointerDown(e);
+			};
+
+			const onGlobalPointerUp = (e) => {
+				if (!pointerDownActive) return;
+				onPointerUp(e);
+			};
+
+			const onGlobalPointerCancel = (e) => {
+				if (!pointerDownActive) return;
+				onPointerCancel(e);
+			};
+
+			if (window.PointerEvent) {
+				buttonEl.addEventListener('pointerdown', onPointerDown, { passive: false });
+				buttonEl.addEventListener('pointerup', onPointerUp, { passive: false });
+				buttonEl.addEventListener('pointercancel', onPointerCancel, { passive: false });
+				buttonEl.addEventListener('lostpointercapture', onPointerUp, { passive: false });
+				window.addEventListener('pointerdown', onGlobalPointerDown, {
+					passive: false,
+					capture: true,
+				});
+				window.addEventListener('pointerup', onGlobalPointerUp, {
+					passive: false,
+					capture: true,
+				});
+				window.addEventListener('pointercancel', onGlobalPointerCancel, {
+					passive: false,
+					capture: true,
+				});
+			} else {
+				buttonEl.addEventListener('mousedown', onPointerDown, { passive: false });
+				buttonEl.addEventListener('mouseup', onPointerUp, { passive: false });
+				buttonEl.addEventListener('mouseleave', onPointerUp, { passive: false });
+				buttonEl.addEventListener('touchstart', onPointerDown, { passive: false });
+				buttonEl.addEventListener('touchend', onPointerUp, { passive: false });
+				buttonEl.addEventListener('touchcancel', onPointerCancel, { passive: false });
+				window.addEventListener('mousedown', onGlobalPointerDown, {
+					passive: false,
+					capture: true,
+				});
+				window.addEventListener('mouseup', onGlobalPointerUp, {
+					passive: false,
+					capture: true,
+				});
+				window.addEventListener('touchstart', onGlobalPointerDown, {
+					passive: false,
+					capture: true,
+				});
+				window.addEventListener('touchend', onGlobalPointerUp, {
+					passive: false,
+					capture: true,
+				});
+				window.addEventListener('touchcancel', onGlobalPointerCancel, {
+					passive: false,
+					capture: true,
+				});
+			}
+
+			buttonEl.addEventListener(
+				'contextmenu',
+				(e) => {
+					e.preventDefault();
+				},
+				{ passive: false }
+			);
+			buttonEl.addEventListener('click', handleClick, { passive: false, capture: true });
+		}
+	}
+
+	_executeBottomControlAction(actionId, buttonEl) {
+		if (!this.isPlayerVisible) return;
+
+		if (actionId === 'play') {
+			if (!this.playButton) return;
+			let newState;
+			if (this.playButton.classList.contains('paused')) newState = PlayState.PLAYING;
+			else if (this.playButton.classList.contains('playing')) newState = PlayState.PAUSED;
+			else if (this.playButton.classList.contains('buffering')) newState = PlayState.PAUSED;
+			if (!newState) return;
+			this.setPlayState(newState);
+			const details = newState === PlayState.PAUSED ? { source: 'custom' } : null;
+			this.options.callbacks.onPlayPauseClick?.(newState, details);
+			return;
+		}
+
+		if (actionId === 'previous' || actionId === 'restart-then-previous') {
+			if (!this.prevButton || this.isPrevButtonAnimating) return;
+			const wasRestart = this.prevButton.classList.contains('restart');
+			if (wasRestart) {
+				this.isPrevButtonAnimating = true;
+				this.isRestartIconLocked = true;
+				this.prevButton.classList.add('animate');
+				setTimeout(() => {
+					this.prevButton.classList.remove('animate');
+					this.isPrevButtonAnimating = false;
+					this.isRestartIconLocked = false;
+					this._updatePrevButtonVisualState();
+				}, 600);
+			}
+			this.options.callbacks.onPreviousClick?.(actionId);
+			return;
+		}
+
+		if (actionId === 'skip') {
+			this.options.callbacks.onSkipClick?.();
+			return;
+		}
+
+		if (actionId === 'seek-back' || actionId === 'seek-forward') {
+			const secs = Number(this.options.seekSkipSeconds) || 10;
+			const dir = actionId === 'seek-forward' ? 1 : -1;
+			this.options.callbacks.onGestureSeek?.(dir * secs);
+			return;
+		}
+
+		if (actionId === 'voice-search') {
+			if (!this.voiceButton) return;
+			const currentState = this.voiceButton.classList.contains('listening')
+				? VoiceState.LISTENING
+				: VoiceState.NORMAL;
+			const nextState =
+				currentState === 'listening' ? VoiceState.NORMAL : VoiceState.LISTENING;
+			this.options.callbacks.onVoiceSearchClick?.(nextState);
+			return;
+		}
+
+		if (actionId === 'repeat') {
+			if (!this.repeatButton) return;
+			const isCurrentlyOn = this.repeatButton.classList.contains('on');
+			const newState = isCurrentlyOn ? 'off' : 'on';
+			this.repeatButton.classList.remove('on', 'off');
+			this.repeatButton.classList.add(newState);
+			this.options.callbacks.onRepeatClick?.(newState === 'on');
+			return;
+		}
+
+		if (actionId === 'limited-height-fab') {
+			const fab = buttonEl?.closest?.('.yt-limited-height-fab');
+			const speedDial = fab?.querySelector?.('.yt-speed-dial');
+			if (speedDial) {
+				speedDial.classList.toggle('yt-speed-dial-open');
+			}
+			return;
+		}
+
+		if (
+			actionId === 'text-search' ||
+			actionId === 'favourites' ||
+			actionId === 'video-toggle' ||
+			actionId === 'debug-logs'
+		) {
+			this._handleSpeedDialAction(actionId);
+			if (actionId === 'video-toggle') {
+				const path = buttonEl?.querySelector?.('svg path');
+				if (path) {
+					const nowHidden = document.body.classList.contains('yt-hide-video-player');
+					path.setAttribute(
+						'd',
+						nowHidden
+							? 'M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM14 13h-3v3H9v-3H6v-2h3V8h2v3h3v2z'
+							: 'M21 6.5l-4 4V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11zM9.5 16L8 14.5 10.5 12 8 9.5 9.5 8 12 10.5 14.5 8 16 9.5 13.5 12 16 14.5 14.5 16 12 13.5 9.5 16z'
+					);
+				}
+			}
+			return;
+		}
+	}
+
+	_showBottomControlGestureIcon(buttonEl, actionId) {
+		if (!buttonEl) return;
+
+		const iconSVG = this._createBottomActionIconSVG(actionId);
+		if (!iconSVG) return;
+
+		const existing = Array.from(buttonEl.querySelectorAll('svg'));
+		existing.forEach((svg) => {
+			svg.style.setProperty('display', 'none', 'important');
+		});
+
+		buttonEl.insertBefore(iconSVG, buttonEl.firstChild);
+
+		clearTimeout(buttonEl._ytGestureIconTimeoutId);
+		buttonEl._ytGestureIconTimeoutId = setTimeout(() => {
+			if (iconSVG.parentNode === buttonEl) {
+				buttonEl.removeChild(iconSVG);
+			}
+			existing.forEach((svg) => {
+				svg.style.removeProperty('display');
+			});
+		}, 650);
+	}
+
+	_setBottomControlHoldIcon(buttonEl, actionId) {
+		if (!buttonEl) return;
+		this._clearBottomControlHoldIcon(buttonEl);
+
+		const iconSVG = this._createBottomActionIconSVG(actionId);
+		if (!iconSVG) return;
+
+		const existing = Array.from(buttonEl.querySelectorAll('svg'));
+		existing.forEach((svg) => {
+			svg.style.setProperty('display', 'none', 'important');
+		});
+
+		buttonEl.insertBefore(iconSVG, buttonEl.firstChild);
+		buttonEl._ytHoldIconSvg = iconSVG;
+		buttonEl._ytHoldIconHiddenSvgs = existing;
+	}
+
+	_clearBottomControlHoldIcon(buttonEl) {
+		if (!buttonEl) return;
+		const iconSVG = buttonEl._ytHoldIconSvg;
+		if (iconSVG && iconSVG.parentNode === buttonEl) {
+			buttonEl.removeChild(iconSVG);
+		}
+		const hidden = buttonEl._ytHoldIconHiddenSvgs;
+		if (hidden && Array.isArray(hidden)) {
+			hidden.forEach((svg) => {
+				svg.style.removeProperty('display');
+			});
+		}
+		buttonEl._ytHoldIconSvg = null;
+		buttonEl._ytHoldIconHiddenSvgs = null;
+	}
+
+	_createBottomActionIconSVG(actionId) {
+		const iconPaths = {
+			previous: 'M6 6h2v12H6zm3.5 6l8.5 6V6z',
+			skip: 'M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z',
+			'seek-back': 'M11 18l-6.5-6L11 6v12zM19 18l-6.5-6L19 6v12z',
+			'seek-forward': 'M13 6l6.5 6L13 18V6zM5 6l6.5 6L5 18V6z',
+			repeat: 'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z',
+			play: this.playButton?.classList.contains('paused')
+				? 'M8 5v14l11-7z'
+				: 'M6 19h4V5H6v14zm8-14v14h4V5h-4z',
+			'voice-search': [
+				'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z',
+				'M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z',
+			],
+			'limited-height-fab': 'M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z',
+			'text-search':
+				'M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z',
+			favourites:
+				'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z',
+			'video-toggle':
+				'M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM14 13h-3v3H9v-3H6v-2h3V8h2v3h3v2z',
+			'debug-logs':
+				'M20,8H17.19C16.74,7.22 16.12,6.55 15.37,6.04L17,4.41L15.59,3L13.42,5.17C12.96,5.06 12.49,5 12,5C11.51,5 11.04,5.06 10.59,5.17L8.41,3L7,4.41L8.62,6.04C7.88,6.55 7.26,7.22 6.81,8H4V10H6.09C6.04,10.33 6,10.66 6,11V12H4V14H6V15C6,15.34 6.04,15.67 6.09,16H4V18H6.81C7.85,19.79 9.78,21 12,21C14.22,21 16.15,19.79 17.19,18H20V16H17.91C17.96,15.67 18,15.34 18,15V14H20V12H18V11C18,10.66 17.96,10.33 17.91,10H20V8M16,15A4,4 0 0,1 12,19A4,4 0 0,1 8,15V11A4,4 0 0,1 12,7A4,4 0 0,1 16,11V15M14,10V12L15.5,13.5L14.5,14.5L12.5,12.5V10H14Z',
+		};
+
+		const pathData = iconPaths[actionId];
+		if (!pathData) return null;
+
+		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		svg.setAttribute('width', '24');
+		svg.setAttribute('height', '24');
+		svg.setAttribute('viewBox', '0 0 24 24');
+		svg.style.fill = 'currentColor';
+
+		if (Array.isArray(pathData)) {
+			const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+			pathData.forEach((d) => {
+				const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				path.setAttribute('d', d);
+				g.appendChild(path);
+			});
+			svg.appendChild(g);
+		} else {
+			const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			path.setAttribute('d', pathData);
+			svg.appendChild(path);
+		}
+
+		return svg;
 	}
 
 	/**
@@ -3487,72 +4558,7 @@ class YTMediaPlayer {
 			false
 		);
 
-		// Control buttons
-		this.playButton.addEventListener('click', () => {
-			if (!this.isPlayerVisible) return;
-
-			let newState;
-			if (this.playButton.classList.contains('paused')) newState = PlayState.PLAYING;
-			else if (this.playButton.classList.contains('playing')) newState = PlayState.PAUSED;
-			else if (this.playButton.classList.contains('buffering')) newState = PlayState.PAUSED;
-
-			if (newState) {
-				this.setPlayState(newState);
-				const details = newState === PlayState.PAUSED ? { source: 'custom' } : null;
-				this.options.callbacks.onPlayPauseClick?.(newState, details);
-			}
-		});
-
-		this.prevButton.addEventListener('click', () => {
-			if (!this.isPlayerVisible || this.isPrevButtonAnimating) return;
-
-			const wasRestart = this.prevButton.classList.contains('restart');
-			if (wasRestart) {
-				this.isPrevButtonAnimating = true;
-				this.isRestartIconLocked = true;
-				this.prevButton.classList.add('animate');
-				setTimeout(() => {
-					this.prevButton.classList.remove('animate');
-					this.isPrevButtonAnimating = false;
-					this.isRestartIconLocked = false;
-					this._updatePrevButtonVisualState();
-				}, 600);
-			}
-			this.options.callbacks.onPreviousClick?.();
-		});
-
-		this.skipButton.addEventListener('click', () => {
-			if (!this.isPlayerVisible) return;
-			this.options.callbacks.onSkipClick?.();
-		});
-
-		if (this.voiceButton) {
-			this.voiceButton.addEventListener('click', () => {
-				if (!this.isPlayerVisible) return;
-
-				const currentState = this.voiceButton.classList.contains('listening')
-					? VoiceState.LISTENING
-					: VoiceState.NORMAL;
-				const nextState =
-					currentState === 'listening' ? VoiceState.NORMAL : VoiceState.LISTENING;
-
-				this.options.callbacks.onVoiceSearchClick?.(nextState);
-			});
-		}
-
-		if (this.repeatButton) {
-			this.repeatButton.addEventListener('click', () => {
-				if (!this.isPlayerVisible) return;
-
-				const isCurrentlyOn = this.repeatButton.classList.contains('on');
-				const newState = isCurrentlyOn ? 'off' : 'on';
-
-				this.repeatButton.classList.remove('on', 'off');
-				this.repeatButton.classList.add(newState);
-
-				this.options.callbacks.onRepeatClick?.(newState === 'on');
-			});
-		}
+		this._setupBottomControlsGestures();
 
 		// Playlist interactions
 		if (this.playlistWrapper) {
@@ -4194,13 +5200,12 @@ class YTMediaPlayer {
 			return;
 		}
 
-		if (this.options.previousButtonBehavior === 'alwaysPrevious') {
+		if ((this._previousActionId || 'previous') !== 'restart-then-previous') {
 			if (!this.prevButton.classList.contains('previous')) {
 				this.prevButton.classList.remove('restart');
 				this.prevButton.classList.add('previous');
 			}
 		} else {
-			// Smart mode
 			const restartThreshold = window.userSettings.smartPreviousThreshold || 5;
 			const shouldShowRestart = this.trackTime > restartThreshold;
 
@@ -4222,6 +5227,7 @@ class YTMediaPlayer {
 		const longPressDuration = 750; // ms
 
 		const thumb =
+			MediaUtils.getStandardThumbnailUrl(item.id) ||
 			item.thumbnailUrl ||
 			(typeof browser !== 'undefined' ? browser : chrome).runtime.getURL(
 				'/assets/default_thumb.png'
@@ -5491,6 +6497,20 @@ class YTMediaPlayer {
 			this._updateDrawerFocusButtonVisibility();
 		}
 
+		// Apply repeat indicator when sticky repeat is active and current item exists
+		const currentVid = this.options.nowPlayingVideoDetails?.videoId;
+		if (
+			this.hasPlaylist &&
+			window.userSettings.repeatStickyAcrossVideos &&
+			window.userSettings.repeatCurrentlyOn &&
+			currentVid &&
+			(!this.nextUpVideoId || this.nextUpVideoId === currentVid)
+		) {
+			this.nextUpVideoId = currentVid;
+			this._addPlayNextIndicator(currentVid, true);
+			this.setRepeatButtonState(true);
+		}
+
 		// Update header content
 		if (this.hasPlaylist) {
 			// Cache the title if provided
@@ -5697,33 +6717,8 @@ class YTMediaPlayer {
 	}
 
 	setButtonVisibility(buttonName, visible) {
-		if (buttonName === 'Previous') {
-			this.options.showPreviousButton = visible;
-			if (this.playerWrapper) {
-				this.playerWrapper.classList.toggle('hide-prev-button', !visible);
-			}
-		} else if (buttonName === 'Skip') {
-			this.options.showSkipButton = visible;
-			if (this.playerWrapper) {
-				this.playerWrapper.classList.toggle('hide-skip-button', !visible);
-			}
-		} else if (buttonName === 'Repeat') {
-			this.options.showRepeatButton = visible;
-			if (this.playerWrapper) {
-				// Remove all repeat button visibility classes
-				this.playerWrapper.classList.remove(
-					'hide-repeat-button',
-					'hide-repeat-button-when-inactive'
-				);
-
-				// Apply appropriate class based on the setting
-				if (visible === 'disabled') {
-					this.playerWrapper.classList.add('hide-repeat-button');
-				} else if (visible === 'show-when-active') {
-					this.playerWrapper.classList.add('hide-repeat-button-when-inactive');
-				}
-				// 'always-show' doesn't need any additional classes
-			}
+		if (buttonName === 'Repeat') {
+			return;
 		}
 	}
 
@@ -5757,6 +6752,10 @@ class YTMediaPlayer {
 	setGestureSensitivity(sensitivity) {
 		this.options.gestureSensitivity = sensitivity;
 		this._updateGestureThresholds();
+	}
+
+	setBottomControlsDoubleClickDelay(delayMs) {
+		this.options.bottomControlsDoubleClickDelay = delayMs;
 	}
 
 	setKeepPlaylistFocused(enabled) {

@@ -20,10 +20,28 @@ html.yt-pageload body {
 	pointer-events: none;
 }
 
+#splash-screen.splash--spinner {
+	background-color: var(--yt-player-bg-primary, #ffffff);
+}
+
 #splash-screen img {
 	max-width: 150px;
 	max-height: 150px;
 	animation: pulse 1s ease-in-out infinite;
+}
+
+#splash-screen .splash-spinner {
+	width: 56px;
+	height: 56px;
+	border-radius: 50%;
+	border: 4px solid rgba(255, 255, 255, 0.25);
+	border-top-color: var(--yt-player-accent-primary, #ff0000);
+	animation: splash-spin 0.9s linear infinite;
+}
+
+body.yt-theme-light #splash-screen.splash--spinner .splash-spinner {
+	border-color: rgba(0, 0, 0, 0.15);
+	border-top-color: var(--yt-player-accent-primary, #ff0000);
 }
 
 @keyframes pulse {
@@ -35,5 +53,14 @@ html.yt-pageload body {
 	}
 	100% {
 		transform: scale(1);
+	}
+}
+
+@keyframes splash-spin {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
 	}
 }

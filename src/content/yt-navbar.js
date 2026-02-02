@@ -16,11 +16,7 @@ class YTCustomNavbar {
 			showPlaylists: window.userSettings.navbarShowPlaylists,
 			showLive: window.userSettings.navbarShowLive,
 			showMusic: window.userSettings.navbarShowMusic,
-			showTextSearch: window.userSettings.navbarShowTextSearch,
-			showVoiceSearch: window.userSettings.navbarShowVoiceSearch,
 			showHomeButton: window.userSettings.navbarShowHomeButton,
-			showFavourites: window.userSettings.navbarShowFavourites,
-			showVideoToggle: window.userSettings.navbarShowVideoToggle,
 			enableDebugLogging: window.userSettings.enableDebugLogging,
 			...options,
 		};
@@ -157,135 +153,284 @@ class YTCustomNavbar {
 		// Create right section
 		const rightDiv = document.createElement('div');
 		rightDiv.className = 'yt-navbar-right';
+		const slots = Array.isArray(window.userSettings.navbarRightSlots)
+			? window.userSettings.navbarRightSlots
+			: [];
 
-		// Add Debug Log Download button (only when debugging enabled)
-		if (this.options.enableDebugLogging) {
-			const debugBtn = document.createElement('button');
-			debugBtn.className = 'yt-navbar-icon-button yt-navbar-debug-logs';
-			debugBtn.setAttribute('data-action', 'debug-logs');
-			debugBtn.setAttribute('aria-label', 'Download Debug Logs');
-
-			const debugSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-			debugSvg.setAttribute('viewBox', '0 0 24 24');
-			debugSvg.setAttribute('width', '20');
-			debugSvg.setAttribute('height', '20');
-			const debugPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-			debugPath.setAttribute(
-				'd',
-				'M20,8H17.19C16.74,7.22 16.12,6.55 15.37,6.04L17,4.41L15.59,3L13.42,5.17C12.96,5.06 12.49,5 12,5C11.51,5 11.04,5.06 10.59,5.17L8.41,3L7,4.41L8.62,6.04C7.88,6.55 7.26,7.22 6.81,8H4V10H6.09C6.04,10.33 6,10.66 6,11V12H4V14H6V15C6,15.34 6.04,15.67 6.09,16H4V18H6.81C7.85,19.79 9.78,21 12,21C14.22,21 16.15,19.79 17.19,18H20V16H17.91C17.96,15.67 18,15.34 18,15V14H20V12H18V11C18,10.66 17.96,10.33 17.91,10H20V8M16,15A4,4 0 0,1 12,19A4,4 0 0,1 8,15V11A4,4 0 0,1 12,7A4,4 0 0,1 16,11V15M14,10V12L15.5,13.5L14.5,14.5L12.5,12.5V10H14Z'
-			);
-			debugSvg.appendChild(debugPath);
-			debugBtn.appendChild(debugSvg);
-			rightDiv.appendChild(debugBtn);
-		}
-
-		// Add Video Toggle button (before favourites) - only if enabled
-		if (this.options.showVideoToggle) {
-			const videoToggleBtn = document.createElement('button');
-			videoToggleBtn.className = 'yt-navbar-icon-button yt-navbar-video-toggle';
-			videoToggleBtn.setAttribute('data-action', 'video-toggle');
-			videoToggleBtn.setAttribute('aria-label', 'Toggle Video Player');
-
-			const videoToggleSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-			videoToggleSvg.setAttribute('viewBox', '0 0 24 24');
-			videoToggleSvg.setAttribute('width', '20');
-			videoToggleSvg.setAttribute('height', '20');
-			const videoTogglePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-
-			// Use different icons based on current state
-			const isVideoHidden = document.body.classList.contains('yt-hide-video-player');
-			if (isVideoHidden) {
-				// Show video icon (when video is currently hidden)
-				videoTogglePath.setAttribute(
-					'd',
-					'M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM14 13h-3v3H9v-3H6v-2h3V8h2v3h3v2z'
-				);
-			} else {
-				// Hide video icon (when video is currently visible)
-				videoTogglePath.setAttribute(
-					'd',
-					'M21 6.5l-4 4V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11zM9.5 16L8 14.5 10.5 12 8 9.5 9.5 8 12 10.5 14.5 8 16 9.5 13.5 12 16 14.5 14.5 16 12 13.5 9.5 16z'
-				);
+		const usedActions = new Set();
+		for (let i = 0; i < slots.length; i++) {
+			const actionId = slots[i];
+			const slotClassName = `yt-navbar-right-slot${i + 1}`;
+			if (!actionId || actionId === 'none' || usedActions.has(actionId)) {
+				continue;
 			}
-
-			videoToggleSvg.appendChild(videoTogglePath);
-			videoToggleBtn.appendChild(videoToggleSvg);
-			rightDiv.appendChild(videoToggleBtn);
-		}
-
-		// Add Favourites icon button (before search)
-		if (this.options.showFavourites) {
-			const favouritesBtn = document.createElement('button');
-			favouritesBtn.className = 'yt-navbar-icon-button yt-navbar-favourites';
-			favouritesBtn.setAttribute('data-action', 'favourites');
-			favouritesBtn.setAttribute('aria-label', 'Favourites');
-
-			const favouritesSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-			favouritesSvg.setAttribute('viewBox', '0 0 24 24');
-			favouritesSvg.setAttribute('width', '20');
-			favouritesSvg.setAttribute('height', '20');
-			const favouritesPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-			favouritesPath.setAttribute(
-				'd',
-				'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'
-			);
-			favouritesSvg.appendChild(favouritesPath);
-			favouritesBtn.appendChild(favouritesSvg);
-			rightDiv.appendChild(favouritesBtn);
-		}
-
-		// Add right links
-		if (this.options.showTextSearch) {
-			const searchBtn = document.createElement('button');
-			searchBtn.className = 'yt-navbar-icon-button';
-			searchBtn.setAttribute('data-action', 'text-search');
-			searchBtn.setAttribute('aria-label', 'Search');
-
-			const searchSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-			searchSvg.setAttribute('viewBox', '0 0 24 24');
-			searchSvg.setAttribute('width', '20');
-			searchSvg.setAttribute('height', '20');
-			const searchPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-			searchPath.setAttribute(
-				'd',
-				'M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'
-			);
-			searchSvg.appendChild(searchPath);
-			searchBtn.appendChild(searchSvg);
-			rightDiv.appendChild(searchBtn);
-		}
-		if (this.options.showVoiceSearch) {
-			const voiceBtn = document.createElement('button');
-			voiceBtn.className = 'yt-navbar-icon-button';
-			voiceBtn.setAttribute('data-action', 'voice-search');
-			voiceBtn.setAttribute('aria-label', 'Voice Search');
-
-			const voiceSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-			voiceSvg.setAttribute('viewBox', '0 0 24 24');
-			voiceSvg.setAttribute('width', '20');
-			voiceSvg.setAttribute('height', '20');
-
-			const voicePath1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-			voicePath1.setAttribute(
-				'd',
-				'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z'
-			);
-			voiceSvg.appendChild(voicePath1);
-
-			const voicePath2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-			voicePath2.setAttribute(
-				'd',
-				'M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z'
-			);
-			voiceSvg.appendChild(voicePath2);
-
-			voiceBtn.appendChild(voiceSvg);
-			rightDiv.appendChild(voiceBtn);
+			const el = this._createNavbarRightControlForAction(actionId);
+			if (!el) {
+				continue;
+			}
+			el.classList.add(slotClassName);
+			usedActions.add(actionId);
+			rightDiv.appendChild(el);
 		}
 
 		navbar.appendChild(rightDiv);
 
 		return navbar;
+	}
+
+	_createNavbarRightControlForAction(actionId) {
+		switch (actionId) {
+			case 'play': {
+				const playBtn = document.createElement('button');
+				playBtn.className = 'yt-navbar-icon-button yt-navbar-play-toggle';
+				playBtn.setAttribute('data-action', 'play');
+				playBtn.setAttribute('aria-label', 'Play/Pause');
+
+				const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+				svg.setAttribute('viewBox', '0 0 24 24');
+				svg.setAttribute('width', '20');
+				svg.setAttribute('height', '20');
+				const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				svg.appendChild(path);
+				playBtn.appendChild(svg);
+
+				this._updateNavbarPlayToggleIcon(playBtn);
+				return playBtn;
+			}
+			case 'previous': {
+				const prevBtn = document.createElement('button');
+				prevBtn.className = 'yt-navbar-icon-button yt-navbar-previous';
+				prevBtn.setAttribute('data-action', 'previous');
+				prevBtn.setAttribute('aria-label', 'Previous');
+
+				const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+				svg.setAttribute('viewBox', '0 0 24 24');
+				svg.setAttribute('width', '20');
+				svg.setAttribute('height', '20');
+				const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				path.setAttribute('d', 'M6 6h2v12H6zm3.5 6l8.5 6V6z');
+				svg.appendChild(path);
+				prevBtn.appendChild(svg);
+				return prevBtn;
+			}
+			case 'restart-then-previous': {
+				const prevBtn = document.createElement('button');
+				prevBtn.className = 'yt-navbar-icon-button yt-navbar-restart-then-previous';
+				prevBtn.setAttribute('data-action', 'restart-then-previous');
+				prevBtn.setAttribute('aria-label', 'Restart then Previous');
+
+				const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+				svg.setAttribute('viewBox', '0 0 24 24');
+				svg.setAttribute('width', '20');
+				svg.setAttribute('height', '20');
+				const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				path.setAttribute(
+					'd',
+					'M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6s-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8S16.42 4 12 4z'
+				);
+				svg.appendChild(path);
+				prevBtn.appendChild(svg);
+				return prevBtn;
+			}
+			case 'skip': {
+				const nextBtn = document.createElement('button');
+				nextBtn.className = 'yt-navbar-icon-button yt-navbar-skip';
+				nextBtn.setAttribute('data-action', 'skip');
+				nextBtn.setAttribute('aria-label', 'Next');
+
+				const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+				svg.setAttribute('viewBox', '0 0 24 24');
+				svg.setAttribute('width', '20');
+				svg.setAttribute('height', '20');
+				const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				path.setAttribute('d', 'M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z');
+				svg.appendChild(path);
+				nextBtn.appendChild(svg);
+				return nextBtn;
+			}
+			case 'seek-back': {
+				const seekBackBtn = document.createElement('button');
+				seekBackBtn.className = 'yt-navbar-icon-button yt-navbar-seek-back';
+				seekBackBtn.setAttribute('data-action', 'seek-back');
+				seekBackBtn.setAttribute('aria-label', 'Seek Back');
+
+				const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+				svg.setAttribute('viewBox', '0 0 24 24');
+				svg.setAttribute('width', '20');
+				svg.setAttribute('height', '20');
+				const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				path.setAttribute('d', 'M11 18l-6.5-6L11 6v12zM19 18l-6.5-6L19 6v12z');
+				svg.appendChild(path);
+				seekBackBtn.appendChild(svg);
+				return seekBackBtn;
+			}
+			case 'seek-forward': {
+				const seekForwardBtn = document.createElement('button');
+				seekForwardBtn.className = 'yt-navbar-icon-button yt-navbar-seek-forward';
+				seekForwardBtn.setAttribute('data-action', 'seek-forward');
+				seekForwardBtn.setAttribute('aria-label', 'Seek Forward');
+
+				const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+				svg.setAttribute('viewBox', '0 0 24 24');
+				svg.setAttribute('width', '20');
+				svg.setAttribute('height', '20');
+				const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				path.setAttribute('d', 'M13 6l6.5 6L13 18V6zM5 6l6.5 6L5 18V6z');
+				svg.appendChild(path);
+				seekForwardBtn.appendChild(svg);
+				return seekForwardBtn;
+			}
+			case 'repeat': {
+				const repeatBtn = document.createElement('button');
+				repeatBtn.className = 'yt-navbar-icon-button yt-navbar-repeat';
+				repeatBtn.setAttribute('data-action', 'repeat');
+				repeatBtn.setAttribute('aria-label', 'Repeat');
+
+				const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+				svg.setAttribute('viewBox', '0 0 24 24');
+				svg.setAttribute('width', '20');
+				svg.setAttribute('height', '20');
+				const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				path.setAttribute(
+					'd',
+					'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z'
+				);
+				svg.appendChild(path);
+				repeatBtn.appendChild(svg);
+				repeatBtn.classList.toggle('active', !!window.userSettings.repeatCurrentlyOn);
+				repeatBtn.setAttribute(
+					'aria-pressed',
+					String(!!window.userSettings.repeatCurrentlyOn)
+				);
+				return repeatBtn;
+			}
+			case 'debug-logs': {
+				if (!this.options.enableDebugLogging) return null;
+				const debugBtn = document.createElement('button');
+				debugBtn.className = 'yt-navbar-icon-button yt-navbar-debug-logs';
+				debugBtn.setAttribute('data-action', 'debug-logs');
+				debugBtn.setAttribute('aria-label', 'Download Debug Logs');
+
+				const debugSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+				debugSvg.setAttribute('viewBox', '0 0 24 24');
+				debugSvg.setAttribute('width', '20');
+				debugSvg.setAttribute('height', '20');
+				const debugPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				debugPath.setAttribute(
+					'd',
+					'M20,8H17.19C16.74,7.22 16.12,6.55 15.37,6.04L17,4.41L15.59,3L13.42,5.17C12.96,5.06 12.49,5 12,5C11.51,5 11.04,5.06 10.59,5.17L8.41,3L7,4.41L8.62,6.04C7.88,6.55 7.26,7.22 6.81,8H4V10H6.09C6.04,10.33 6,10.66 6,11V12H4V14H6V15C6,15.34 6.04,15.67 6.09,16H4V18H6.81C7.85,19.79 9.78,21 12,21C14.22,21 16.15,19.79 17.19,18H20V16H17.91C17.96,15.67 18,15.34 18,15V14H20V12H18V11C18,10.66 17.96,10.33 17.91,10H20V8M16,15A4,4 0 0,1 12,19A4,4 0 0,1 8,15V11A4,4 0 0,1 12,7A4,4 0 0,1 16,11V15M14,10V12L15.5,13.5L14.5,14.5L12.5,12.5V10H14Z'
+				);
+				debugSvg.appendChild(debugPath);
+				debugBtn.appendChild(debugSvg);
+				return debugBtn;
+			}
+			case 'video-toggle': {
+				const videoToggleBtn = document.createElement('button');
+				videoToggleBtn.className = 'yt-navbar-icon-button yt-navbar-video-toggle';
+				videoToggleBtn.setAttribute('data-action', 'video-toggle');
+				videoToggleBtn.setAttribute('aria-label', 'Toggle Video Player');
+
+				const videoToggleSvg = document.createElementNS(
+					'http://www.w3.org/2000/svg',
+					'svg'
+				);
+				videoToggleSvg.setAttribute('viewBox', '0 0 24 24');
+				videoToggleSvg.setAttribute('width', '20');
+				videoToggleSvg.setAttribute('height', '20');
+				const videoTogglePath = document.createElementNS(
+					'http://www.w3.org/2000/svg',
+					'path'
+				);
+
+				const isVideoHidden = document.body.classList.contains('yt-hide-video-player');
+				if (isVideoHidden) {
+					videoTogglePath.setAttribute(
+						'd',
+						'M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM14 13h-3v3H9v-3H6v-2h3V8h2v3h3v2z'
+					);
+				} else {
+					videoTogglePath.setAttribute(
+						'd',
+						'M21 6.5l-4 4V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11zM9.5 16L8 14.5 10.5 12 8 9.5 9.5 8 12 10.5 14.5 8 16 9.5 13.5 12 16 14.5 14.5 16 12 13.5 9.5 16z'
+					);
+				}
+
+				videoToggleSvg.appendChild(videoTogglePath);
+				videoToggleBtn.appendChild(videoToggleSvg);
+				return videoToggleBtn;
+			}
+			case 'favourites': {
+				const favouritesBtn = document.createElement('button');
+				favouritesBtn.className = 'yt-navbar-icon-button yt-navbar-favourites';
+				favouritesBtn.setAttribute('data-action', 'favourites');
+				favouritesBtn.setAttribute('aria-label', 'Favourites');
+
+				const favouritesSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+				favouritesSvg.setAttribute('viewBox', '0 0 24 24');
+				favouritesSvg.setAttribute('width', '20');
+				favouritesSvg.setAttribute('height', '20');
+				const favouritesPath = document.createElementNS(
+					'http://www.w3.org/2000/svg',
+					'path'
+				);
+				favouritesPath.setAttribute(
+					'd',
+					'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'
+				);
+				favouritesSvg.appendChild(favouritesPath);
+				favouritesBtn.appendChild(favouritesSvg);
+				return favouritesBtn;
+			}
+			case 'text-search': {
+				const searchBtn = document.createElement('button');
+				searchBtn.className = 'yt-navbar-icon-button';
+				searchBtn.setAttribute('data-action', 'text-search');
+				searchBtn.setAttribute('aria-label', 'Search');
+
+				const searchSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+				searchSvg.setAttribute('viewBox', '0 0 24 24');
+				searchSvg.setAttribute('width', '20');
+				searchSvg.setAttribute('height', '20');
+				const searchPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				searchPath.setAttribute(
+					'd',
+					'M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'
+				);
+				searchSvg.appendChild(searchPath);
+				searchBtn.appendChild(searchSvg);
+				return searchBtn;
+			}
+			case 'voice-search': {
+				const voiceBtn = document.createElement('button');
+				voiceBtn.className = 'yt-navbar-icon-button';
+				voiceBtn.setAttribute('data-action', 'voice-search');
+				voiceBtn.setAttribute('aria-label', 'Voice Search');
+
+				const voiceSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+				voiceSvg.setAttribute('viewBox', '0 0 24 24');
+				voiceSvg.setAttribute('width', '20');
+				voiceSvg.setAttribute('height', '20');
+
+				const voicePath1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				voicePath1.setAttribute(
+					'd',
+					'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z'
+				);
+				voiceSvg.appendChild(voicePath1);
+
+				const voicePath2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				voicePath2.setAttribute(
+					'd',
+					'M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z'
+				);
+				voiceSvg.appendChild(voicePath2);
+
+				voiceBtn.appendChild(voiceSvg);
+				return voiceBtn;
+			}
+			default:
+				return null;
+		}
 	}
 
 	/**
@@ -302,6 +447,27 @@ class YTCustomNavbar {
 			logger.log('Navbar', `Navbar action clicked: ${action}`);
 
 			switch (action) {
+				case 'play':
+					this._handlePlayPauseClick(button);
+					break;
+				case 'previous':
+					this._handlePreviousClick('previous');
+					break;
+				case 'restart-then-previous':
+					this._handlePreviousClick('restart-then-previous');
+					break;
+				case 'skip':
+					this._handleSkipClick();
+					break;
+				case 'seek-back':
+					this._handleSeekClick(-1);
+					break;
+				case 'seek-forward':
+					this._handleSeekClick(1);
+					break;
+				case 'repeat':
+					this._handleRepeatClick(button);
+					break;
 				case 'home':
 					this._handleLogoClick();
 					break;
@@ -830,7 +996,6 @@ class YTCustomNavbar {
 		// Check if we're on a page with content we can add to favorites
 		const urlParams = new URLSearchParams(window.location.search);
 		const hasVideoId = !!urlParams.get('v');
-		const hasPlaylistId = !!urlParams.get('list');
 
 		const filterButton = document.createElement('button');
 		filterButton.className = 'yt-favourites-dialog-filter-toggle';
@@ -949,20 +1114,14 @@ class YTCustomNavbar {
 			addToFavBtn.className = 'yt-favourites-dialog-add-btn';
 			addToFavBtn.textContent = '+ Add';
 
-			if (hasPlaylistId) {
-				addToFavBtn.addEventListener('click', (e) => {
-					const existingDropdown = document.getElementById(
-						'yt-add-to-favourites-dropdown'
-					);
-					if (existingDropdown) {
-						this._hideAddToFavouritesDropdown();
-					} else {
-						this._showAddToFavouritesDropdown(e, addToFavBtn);
-					}
-				});
-			} else {
-				addToFavBtn.addEventListener('click', () => this._addCurrentMixToFavourites());
-			}
+			addToFavBtn.addEventListener('click', (e) => {
+				const existingDropdown = document.getElementById('yt-add-to-favourites-dropdown');
+				if (existingDropdown) {
+					this._hideAddToFavouritesDropdown();
+				} else {
+					this._showAddToFavouritesDropdown(e, addToFavBtn);
+				}
+			});
 
 			actionsBar.appendChild(addToFavBtn);
 		}
@@ -1042,6 +1201,7 @@ class YTCustomNavbar {
 			{ value: 'mixes', label: 'Mixes' },
 			{ value: 'playlists', label: 'Playlists' },
 			{ value: 'videos', label: 'Videos' },
+			{ value: 'snapshots', label: 'Snapshots' },
 		];
 
 		const filterButtonsContainer = document.createElement('div');
@@ -1172,6 +1332,383 @@ class YTCustomNavbar {
 				filterOverlay.remove();
 			}, 300);
 		}
+	}
+
+	_showSnapshotReorderDialog(snapshotId) {
+		this._hideSnapshotReorderDialog();
+
+		const snapshots = window.userSettings.mixSnapshots || {};
+		const snap = snapshots[snapshotId];
+		if (!snap || !Array.isArray(snap.items)) return;
+
+		const overlay = document.createElement('div');
+		overlay.className = 'yt-snapshot-reorder-overlay';
+		overlay.id = 'yt-snapshot-reorder-overlay';
+
+		const modal = document.createElement('div');
+		modal.className = 'yt-snapshot-reorder-modal';
+
+		const header = document.createElement('div');
+		header.className = 'yt-snapshot-reorder-header';
+
+		const closeBtn = document.createElement('button');
+		closeBtn.className = 'yt-snapshot-reorder-close';
+		closeBtn.setAttribute('aria-label', 'Close');
+		closeBtn.textContent = '×';
+		closeBtn.addEventListener('click', () => this._hideSnapshotReorderDialog());
+
+		const title = document.createElement('div');
+		title.className = 'yt-snapshot-reorder-header-title';
+		title.textContent = snap.title || 'Mix Snapshot';
+
+		const doneBtn = document.createElement('button');
+		doneBtn.className = 'yt-snapshot-reorder-done';
+		doneBtn.textContent = 'Done';
+		doneBtn.addEventListener('click', async () => {
+			await this._saveSnapshotReorderDialog(snapshotId);
+			this._hideSnapshotReorderDialog();
+			this._updateFavouritesDialog();
+		});
+
+		header.appendChild(closeBtn);
+		header.appendChild(title);
+		header.appendChild(doneBtn);
+
+		const content = document.createElement('div');
+		content.className = 'yt-snapshot-reorder-content';
+
+		const list = document.createElement('div');
+		list.className = 'yt-snapshot-reorder-list';
+
+		const createHandleSvg = () => {
+			const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			svg.setAttribute('viewBox', '0 0 24 24');
+			svg.setAttribute('width', '18');
+			svg.setAttribute('height', '18');
+			const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			path.setAttribute('d', 'M3 10h18v2H3v-2zm0-5h18v2H3V5zm0 10h18v2H3v-2zm0 5h18v2H3v-2z');
+			svg.appendChild(path);
+			return svg;
+		};
+
+		snap.items.forEach((snapItem, idx) => {
+			const row = document.createElement('div');
+			row.className = 'yt-snapshot-reorder-item';
+			row.dataset.videoId = snapItem?.id || '';
+
+			const handle = document.createElement('button');
+			handle.className = 'yt-snapshot-reorder-handle';
+			handle.setAttribute('aria-label', 'Drag to reorder');
+			handle.appendChild(createHandleSvg());
+
+			const thumbWrap = document.createElement('div');
+			thumbWrap.className = 'yt-snapshot-reorder-thumb';
+			const thumbImg = document.createElement('img');
+			const thumbUrl =
+				MediaUtils.getStandardThumbnailUrl(snapItem?.id) || snapItem?.thumbnailUrl || '';
+			if (thumbUrl) {
+				thumbImg.src = thumbUrl;
+			}
+			thumbImg.alt = snapItem?.title || `Item ${idx + 1}`;
+			thumbWrap.appendChild(thumbImg);
+
+			const textWrap = document.createElement('div');
+			textWrap.className = 'yt-snapshot-reorder-item-text';
+
+			const rowTitle = document.createElement('div');
+			rowTitle.className = 'yt-snapshot-reorder-item-title';
+			rowTitle.textContent = snapItem?.title || `Item ${idx + 1}`;
+
+			const rowMeta = document.createElement('div');
+			rowMeta.className = 'yt-snapshot-reorder-item-meta';
+			const metaParts = [];
+			const artistText = snapItem?.artist || snapItem?.channel || '';
+			const durationText = snapItem?.duration || '';
+			if (artistText) metaParts.push(artistText);
+			if (durationText) metaParts.push(durationText);
+			rowMeta.textContent = metaParts.join(' • ');
+
+			textWrap.appendChild(rowTitle);
+			textWrap.appendChild(rowMeta);
+
+			const removeBtn = document.createElement('button');
+			removeBtn.className = 'yt-snapshot-reorder-remove';
+			removeBtn.setAttribute('aria-label', 'Remove item');
+			const removeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			removeSvg.setAttribute('viewBox', '0 0 24 24');
+			removeSvg.setAttribute('width', '18');
+			removeSvg.setAttribute('height', '18');
+			const removePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			removePath.setAttribute('d', 'M6 7h12l-1 14H7L6 7zm3-3h6l1 1h4v2H4V5h4l1-1z');
+			removeSvg.appendChild(removePath);
+			removeBtn.appendChild(removeSvg);
+			removeBtn.addEventListener('click', (ev) => {
+				ev.preventDefault();
+				ev.stopPropagation();
+				if (overlay.classList.contains('dragging')) return;
+				row.remove();
+			});
+
+			row.appendChild(handle);
+			row.appendChild(thumbWrap);
+			row.appendChild(textWrap);
+			row.appendChild(removeBtn);
+
+			list.appendChild(row);
+		});
+
+		let dragState = null;
+
+		const getListItemElements = () =>
+			Array.from(list.querySelectorAll('.yt-snapshot-reorder-item'));
+
+		const findInsertBeforeElement = (clientY, draggingElement, placeholder) => {
+			const items = getListItemElements().filter(
+				(el) => el !== draggingElement && el !== placeholder
+			);
+			for (const el of items) {
+				const r = el.getBoundingClientRect();
+				if (clientY < r.top + r.height / 2) return el;
+			}
+			return null;
+		};
+
+		const applyDragPosition = () => {
+			if (!dragState) return;
+			dragState.raf = null;
+
+			const deltaY = dragState.latestY - dragState.pointerOffsetY - dragState.baseTop;
+			dragState.dragEl.style.transform = `translate3d(0, ${deltaY}px, 0)`;
+
+			const insertBefore = findInsertBeforeElement(
+				dragState.latestY,
+				dragState.dragEl,
+				dragState.placeholder
+			);
+			if (insertBefore) {
+				if (insertBefore !== dragState.placeholder.nextSibling) {
+					list.insertBefore(dragState.placeholder, insertBefore);
+				}
+			} else {
+				list.appendChild(dragState.placeholder);
+			}
+
+			const listRect = list.getBoundingClientRect();
+			const edge = 72;
+			if (dragState.latestY < listRect.top + edge) {
+				const amt = Math.min(edge, listRect.top + edge - dragState.latestY);
+				list.scrollBy(0, -Math.max(2, amt / 3));
+			} else if (dragState.latestY > listRect.bottom - edge) {
+				const amt = Math.min(edge, dragState.latestY - (listRect.bottom - edge));
+				list.scrollBy(0, Math.max(2, amt / 3));
+			}
+		};
+
+		const onPointerMove = (ev) => {
+			if (!dragState || ev.pointerId !== dragState.pointerId) return;
+			ev.preventDefault();
+			dragState.latestY = ev.clientY;
+			if (!dragState.raf) {
+				dragState.raf = requestAnimationFrame(applyDragPosition);
+			}
+		};
+
+		const endDrag = (ev) => {
+			if (!dragState) return;
+			if (ev && dragState.pointerId !== ev.pointerId) return;
+
+			document.removeEventListener('pointermove', onPointerMove, { passive: false });
+			document.removeEventListener('pointerup', endDrag);
+			document.removeEventListener('pointercancel', endDrag);
+
+			dragState.dragEl.style.transform = '';
+			dragState.dragEl.style.position = '';
+			dragState.dragEl.style.top = '';
+			dragState.dragEl.style.left = '';
+			dragState.dragEl.style.width = '';
+			dragState.dragEl.style.zIndex = '';
+			dragState.dragEl.style.pointerEvents = '';
+			dragState.dragEl.classList.remove('dragging');
+
+			list.insertBefore(dragState.dragEl, dragState.placeholder);
+			dragState.placeholder.remove();
+
+			overlay.classList.remove('dragging');
+
+			dragState = null;
+		};
+
+		const startDrag = (ev, row) => {
+			if (dragState) return;
+			ev.preventDefault();
+			ev.stopPropagation();
+
+			const rect = row.getBoundingClientRect();
+			const placeholder = document.createElement('div');
+			placeholder.className = 'yt-snapshot-reorder-placeholder';
+			placeholder.style.height = `${rect.height}px`;
+
+			list.insertBefore(placeholder, row);
+
+			row.classList.add('dragging');
+			row.style.width = `${rect.width}px`;
+			row.style.position = 'fixed';
+			row.style.top = `${rect.top}px`;
+			row.style.left = `${rect.left}px`;
+			row.style.zIndex = '10004';
+			row.style.pointerEvents = 'none';
+
+			overlay.classList.add('dragging');
+
+			dragState = {
+				pointerId: ev.pointerId,
+				dragEl: row,
+				placeholder,
+				pointerOffsetY: ev.clientY - rect.top,
+				baseTop: rect.top,
+				latestY: ev.clientY,
+				raf: null,
+			};
+
+			document.addEventListener('pointermove', onPointerMove, { passive: false });
+			document.addEventListener('pointerup', endDrag);
+			document.addEventListener('pointercancel', endDrag);
+		};
+
+		list.querySelectorAll('.yt-snapshot-reorder-handle').forEach((handleEl) => {
+			handleEl.addEventListener('pointerdown', (ev) => {
+				const row = ev.target.closest('.yt-snapshot-reorder-item');
+				if (!row) return;
+				handleEl.setPointerCapture?.(ev.pointerId);
+				startDrag(ev, row);
+			});
+		});
+
+		content.appendChild(list);
+		modal.appendChild(header);
+		modal.appendChild(content);
+		overlay.appendChild(modal);
+
+		document.body.appendChild(overlay);
+
+		overlay.addEventListener('click', (e) => {
+			if (e.target === overlay && !overlay.classList.contains('dragging')) {
+				this._hideSnapshotReorderDialog();
+			}
+		});
+
+		requestAnimationFrame(() => {
+			overlay.classList.add('visible');
+			modal.classList.add('slide-in');
+		});
+	}
+
+	_hideSnapshotReorderDialog() {
+		const overlay = document.querySelector('.yt-snapshot-reorder-overlay');
+		const modal = document.querySelector('.yt-snapshot-reorder-modal');
+		if (overlay && modal) {
+			overlay.classList.remove('visible');
+			modal.classList.remove('slide-in');
+			modal.classList.add('slide-out');
+			setTimeout(() => {
+				overlay.remove();
+			}, 300);
+		}
+	}
+
+	async _saveSnapshotReorderDialog(snapshotId) {
+		const overlay = document.querySelector('.yt-snapshot-reorder-overlay');
+		const list = overlay ? overlay.querySelector('.yt-snapshot-reorder-list') : null;
+		if (!list) return false;
+
+		const orderedIds = Array.from(list.querySelectorAll('.yt-snapshot-reorder-item'))
+			.map((el) => el.dataset.videoId)
+			.filter(Boolean);
+
+		const current = window.userSettings.mixSnapshots || {};
+		const snap = current[snapshotId];
+		if (!snap || !Array.isArray(snap.items)) return false;
+
+		const itemById = new Map();
+		snap.items.forEach((it) => {
+			if (it?.id) itemById.set(it.id, it);
+		});
+		const reordered = orderedIds.map((id) => itemById.get(id)).filter(Boolean);
+
+		const updatedSnap = Object.assign({}, snap, { items: reordered, reorderedAt: Date.now() });
+		const updated = Object.assign({}, current, { [snapshotId]: updatedSnap });
+
+		const success = await window.saveUserSetting('mixSnapshots', updated);
+		if (!success) return false;
+
+		if (window.userSettings.activeMixSnapshotId === snapshotId && window.ytPlayerInstance) {
+			if (!reordered.length) {
+				await window.saveUserSetting('activeMixSnapshotId', null);
+				window.ytPlayerInstance.updatePlaylist(null, null);
+			} else {
+				const title = updatedSnap.title || 'Mix Snapshot';
+				window.ytPlayerInstance.updatePlaylist(reordered, updatedSnap.id, title);
+				const currentVideoId =
+					typeof PageUtils !== 'undefined' && PageUtils.getCurrentVideoIdFromUrl
+						? PageUtils.getCurrentVideoIdFromUrl()
+						: null;
+				if (currentVideoId) {
+					window.ytPlayerInstance.setActivePlaylistItem?.(currentVideoId);
+				}
+			}
+		}
+
+		this._updateFavouritesDialog();
+		return true;
+	}
+
+	async _storeActiveTempSnapshot() {
+		const activeSnapshotId = window.userSettings.activeMixSnapshotId;
+		const tempSnapshot = window.userSettings.tempMixSnapshot || null;
+		if (!activeSnapshotId || !tempSnapshot || tempSnapshot.id !== activeSnapshotId) {
+			this._flashAddButtonFeedback('✕ No temp snapshot', 'error');
+			return false;
+		}
+
+		const current = window.userSettings.mixSnapshots || {};
+		const existing = current[tempSnapshot.id] || null;
+
+		const stored = Object.assign({}, tempSnapshot);
+		stored.id = tempSnapshot.id;
+		stored.title =
+			(existing && existing.title ? existing.title : tempSnapshot.title) || 'Mix Snapshot';
+		stored.createdAt =
+			(existing && existing.createdAt ? existing.createdAt : tempSnapshot.createdAt) ||
+			Date.now();
+
+		const updated = Object.assign({}, current, { [tempSnapshot.id]: stored });
+		const ok1 = await window.saveUserSetting('mixSnapshots', updated);
+		if (!ok1) {
+			this._flashAddButtonFeedback('✕ Failed', 'error');
+			return false;
+		}
+
+		await window.saveUserSetting('tempMixSnapshot', null);
+
+		if (
+			window.ytPlayerInstance &&
+			typeof window.ytPlayerInstance.updatePlaylist === 'function'
+		) {
+			const items = Array.isArray(stored.items) ? stored.items : [];
+			const title = stored.title || 'Mix Snapshot';
+			window.ytPlayerInstance.updatePlaylist(items, stored.id, title);
+			const currentVideoId =
+				typeof PageUtils !== 'undefined' && PageUtils.getCurrentVideoIdFromUrl
+					? PageUtils.getCurrentVideoIdFromUrl()
+					: null;
+			if (currentVideoId) {
+				window.ytPlayerInstance.setActivePlaylistItem?.(currentVideoId);
+			}
+		}
+
+		this._flashAddButtonFeedback('✓ Snapshot Stored', 'success');
+		this._updateFavouritesDialog();
+		return true;
 	}
 
 	_showSearchInput() {
@@ -1307,6 +1844,8 @@ class YTCustomNavbar {
 	_hideFavouritesDialog() {
 		this._hideAddToFavouritesDropdown();
 		this._hideFilterPopup();
+		this._hideSnapshotReorderDialog();
+		this._hideAddToExistingSnapshotDialog();
 		this._hideSearchInput();
 
 		const overlay = document.querySelector('.yt-favourites-dialog-overlay');
@@ -1358,117 +1897,102 @@ class YTCustomNavbar {
 			container.removeChild(container.firstChild);
 		}
 
+		const snapshotsObj = window.userSettings.mixSnapshots || {};
+		const snapshots = Object.values(snapshotsObj);
 		const favourites = window.userSettings.favouriteMixes || [];
 		const currentFilter = window.userSettings.favouritesDialogFilter || 'all';
 
-		// Filter favourites based on current filter setting
-		const filteredFavourites = favourites.filter((favourite) => {
-			if (currentFilter === 'all') {
-				return true;
-			}
+		// Build unified list entries (snapshots + favourites)
+		const mergedEntries = [];
+		const currentSort = window.userSettings.favouritesDialogSort || 'newestFirst';
 
+		// Map snapshots into merged entries
+		snapshots.forEach((snap) => {
+			mergedEntries.push({
+				kind: 'snapshot',
+				snap,
+				title: snap.title || '',
+				ts: snap.createdAt || 0,
+			});
+		});
+
+		// Map favourites into merged entries
+		favourites.forEach((favourite, idx) => {
 			const isPlaylist = !!favourite.playlistId;
 			const originalTitle = favourite.title || '';
 			const isMix = /^(?:my\s+)?mix/i.test(originalTitle);
-
-			switch (currentFilter) {
-				case 'mixes':
-					return isPlaylist && isMix;
-				case 'playlists':
-					return isPlaylist && !isMix;
-				case 'videos':
-					return !isPlaylist;
-				default:
-					return true;
-			}
+			const displayTitle =
+				favourite.customTitle ||
+				favourite.title ||
+				(isPlaylist ? 'Untitled Mix' : 'Untitled Video');
+			const normalized = StringUtils.stripMixPrefix(
+				displayTitle,
+				!favourite.customTitle
+			).toLowerCase();
+			mergedEntries.push({
+				kind: 'favourite',
+				favourite,
+				title: normalized,
+				isPlaylist,
+				isMix,
+				ts: favourite.addedAt || idx,
+				index: idx,
+			});
 		});
 
-		// Sort favourites based on current sort setting
-		const currentSort = window.userSettings.favouritesDialogSort || 'newestFirst';
+		// Filter merged entries based on current filter
+		const filteredMerged = mergedEntries.filter((entry) => {
+			if (currentFilter === 'all') return true;
+			if (currentFilter === 'snapshots') return entry.kind === 'snapshot';
+			if (entry.kind === 'favourite') {
+				if (currentFilter === 'mixes') return entry.isPlaylist && entry.isMix;
+				if (currentFilter === 'playlists') return entry.isPlaylist && !entry.isMix;
+				if (currentFilter === 'videos') return !entry.isPlaylist;
+			}
+			return false;
+		});
 
-		filteredFavourites.sort((a, b) => {
+		// Sort merged entries according to current sort
+		filteredMerged.sort((a, b) => {
 			switch (currentSort) {
 				case 'aToZ':
-					// Use display title (customTitle if available, otherwise original title)
-					const displayTitleA = a.customTitle || a.title || '';
-					const displayTitleB = b.customTitle || b.title || '';
-
-					// Remove "Mix -" prefix only from original titles (not custom titles)
-					const cleanTitleA = StringUtils.stripMixPrefix(
-						displayTitleA,
-						!a.customTitle
-					).toLowerCase();
-					const cleanTitleB = StringUtils.stripMixPrefix(
-						displayTitleB,
-						!b.customTitle
-					).toLowerCase();
-
-					return cleanTitleA.localeCompare(cleanTitleB);
-
+					return (a.title || '').localeCompare(b.title || '');
 				case 'zToA':
-					// Use display title (customTitle if available, otherwise original title)
-					const displayTitleA_ZA = a.customTitle || a.title || '';
-					const displayTitleB_ZA = b.customTitle || b.title || '';
-
-					// Remove "Mix -" prefix only from original titles (not custom titles)
-					const cleanTitleA_ZA = StringUtils.stripMixPrefix(
-						displayTitleA_ZA,
-						!a.customTitle
-					).toLowerCase();
-					const cleanTitleB_ZA = StringUtils.stripMixPrefix(
-						displayTitleB_ZA,
-						!b.customTitle
-					).toLowerCase();
-
-					return cleanTitleB_ZA.localeCompare(cleanTitleA_ZA);
-
-				case 'type':
-					// Sort by type: playlists first, then videos
-					const isPlaylistA = !!a.playlistId;
-					const isPlaylistB = !!b.playlistId;
-
-					if (isPlaylistA && !isPlaylistB) return -1;
-					if (!isPlaylistA && isPlaylistB) return 1;
-
-					// If both are same type, sort alphabetically (also excluding prefixes)
-					const displayTitleA2 = a.customTitle || a.title || '';
-					const displayTitleB2 = b.customTitle || b.title || '';
-					const cleanTitleA2 = displayTitleA2
-						.toLowerCase()
-						.replace(/^(?!my\s)mix\s*-\s*/i, '');
-					const cleanTitleB2 = displayTitleB2
-						.toLowerCase()
-						.replace(/^(?!my\s)mix\s*-\s*/i, '');
-					return cleanTitleA2.localeCompare(cleanTitleB2);
-
+					return (b.title || '').localeCompare(a.title || '');
+				case 'type': {
+					const order = (e) => {
+						if (e.kind === 'favourite') {
+							if (e.isPlaylist) return e.isMix ? 0 : 0; // mixes/playlists first
+							return 2; // videos
+						}
+						return 1; // snapshots
+					};
+					const oa = order(a);
+					const ob = order(b);
+					if (oa !== ob) return oa - ob;
+					return (a.title || '').localeCompare(b.title || '');
+				}
 				case 'oldestFirst':
-					// Sort by date added (oldest first)
-					const indexA_OF = favourites.indexOf(a);
-					const indexB_OF = favourites.indexOf(b);
-					return indexA_OF - indexB_OF;
-
+					return (a.ts || 0) - (b.ts || 0);
 				case 'newestFirst':
 				default:
-					// Default sort by date added (most recent first)
-					// Since items are added to the end of the array, reverse order
-					const indexA = favourites.indexOf(a);
-					const indexB = favourites.indexOf(b);
-					return indexB - indexA;
+					return (b.ts || 0) - (a.ts || 0);
 			}
 		});
 
-		if (filteredFavourites.length === 0) {
+		if (filteredMerged.length === 0) {
 			const emptyMessage = document.createElement('div');
 			emptyMessage.className = 'yt-favourites-dialog-empty';
 
 			const boldText = document.createElement('strong');
 			if (currentFilter === 'all') {
-				boldText.textContent = 'No saved mixes or videos yet.';
+				boldText.textContent = 'No saved items yet.';
 			} else {
 				const filterLabels = {
 					mixes: 'mixes',
 					playlists: 'playlists',
 					videos: 'videos',
+					snapshots: 'snapshots',
 				};
 				boldText.textContent = `No saved ${filterLabels[currentFilter]} yet.`;
 			}
@@ -1486,14 +2010,242 @@ class YTCustomNavbar {
 			return;
 		}
 
-		filteredFavourites.forEach((favourite, filteredIndex) => {
-			// Find the original index in the full favourites array
+		filteredMerged.forEach((entry) => {
+			if (entry.kind === 'snapshot') {
+				const snap = entry.snap;
+				const firstItem = snap.items && snap.items[0];
+				const item = document.createElement('div');
+				item.className = 'yt-favourites-dialog-item';
+				item.addEventListener('click', (e) => {
+					const activeRenameInput = document.querySelector(
+						'.yt-favourites-dialog-rename-input'
+					);
+					if (
+						!e.target.closest('.yt-favourites-dialog-more-options-btn') &&
+						!e.target.closest('.yt-favourites-dialog-options-overlay') &&
+						!e.target.closest('.yt-favourites-dialog-rename-input') &&
+						!activeRenameInput
+					) {
+						window.saveUserSetting('activeMixSnapshotId', snap.id);
+						const firstId =
+							Array.isArray(snap.items) && snap.items.length
+								? snap.items[0]?.id
+								: null;
+						if (firstId) {
+							const fullUrl = `https://m.youtube.com/watch?v=${firstId}`;
+							window.location.href = fullUrl;
+						} else {
+							window.startPlayingMixSnapshot?.(snap.id);
+						}
+						this._hideFavouritesDialog();
+					}
+				});
+				item.setAttribute('data-original-title', snap.title || '');
+				item.setAttribute('data-custom-title', '');
+				item.setAttribute('data-channel', '');
+				const thumbnail = document.createElement('div');
+				thumbnail.className = 'yt-favourites-dialog-item-thumbnail';
+				if (firstItem?.id) {
+					const thumbnailUrl = MediaUtils.getStandardThumbnailUrl(firstItem.id);
+					if (thumbnailUrl) {
+						thumbnail.classList.add('stacked');
+						const thumbnailImg = document.createElement('img');
+						thumbnailImg.src = thumbnailUrl;
+						thumbnailImg.alt = snap.title || 'Mix Snapshot';
+						thumbnailImg.style.width = '100%';
+						thumbnailImg.style.height = '100%';
+						thumbnailImg.style.objectFit = 'cover';
+						thumbnailImg.style.borderRadius = '8px';
+						thumbnailImg.style.position = 'relative';
+						thumbnailImg.style.zIndex = '9';
+						thumbnail.appendChild(thumbnailImg);
+						ColorUtils.getAdaptiveColorFromThumbnail(thumbnailUrl)
+							.then((colors) => {
+								thumbnail.style.setProperty('--stack-color-1', colors.primary);
+								thumbnail.style.setProperty('--stack-color-2', colors.secondary);
+							})
+							.catch(() => {
+								thumbnail.style.setProperty('--stack-color-1', '#666666');
+								thumbnail.style.setProperty('--stack-color-2', '#888888');
+							});
+					}
+				}
+				const playOverlay = document.createElement('div');
+				playOverlay.className = 'play-overlay';
+				thumbnail.appendChild(playOverlay);
+				const info = document.createElement('div');
+				info.className = 'yt-favourites-dialog-item-info';
+				const title = document.createElement('div');
+				title.className = 'yt-favourites-dialog-item-title';
+				const snapBadge = document.createElement('span');
+				snapBadge.className = 'yt-mix-badge';
+				snapBadge.textContent = 'SNAP';
+				title.appendChild(snapBadge);
+				const titleText = document.createTextNode(snap.title || 'Mix Snapshot');
+				title.appendChild(titleText);
+				const meta = document.createElement('div');
+				meta.className = 'yt-favourites-dialog-item-meta';
+				const count = Array.isArray(snap.items) ? snap.items.length : 0;
+				const idText = document.createTextNode(`Snapshot • ${count} items`);
+				meta.appendChild(idText);
+				info.appendChild(title);
+				info.appendChild(meta);
+				const moreOptionsBtn = document.createElement('button');
+				moreOptionsBtn.className = 'yt-favourites-dialog-more-options-btn';
+				moreOptionsBtn.setAttribute('aria-label', 'More options');
+				const moreOptionsSvg = document.createElementNS(
+					'http://www.w3.org/2000/svg',
+					'svg'
+				);
+				moreOptionsSvg.setAttribute('viewBox', '0 0 24 24');
+				moreOptionsSvg.setAttribute('width', '16');
+				moreOptionsSvg.setAttribute('height', '16');
+				const moreOptionsPath = document.createElementNS(
+					'http://www.w3.org/2000/svg',
+					'path'
+				);
+				moreOptionsPath.setAttribute(
+					'd',
+					'M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z'
+				);
+				moreOptionsSvg.appendChild(moreOptionsPath);
+				moreOptionsBtn.appendChild(moreOptionsSvg);
+				moreOptionsBtn.addEventListener('click', (e) => {
+					e.stopPropagation();
+					const existingOverlay = item.querySelector(
+						'.yt-favourites-dialog-options-overlay'
+					);
+					if (existingOverlay) {
+						existingOverlay.remove();
+						return;
+					}
+					document
+						.querySelectorAll('.yt-favourites-dialog-options-overlay')
+						.forEach((ov) => ov.remove());
+					const overlay = document.createElement('div');
+					overlay.className = 'yt-favourites-dialog-options-overlay';
+					overlay.addEventListener('click', (ev) => {
+						if (ev.target === overlay) {
+							overlay.remove();
+						}
+					});
+					const renameBtn = document.createElement('button');
+					renameBtn.className =
+						'yt-favourites-dialog-overlay-btn yt-favourites-dialog-overlay-rename-btn';
+					renameBtn.setAttribute('aria-label', 'Rename snapshot');
+					const renameSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+					renameSvg.setAttribute('viewBox', '0 0 24 24');
+					renameSvg.setAttribute('width', '16');
+					renameSvg.setAttribute('height', '16');
+					const renamePath = document.createElementNS(
+						'http://www.w3.org/2000/svg',
+						'path'
+					);
+					renamePath.setAttribute(
+						'd',
+						'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z'
+					);
+					renameSvg.appendChild(renamePath);
+					renameBtn.appendChild(renameSvg);
+					const renameLabel = document.createElement('span');
+					renameLabel.textContent = 'Rename';
+					renameBtn.appendChild(renameLabel);
+					renameBtn.addEventListener('click', (ev) => {
+						ev.stopPropagation();
+						overlay.remove();
+						const titleElement = item.querySelector('.yt-favourites-dialog-item-title');
+						this._startRenamingSnapshot(titleElement, snap.id);
+					});
+					const removeBtn = document.createElement('button');
+					removeBtn.className =
+						'yt-favourites-dialog-overlay-btn yt-favourites-dialog-overlay-remove-btn';
+					removeBtn.setAttribute('aria-label', 'Remove snapshot');
+					const removeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+					removeSvg.setAttribute('viewBox', '0 0 24 24');
+					removeSvg.setAttribute('width', '16');
+					removeSvg.setAttribute('height', '16');
+					const removePath = document.createElementNS(
+						'http://www.w3.org/2000/svg',
+						'path'
+					);
+					removePath.setAttribute(
+						'd',
+						'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z'
+					);
+					removeSvg.appendChild(removePath);
+					removeBtn.appendChild(removeSvg);
+					const removeLabel = document.createElement('span');
+					removeLabel.textContent = 'Remove';
+					removeBtn.appendChild(removeLabel);
+					removeBtn.addEventListener('click', async (ev) => {
+						ev.stopPropagation();
+						overlay.remove();
+						const current = window.userSettings.mixSnapshots || {};
+						const updated = Object.assign({}, current);
+						delete updated[snap.id];
+						await window.saveUserSetting('mixSnapshots', updated);
+						this._updateFavouritesDialog();
+					});
+					const reorderBtn = document.createElement('button');
+					reorderBtn.className =
+						'yt-favourites-dialog-overlay-btn yt-favourites-dialog-overlay-reorder-btn';
+					reorderBtn.setAttribute('aria-label', 'Reorder snapshot items');
+					const reorderSvg = document.createElementNS(
+						'http://www.w3.org/2000/svg',
+						'svg'
+					);
+					reorderSvg.setAttribute('viewBox', '0 0 24 24');
+					reorderSvg.setAttribute('width', '16');
+					reorderSvg.setAttribute('height', '16');
+					const reorderPath = document.createElementNS(
+						'http://www.w3.org/2000/svg',
+						'path'
+					);
+					reorderPath.setAttribute('d', 'M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z');
+					reorderSvg.appendChild(reorderPath);
+					reorderBtn.appendChild(reorderSvg);
+					const reorderLabel = document.createElement('span');
+					reorderLabel.textContent = 'Reorder';
+					reorderBtn.appendChild(reorderLabel);
+					reorderBtn.addEventListener('click', (ev) => {
+						ev.stopPropagation();
+						overlay.remove();
+						this._showSnapshotReorderDialog(snap.id);
+					});
+					overlay.appendChild(renameBtn);
+					overlay.appendChild(reorderBtn);
+					overlay.appendChild(removeBtn);
+					item.appendChild(overlay);
+					const closeOverlay = (ev) => {
+						if (
+							!overlay.contains(ev.target) &&
+							!item
+								.querySelector('.yt-favourites-dialog-more-options-btn')
+								.contains(ev.target)
+						) {
+							overlay.remove();
+							document.removeEventListener('click', closeOverlay);
+						}
+					};
+					setTimeout(() => {
+						document.addEventListener('click', closeOverlay);
+					}, 0);
+				});
+				item.appendChild(thumbnail);
+				item.appendChild(info);
+				item.appendChild(moreOptionsBtn);
+				container.appendChild(item);
+				return;
+			}
+
+			// Favourite entry rendering (unchanged logic)
+			const favourite = entry.favourite;
 			const originalIndex = favourites.indexOf(favourite);
 			const item = document.createElement('div');
 			item.className = 'yt-favourites-dialog-item';
 
 			// Make the entire item clickable to play the mix
-			item.addEventListener('click', (e) => {
+			item.addEventListener('click', async (e) => {
 				// Don't trigger if clicking the more options button, or the rename input
 				// Also don't trigger if there's any active rename input in the dialog
 				const activeRenameInput = document.querySelector(
@@ -1521,6 +2273,9 @@ class YTCustomNavbar {
 							favourite.playlistId ? 'mix' : 'video'
 						}: ${fullUrl}`
 					);
+
+					await window.saveUserSetting('activeMixSnapshotId', null);
+					await window.saveUserSetting('tempMixSnapshot', null);
 
 					// Use window.location.href for full page navigation instead of SPA routing
 					window.location.href = fullUrl;
@@ -1847,6 +2602,61 @@ class YTCustomNavbar {
 		});
 	}
 
+	_startRenamingSnapshot(titleElement, snapshotId) {
+		const input = document.createElement('input');
+		input.type = 'text';
+		input.className = 'yt-favourites-dialog-rename-input';
+		const snapshots = window.userSettings.mixSnapshots || {};
+		const currentTitle = snapshots[snapshotId]?.title || 'Mix Snapshot';
+		input.value = currentTitle;
+		input.maxLength = 100;
+		const originalText = titleElement.textContent;
+		titleElement.style.display = 'none';
+		titleElement.parentNode.insertBefore(input, titleElement);
+		input.focus();
+		input.select();
+		const saveRename = async () => {
+			const newTitle = input.value.trim();
+			await this._renameSnapshot(snapshotId, newTitle);
+			input.remove();
+			titleElement.style.display = '';
+		};
+		const cancelRename = () => {
+			input.remove();
+			titleElement.style.display = '';
+		};
+		input.addEventListener('blur', saveRename);
+		input.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') {
+				e.preventDefault();
+				saveRename();
+			} else if (e.key === 'Escape') {
+				e.preventDefault();
+				cancelRename();
+			}
+		});
+	}
+
+	async _renameSnapshot(snapshotId, newTitle) {
+		try {
+			const current = window.userSettings.mixSnapshots || {};
+			const updated = Object.assign({}, current);
+			if (!updated[snapshotId]) return;
+			updated[snapshotId].title = newTitle || updated[snapshotId].title || 'Mix Snapshot';
+			updated[snapshotId].renamedAt = Date.now();
+			const success = await window.saveUserSetting('mixSnapshots', updated);
+			if (success) {
+				this._updateFavouritesDialog();
+				logger.log('Navbar', 'Snapshot renamed successfully', {
+					id: snapshotId,
+					newTitle,
+				});
+			}
+		} catch (error) {
+			logger.error('Navbar', 'Failed to rename snapshot:', error);
+		}
+	}
+
 	/**
 	 * @description Renames a favourite mix and updates storage.
 	 */
@@ -1968,6 +2778,411 @@ class YTCustomNavbar {
 		}
 	}
 
+	_hideAddToExistingSnapshotDialog() {
+		const overlay = document.getElementById('yt-add-to-existing-snapshot-overlay');
+		const modal = overlay ? overlay.querySelector('.yt-snapshot-reorder-modal') : null;
+		if (overlay && modal) {
+			overlay.classList.remove('visible');
+			modal.classList.remove('slide-in');
+			modal.classList.add('slide-out');
+			setTimeout(() => {
+				overlay.remove();
+			}, 300);
+		}
+	}
+
+	_showAddToExistingSnapshotDialog() {
+		this._hideAddToExistingSnapshotDialog();
+
+		const snapshotsObj = window.userSettings.mixSnapshots || {};
+		const activeSnapshotId = window.userSettings.activeMixSnapshotId;
+		const persistedActiveSnapshot = activeSnapshotId ? snapshotsObj[activeSnapshotId] : null;
+		const tempSnapshot = window.userSettings.tempMixSnapshot || null;
+		const isTempSnapshotPlaying =
+			!!activeSnapshotId &&
+			!persistedActiveSnapshot &&
+			!!tempSnapshot &&
+			tempSnapshot.id === activeSnapshotId;
+
+		const snapshotById = Object.assign({}, snapshotsObj);
+		if (isTempSnapshotPlaying) {
+			snapshotById[tempSnapshot.id] = tempSnapshot;
+		}
+
+		const snapshots = Object.values(snapshotById).filter((s) => s && s.id);
+		if (!snapshots.length) {
+			this._flashAddButtonFeedback('✕ No snapshots saved', 'error');
+			return;
+		}
+
+		snapshots.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+		const overlay = document.createElement('div');
+		overlay.className = 'yt-snapshot-reorder-overlay yt-add-to-existing-snapshot-overlay';
+		overlay.id = 'yt-add-to-existing-snapshot-overlay';
+
+		const modal = document.createElement('div');
+		modal.className = 'yt-snapshot-reorder-modal yt-add-to-existing-snapshot-modal';
+
+		const header = document.createElement('div');
+		header.className = 'yt-snapshot-reorder-header';
+
+		const closeBtn = document.createElement('button');
+		closeBtn.className = 'yt-snapshot-reorder-close';
+		closeBtn.setAttribute('aria-label', 'Close');
+		closeBtn.textContent = '×';
+		closeBtn.addEventListener('click', () => this._hideAddToExistingSnapshotDialog());
+
+		const title = document.createElement('div');
+		title.className = 'yt-snapshot-reorder-header-title';
+		title.textContent = 'Select Snapshot';
+
+		const headerRight = document.createElement('div');
+		headerRight.className = 'yt-snapshot-reorder-done';
+		headerRight.style.visibility = 'hidden';
+		headerRight.textContent = 'Done';
+
+		header.appendChild(closeBtn);
+		header.appendChild(title);
+		header.appendChild(headerRight);
+
+		const content = document.createElement('div');
+		content.className = 'yt-snapshot-reorder-content';
+
+		const list = document.createElement('div');
+		list.className = 'yt-snapshot-reorder-list';
+
+		const renderSelectView = () => {
+			title.textContent = 'Select Snapshot';
+			while (list.firstChild) list.removeChild(list.firstChild);
+
+			snapshots.forEach((snap) => {
+				const firstItem =
+					Array.isArray(snap.items) && snap.items.length ? snap.items[0] : null;
+
+				const row = document.createElement('div');
+				row.className = 'yt-snapshot-reorder-item';
+				row.dataset.snapshotId = snap.id;
+
+				const thumbWrap = document.createElement('div');
+				thumbWrap.className = 'yt-snapshot-reorder-thumb';
+				const thumbImg = document.createElement('img');
+				const thumbUrl =
+					(firstItem?.id && MediaUtils.getStandardThumbnailUrl(firstItem.id)) ||
+					firstItem?.thumbnailUrl ||
+					'';
+				if (thumbUrl) thumbImg.src = thumbUrl;
+				thumbImg.alt = snap.title || 'Snapshot';
+				thumbWrap.appendChild(thumbImg);
+
+				const textWrap = document.createElement('div');
+				textWrap.className = 'yt-snapshot-reorder-item-text';
+
+				const rowTitle = document.createElement('div');
+				rowTitle.className = 'yt-snapshot-reorder-item-title';
+				rowTitle.textContent = snap.title || 'Mix Snapshot';
+
+				const rowMeta = document.createElement('div');
+				rowMeta.className = 'yt-snapshot-reorder-item-meta';
+				const count = Array.isArray(snap.items) ? snap.items.length : 0;
+				rowMeta.textContent = `Snapshot • ${count} items`;
+
+				textWrap.appendChild(rowTitle);
+				textWrap.appendChild(rowMeta);
+
+				row.appendChild(thumbWrap);
+				row.appendChild(textWrap);
+
+				row.addEventListener('click', () => {
+					renderActionView(snap.id);
+				});
+
+				list.appendChild(row);
+			});
+		};
+
+		const renderActionView = (snapshotId) => {
+			const snap = snapshotById[snapshotId];
+			if (!snap) {
+				this._flashAddButtonFeedback('✕ Snapshot missing', 'error');
+				this._hideAddToExistingSnapshotDialog();
+				return;
+			}
+
+			const urlParams = new URLSearchParams(window.location.search);
+			const isPlaylist = !!urlParams.get('list');
+
+			title.textContent = snap.title || 'Mix Snapshot';
+			while (list.firstChild) list.removeChild(list.firstChild);
+
+			const backBtn = document.createElement('button');
+			backBtn.className = 'yt-dropdown-option';
+			backBtn.textContent = 'Back';
+			backBtn.addEventListener('click', () => {
+				renderSelectView();
+			});
+
+			const activeId = window.userSettings.activeMixSnapshotId;
+			const canMerge = !!activeId && activeId !== snapshotId && !!snapshotById[activeId];
+			const mergeBtn = document.createElement('button');
+			mergeBtn.className = 'yt-dropdown-option';
+			mergeBtn.textContent = 'Merge Snapshots';
+			mergeBtn.addEventListener('click', async () => {
+				await this._mergeSnapshots(snapshotId, activeId);
+				this._hideAddToExistingSnapshotDialog();
+			});
+
+			const addVideoBtn = document.createElement('button');
+			addVideoBtn.className = 'yt-dropdown-option';
+			addVideoBtn.textContent = 'Add Current Video';
+			addVideoBtn.addEventListener('click', async () => {
+				await this._addToSnapshot(snapshotId, 'video');
+				this._hideAddToExistingSnapshotDialog();
+			});
+
+			list.appendChild(backBtn);
+			if (canMerge) list.appendChild(mergeBtn);
+			list.appendChild(addVideoBtn);
+
+			if (isPlaylist) {
+				const addPlaylistBtn = document.createElement('button');
+				addPlaylistBtn.className = 'yt-dropdown-option';
+				addPlaylistBtn.textContent = 'Add Full Playlist/Mix';
+				addPlaylistBtn.addEventListener('click', async () => {
+					await this._addToSnapshot(snapshotId, 'playlist');
+					this._hideAddToExistingSnapshotDialog();
+				});
+				list.appendChild(addPlaylistBtn);
+			}
+		};
+
+		content.appendChild(list);
+		modal.appendChild(header);
+		modal.appendChild(content);
+		overlay.appendChild(modal);
+
+		document.body.appendChild(overlay);
+
+		overlay.addEventListener('click', (e) => {
+			if (e.target === overlay) {
+				this._hideAddToExistingSnapshotDialog();
+			}
+		});
+
+		renderSelectView();
+
+		requestAnimationFrame(() => {
+			overlay.classList.add('visible');
+			modal.classList.add('slide-in');
+		});
+	}
+
+	async _addToSnapshot(snapshotId, mode) {
+		const snapshotsObj = window.userSettings.mixSnapshots || {};
+		let snap = snapshotsObj[snapshotId] || null;
+		let source = 'persisted';
+		if (!snap) {
+			const tempSnapshot = window.userSettings.tempMixSnapshot || null;
+			if (tempSnapshot && tempSnapshot.id === snapshotId) {
+				snap = tempSnapshot;
+				source = 'temp';
+			}
+		}
+		if (!snap) {
+			this._flashAddButtonFeedback('✕ Snapshot missing', 'error');
+			return false;
+		}
+
+		const urlParams = new URLSearchParams(window.location.search);
+		const videoId = urlParams.get('v');
+		const playlistId = urlParams.get('list');
+
+		if (!videoId) {
+			this._flashAddButtonFeedback('✕ Cannot add', 'error');
+			return false;
+		}
+
+		const existingItems = Array.isArray(snap.items) ? snap.items.slice() : [];
+		const existingIds = new Set(existingItems.map((it) => it?.id).filter(Boolean));
+
+		let itemsToAdd = [];
+
+		if (mode === 'playlist' && playlistId) {
+			let cached = window.ytPlayerInstance?.getCachedPlaylistData?.()?.items || null;
+			if (!Array.isArray(cached) || !cached.length) {
+				cached = window.ytPlayerInstance?.options?.currentPlaylist?.items || null;
+			}
+			if (!Array.isArray(cached) || !cached.length) {
+				this._flashAddButtonFeedback('✕ Playlist not loaded', 'error');
+				return false;
+			}
+			itemsToAdd = cached
+				.filter((it) => it?.id && !existingIds.has(it.id))
+				.map((it) => ({
+					id: it.id,
+					title: it.title || '',
+					artist: it.artist || '',
+					duration: it.duration || '',
+					thumbnailUrl: it.thumbnailUrl || '',
+				}));
+		} else {
+			let title = '';
+			let artist = '';
+			let duration = '';
+
+			const details = window.ytPlayerInstance?.options?.nowPlayingVideoDetails || null;
+			if (details) {
+				title = details.title || '';
+				artist = details.author || '';
+			}
+
+			const playlistItems = window.ytPlayerInstance?.options?.currentPlaylist?.items || null;
+			if (Array.isArray(playlistItems) && playlistItems.length) {
+				const match = playlistItems.find((it) => it?.id === videoId);
+				if (match) {
+					if (!title) title = match.title || '';
+					if (!artist) artist = match.artist || '';
+					if (!duration) duration = match.duration || '';
+				}
+			}
+
+			if (!title) {
+				let rawTitle = document.title || '';
+				if (rawTitle.toLowerCase().endsWith(' - youtube')) {
+					rawTitle = rawTitle.substring(0, rawTitle.length - ' - youtube'.length).trim();
+				}
+				title = rawTitle || `Video - ${videoId}`;
+			}
+
+			if (!existingIds.has(videoId)) {
+				itemsToAdd = [
+					{
+						id: videoId,
+						title,
+						artist,
+						duration,
+					},
+				];
+			}
+		}
+
+		if (!itemsToAdd.length) {
+			this._flashAddButtonFeedback('ⓘ No new items', 'info');
+			return true;
+		}
+
+		const nextItems = existingItems.concat(itemsToAdd);
+		const updatedSnap = Object.assign({}, snap, { items: nextItems, updatedAt: Date.now() });
+		let ok = false;
+		if (source === 'temp') {
+			ok = await window.saveUserSetting('tempMixSnapshot', updatedSnap);
+		} else {
+			const updatedAll = Object.assign({}, snapshotsObj, { [snapshotId]: updatedSnap });
+			ok = await window.saveUserSetting('mixSnapshots', updatedAll);
+		}
+		if (!ok) {
+			this._flashAddButtonFeedback('✕ Failed', 'error');
+			return false;
+		}
+
+		if (window.ytPlayerInstance && window.userSettings.activeMixSnapshotId === snapshotId) {
+			const playlistTitle = updatedSnap.title || 'Mix Snapshot';
+			window.ytPlayerInstance.updatePlaylist(nextItems, updatedSnap.id, playlistTitle);
+			const currentVideoId =
+				typeof PageUtils !== 'undefined' && PageUtils.getCurrentVideoIdFromUrl
+					? PageUtils.getCurrentVideoIdFromUrl()
+					: null;
+			if (currentVideoId) {
+				window.ytPlayerInstance.setActivePlaylistItem?.(currentVideoId);
+			}
+		}
+
+		this._updateFavouritesDialog();
+		this._flashAddButtonFeedback('✓ Added', 'success');
+		return true;
+	}
+
+	async _mergeSnapshots(targetSnapshotId, sourceSnapshotId) {
+		if (!targetSnapshotId || !sourceSnapshotId) {
+			this._flashAddButtonFeedback('✕ Snapshot missing', 'error');
+			return false;
+		}
+
+		if (targetSnapshotId === sourceSnapshotId) {
+			this._flashAddButtonFeedback('ⓘ Same snapshot', 'info');
+			return true;
+		}
+
+		const snapshotsObj = window.userSettings.mixSnapshots || {};
+		const tempSnapshot = window.userSettings.tempMixSnapshot || null;
+
+		let targetSnap = snapshotsObj[targetSnapshotId] || null;
+		let targetSource = 'persisted';
+		if (!targetSnap && tempSnapshot && tempSnapshot.id === targetSnapshotId) {
+			targetSnap = tempSnapshot;
+			targetSource = 'temp';
+		}
+
+		let sourceSnap = snapshotsObj[sourceSnapshotId] || null;
+		if (!sourceSnap && tempSnapshot && tempSnapshot.id === sourceSnapshotId) {
+			sourceSnap = tempSnapshot;
+		}
+
+		if (!targetSnap || !sourceSnap) {
+			this._flashAddButtonFeedback('✕ Snapshot missing', 'error');
+			return false;
+		}
+
+		const targetItems = Array.isArray(targetSnap.items) ? targetSnap.items.slice() : [];
+		const sourceItems = Array.isArray(sourceSnap.items) ? sourceSnap.items.slice() : [];
+
+		const existingIds = new Set(targetItems.map((it) => it?.id).filter(Boolean));
+		const itemsToAdd = sourceItems.filter((it) => it?.id && !existingIds.has(it.id));
+
+		if (!itemsToAdd.length) {
+			this._flashAddButtonFeedback('ⓘ No new items', 'info');
+			return true;
+		}
+
+		const nextItems = targetItems.concat(itemsToAdd);
+		const updatedSnap = Object.assign({}, targetSnap, {
+			items: nextItems,
+			updatedAt: Date.now(),
+		});
+
+		let ok = false;
+		if (targetSource === 'temp') {
+			ok = await window.saveUserSetting('tempMixSnapshot', updatedSnap);
+		} else {
+			const updatedAll = Object.assign({}, snapshotsObj, { [targetSnapshotId]: updatedSnap });
+			ok = await window.saveUserSetting('mixSnapshots', updatedAll);
+		}
+
+		if (!ok) {
+			this._flashAddButtonFeedback('✕ Failed', 'error');
+			return false;
+		}
+
+		if (
+			window.ytPlayerInstance &&
+			window.userSettings.activeMixSnapshotId === targetSnapshotId
+		) {
+			const playlistTitle = updatedSnap.title || 'Mix Snapshot';
+			window.ytPlayerInstance.updatePlaylist(nextItems, updatedSnap.id, playlistTitle);
+			const currentVideoId =
+				typeof PageUtils !== 'undefined' && PageUtils.getCurrentVideoIdFromUrl
+					? PageUtils.getCurrentVideoIdFromUrl()
+					: null;
+			if (currentVideoId) {
+				window.ytPlayerInstance.setActivePlaylistItem?.(currentVideoId);
+			}
+		}
+
+		this._updateFavouritesDialog();
+		this._flashAddButtonFeedback('✓ Merged', 'success');
+		return true;
+	}
+
 	/**
 	 * @description Temporarily changes the add button label/icon to show feedback.
 	 * @param {string} message - The message to display on the button.
@@ -2015,20 +3230,22 @@ class YTCustomNavbar {
 		// Remove any existing dropdown
 		this._hideAddToFavouritesDropdown();
 
+		const urlParams = new URLSearchParams(window.location.search);
+		const isPlaylist = !!urlParams.get('list');
+
+		const activeSnapshotId = window.userSettings.activeMixSnapshotId;
+		const persistedSnapshot =
+			activeSnapshotId && (window.userSettings.mixSnapshots || {})[activeSnapshotId];
+		const tempSnapshot = window.userSettings.tempMixSnapshot || null;
+		const isTempSnapshotPlaying =
+			!!activeSnapshotId && !persistedSnapshot && tempSnapshot?.id === activeSnapshotId;
+
 		// Create dropdown container
 		const dropdown = document.createElement('div');
 		dropdown.className = 'yt-add-to-favourites-dropdown';
 		dropdown.id = 'yt-add-to-favourites-dropdown';
 
 		// Create dropdown options
-		const addMixOption = document.createElement('button');
-		addMixOption.className = 'yt-dropdown-option';
-		addMixOption.textContent = 'Add Mix/Playlist';
-		addMixOption.addEventListener('click', () => {
-			this._addCurrentMixToFavourites();
-			this._hideAddToFavouritesDropdown();
-		});
-
 		const addVideoOption = document.createElement('button');
 		addVideoOption.className = 'yt-dropdown-option';
 		addVideoOption.textContent = 'Add Current Video';
@@ -2037,8 +3254,52 @@ class YTCustomNavbar {
 			this._hideAddToFavouritesDropdown();
 		});
 
-		dropdown.appendChild(addMixOption);
+		const addToSnapshotOption = document.createElement('button');
+		addToSnapshotOption.className = 'yt-dropdown-option';
+		addToSnapshotOption.textContent = 'Add to Existing Snapshot';
+		addToSnapshotOption.addEventListener('click', () => {
+			this._hideAddToFavouritesDropdown();
+			this._showAddToExistingSnapshotDialog();
+		});
+
+		if (isPlaylist) {
+			const addMixOption = document.createElement('button');
+			addMixOption.className = 'yt-dropdown-option';
+			addMixOption.textContent = 'Add Mix/Playlist';
+			addMixOption.addEventListener('click', () => {
+				this._addCurrentMixToFavourites();
+				this._hideAddToFavouritesDropdown();
+			});
+			dropdown.appendChild(addMixOption);
+		}
 		dropdown.appendChild(addVideoOption);
+		dropdown.appendChild(addToSnapshotOption);
+		if (isTempSnapshotPlaying) {
+			const storeSnapshotOption = document.createElement('button');
+			storeSnapshotOption.className = 'yt-dropdown-option';
+			storeSnapshotOption.textContent = 'Store Snapshot';
+			storeSnapshotOption.addEventListener('click', async () => {
+				this._hideAddToFavouritesDropdown();
+				await this._storeActiveTempSnapshot();
+			});
+			dropdown.appendChild(storeSnapshotOption);
+		}
+		if (isPlaylist) {
+			const saveSnapshotOption = document.createElement('button');
+			saveSnapshotOption.className = 'yt-dropdown-option';
+			saveSnapshotOption.textContent = 'Save Snapshot of Current Mix';
+			saveSnapshotOption.addEventListener('click', () => {
+				const ok = window.createMixSnapshotFromCurrentMix?.();
+				if (ok) {
+					this._flashAddButtonFeedback('✓ Snapshot Saved', 'success');
+					this._updateFavouritesDialog();
+				} else {
+					this._flashAddButtonFeedback('✕ Failed', 'error');
+				}
+				this._hideAddToFavouritesDropdown();
+			});
+			dropdown.appendChild(saveSnapshotOption);
+		}
 
 		// Position dropdown relative to button
 		const buttonRect = button.getBoundingClientRect();
@@ -2109,6 +3370,31 @@ class YTCustomNavbar {
 	handleAction(action) {
 		logger.log('Navbar', 'handleAction called with:', action);
 		switch (action) {
+			case 'play':
+				this._handlePlayPauseClick(
+					this.navbarElement?.querySelector('[data-action="play"]')
+				);
+				break;
+			case 'previous':
+				this._handlePreviousClick('previous');
+				break;
+			case 'restart-then-previous':
+				this._handlePreviousClick('restart-then-previous');
+				break;
+			case 'skip':
+				this._handleSkipClick();
+				break;
+			case 'seek-back':
+				this._handleSeekClick(-1);
+				break;
+			case 'seek-forward':
+				this._handleSeekClick(1);
+				break;
+			case 'repeat':
+				this._handleRepeatClick(
+					this.navbarElement?.querySelector('[data-action="repeat"]')
+				);
+				break;
 			case 'home':
 				logger.log('Navbar', 'Calling _handleLogoClick');
 				this._handleLogoClick();
@@ -2153,6 +3439,85 @@ class YTCustomNavbar {
 				logger.warn('Navbar', `Unknown action: ${action}`);
 				break;
 		}
+	}
+
+	_handlePlayPauseClick(button) {
+		const inst = window.ytPlayerInstance;
+		if (!inst || !inst.options || !inst.options.callbacks) return;
+
+		const currentState = this._getCurrentPlayState();
+		const playing = window.PlayState ? window.PlayState.PLAYING : 'playing';
+		const paused = window.PlayState ? window.PlayState.PAUSED : 'paused';
+		const newState = currentState === playing ? paused : playing;
+
+		if (typeof inst.setPlayState === 'function') {
+			inst.setPlayState(newState);
+		}
+		inst.options.callbacks.onPlayPauseClick?.(newState, { source: 'custom' });
+
+		if (button) {
+			this._updateNavbarPlayToggleIcon(button);
+		}
+	}
+
+	_handlePreviousClick(actionId) {
+		const inst = window.ytPlayerInstance;
+		if (!inst || !inst.options || !inst.options.callbacks) return;
+		inst.options.callbacks.onPreviousClick?.(actionId);
+	}
+
+	_handleSkipClick() {
+		const inst = window.ytPlayerInstance;
+		if (!inst || !inst.options || !inst.options.callbacks) return;
+		inst.options.callbacks.onSkipClick?.();
+	}
+
+	_handleSeekClick(direction) {
+		const inst = window.ytPlayerInstance;
+		if (!inst || !inst.options || !inst.options.callbacks) return;
+		const secs = Number(inst.options.seekSkipSeconds) || 10;
+		inst.options.callbacks.onGestureSeek?.(direction * secs);
+	}
+
+	_handleRepeatClick(button) {
+		const inst = window.ytPlayerInstance;
+		if (!inst || !inst.options || !inst.options.callbacks) return;
+		const next = !window.userSettings.repeatCurrentlyOn;
+		inst.options.callbacks.onRepeatClick?.(next);
+		if (button) {
+			button.classList.toggle('active', next);
+			button.setAttribute('aria-pressed', String(next));
+		}
+	}
+
+	_getCurrentPlayState() {
+		const inst = window.ytPlayerInstance;
+		if (inst && typeof inst.getPlayState === 'function') {
+			return inst.getPlayState();
+		}
+		const video = document.querySelector('video');
+		if (video) {
+			return video.paused
+				? window.PlayState
+					? window.PlayState.PAUSED
+					: 'paused'
+				: window.PlayState
+					? window.PlayState.PLAYING
+					: 'playing';
+		}
+		return window.PlayState ? window.PlayState.PAUSED : 'paused';
+	}
+
+	_updateNavbarPlayToggleIcon(button) {
+		if (!button) return;
+		const path = button.querySelector('svg path');
+		if (!path) return;
+		const state = this._getCurrentPlayState();
+		const playing = window.PlayState ? window.PlayState.PLAYING : 'playing';
+		path.setAttribute(
+			'd',
+			state === playing ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z'
+		);
 	}
 
 	/**
