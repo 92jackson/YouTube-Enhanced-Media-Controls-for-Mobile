@@ -2026,17 +2026,7 @@ class YTCustomNavbar {
 						!e.target.closest('.yt-favourites-dialog-rename-input') &&
 						!activeRenameInput
 					) {
-						window.saveUserSetting('activeMixSnapshotId', snap.id);
-						const firstId =
-							Array.isArray(snap.items) && snap.items.length
-								? snap.items[0]?.id
-								: null;
-						if (firstId) {
-							const fullUrl = `https://m.youtube.com/watch?v=${firstId}`;
-							window.location.href = fullUrl;
-						} else {
-							window.startPlayingMixSnapshot?.(snap.id);
-						}
+						window.startPlayingMixSnapshot?.(snap.id);
 						this._hideFavouritesDialog();
 					}
 				});

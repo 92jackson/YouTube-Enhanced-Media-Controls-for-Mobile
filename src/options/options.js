@@ -1968,6 +1968,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 	initGlobalCollapseButton();
 	initSectionLinks();
 	initSectionMenu();
+	initKnownIssuesSection();
 	initDonorsSection();
 	initNewOptionIndicators();
 	initGeneratedBadges();
@@ -2006,6 +2007,71 @@ function onSettingsRestored() {
 	}
 }
 
+async function initKnownIssuesSection() {
+	const container = document.getElementById('known-issues-content');
+	if (!container) return;
+
+	const formatInline = (text) => text.replace(/`([^`]+)`/g, '<code>$1</code>');
+	const parseMarkdown = (markdown) => {
+		const items = [];
+		let current = '';
+		markdown.split(/\r?\n/).forEach((line) => {
+			const trimmed = line.trim();
+			if (!trimmed) {
+				if (current) {
+					items.push(current);
+					current = '';
+				}
+				return;
+			}
+			if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+				if (current) items.push(current);
+				current = trimmed.slice(2).trim();
+				return;
+			}
+			current = current ? `${current} ${trimmed}` : trimmed;
+		});
+		if (current) items.push(current);
+		return items;
+	};
+
+	try {
+		const url =
+			typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL
+				? chrome.runtime.getURL('src/options/known-issues.md')
+				: 'known-issues.md';
+		const response = await fetch(url, { cache: 'no-store' });
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+		const markdown = await response.text();
+		const items = parseMarkdown(markdown).map(formatInline);
+		container.innerHTML = '';
+		if (!items.length) {
+			const empty = document.createElement('div');
+			empty.className = 'known-issues-empty';
+			empty.textContent = 'No notices available.';
+			container.appendChild(empty);
+			return;
+		}
+		const list = document.createElement('ul');
+		list.className = 'known-issues-list';
+		items.forEach((item) => {
+			const li = document.createElement('li');
+			li.innerHTML = item;
+			list.appendChild(li);
+		});
+		container.appendChild(list);
+	} catch (error) {
+		console.error('Error fetching known issues:', error);
+		container.innerHTML = '';
+		const empty = document.createElement('div');
+		empty.className = 'known-issues-empty';
+		empty.textContent = 'Failed to load notices. Please try again later.';
+		container.appendChild(empty);
+	}
+}
+
 function initDonorsSection() {
 	const donorsHeader = document.getElementById('donors-header');
 	const donorsList = document.getElementById('donors-list');
@@ -2028,16 +2094,104 @@ function initDonorsSection() {
 		if (isExpanded) {
 			try {
 				const response = await fetch(
-					'https://gist.githubusercontent.com/92jackson/c1086b472ccd4b521cbb33d0a701befb/raw/Donors.txt'
+					'https://gist.githubusercontent.com/92jackson/c1086b472ccd4b521cbb33d0a701befb/raw/Donors.txt',
+					{
+						cache: 'no-store',
+					}
 				);
 				if (!response.ok) {
 					throw new Error(`HTTP error! status: ${response.status}`);
 				}
 				const data = await response.text();
-				const preElement = document.createElement('pre');
-				preElement.textContent = data;
+				const parseCSV = (text) => {
+					const rows = [];
+					let row = [];
+					let current = '';
+					let inQuotes = false;
+
+					for (let i = 0; i < text.length; i++) {
+						const char = text[i];
+						if (inQuotes) {
+							if (char === '"') {
+								const next = text[i + 1];
+								if (next === '"') {
+									current += '"';
+									i++;
+								} else {
+									inQuotes = false;
+								}
+							} else {
+								current += char;
+							}
+							continue;
+						}
+
+						if (char === '"') {
+							inQuotes = true;
+							continue;
+						}
+						if (char === ',') {
+							row.push(current);
+							current = '';
+							continue;
+						}
+						if (char === '\n') {
+							row.push(current);
+							current = '';
+							const hasContent = row.some((cell) => cell.trim() !== '');
+							if (hasContent) rows.push(row);
+							row = [];
+							continue;
+						}
+						if (char === '\r') continue;
+						current += char;
+					}
+
+					if (current.length || row.length) {
+						row.push(current);
+						const hasContent = row.some((cell) => cell.trim() !== '');
+						if (hasContent) rows.push(row);
+					}
+
+					return rows;
+				};
+
+				const rows = parseCSV(data);
+				const dataRows = rows.slice(1);
+				const headers = ['Supporter', 'Message', 'Reply', 'Date'];
+				const table = document.createElement('table');
+				table.className = 'donors-table';
+				const thead = document.createElement('thead');
+				const headRow = document.createElement('tr');
+				headers.forEach((header) => {
+					const th = document.createElement('th');
+					th.textContent = header;
+					headRow.appendChild(th);
+				});
+				thead.appendChild(headRow);
+				table.appendChild(thead);
+
+				const tbody = document.createElement('tbody');
+				dataRows.forEach((cells) => {
+					const rowElement = document.createElement('tr');
+					headers.forEach((_, index) => {
+						const td = document.createElement('td');
+						td.textContent = (cells[index] || '').trim();
+						rowElement.appendChild(td);
+					});
+					tbody.appendChild(rowElement);
+				});
+				table.appendChild(tbody);
+
+				if (!dataRows.length) {
+					const pElement = document.createElement('p');
+					pElement.textContent = 'No supporters found yet.';
+					donorsList.innerHTML = '';
+					donorsList.appendChild(pElement);
+					return;
+				}
 				donorsList.innerHTML = ''; // Clear existing content
-				donorsList.appendChild(preElement);
+				donorsList.appendChild(table);
 			} catch (error) {
 				console.error('Error fetching donors:', error);
 				const pElement = document.createElement('p');

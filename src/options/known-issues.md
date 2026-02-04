@@ -1,0 +1,2 @@
+- YouTube has increased its efforts to disable background play for non-YouTube Premium users, currently we've been unable to find any workaround, as such, the option for <code>Background Playback</code> will likely be uneffective for the time-being.
+- Scrolling up on the recommended videos area (below the video) causes the native YouTube fullscreen gesture to trigger- while not technically a bug with this extension, it is something I'm hoping to fix as it's annoying.

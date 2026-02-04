@@ -2051,6 +2051,25 @@ class YTMediaPlayer {
 				break;
 		}
 
+		// Restore persisted drawer state for snapshots
+		if (window.userSettings.activeMixSnapshotId) {
+			const persistedState = sessionStorage.getItem('yt-emc-snapshot-drawer-state');
+			if (persistedState) {
+				logger.log('Drawer', `Restoring snapshot drawer state: ${persistedState}`);
+				if (persistedState === DrawerState.CLOSED) {
+					initialHeight = 0;
+				} else if (persistedState === DrawerState.MID) {
+					initialHeight = midDrawerHeight > 0 ? midDrawerHeight : 0;
+				} else if (persistedState === DrawerState.FULL) {
+					initialHeight = maxDrawerHeight;
+				}
+				// Clean up storage so it doesn't persist beyond this navigation/session if needed
+				// But we probably want it to persist as long as we are navigating within snapshot.
+				// However, logic in navigation functions sets it again on next nav.
+				// If we leave snapshot mode, activeMixSnapshotId check will fail, so it's safe.
+			}
+		}
+
 		const shouldAnimateInitial = false; // Never animate initial state
 		const isFirstDraw = this.isFirstDrawerRender && initialHeight > 0;
 

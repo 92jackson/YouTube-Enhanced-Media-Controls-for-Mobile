@@ -894,6 +894,15 @@ window.saveUserSetting = async function (key, value) {
 	try {
 		value = sanitizeUserSettingValue(key, value);
 
+		if (key === 'activeMixSnapshotId' && window.userSettings[key] !== value) {
+			try {
+				window.sessionStorage?.removeItem('yt-emc-snapshot-drawer-state');
+				window.sessionStorage?.removeItem('yt-emc-nav-skip-save');
+			} catch (error) {
+				void error;
+			}
+		}
+
 		// Update local settings object
 		window.userSettings[key] = value;
 

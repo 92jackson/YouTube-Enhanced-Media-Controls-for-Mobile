@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.0]
+
+### Added
+
+- Known Issues section in the options page.
+
+### Fixed
+
+- Playlist Drawer open state now remains consistent when navigating between videos on Snapshot Playlists.
+- Playlist Drawer not showing when starting a snapshot from any page other than a watch page.
+
 ## [3.0.0] - 2026-02-02
 
 ### Added

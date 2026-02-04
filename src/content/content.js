@@ -1216,6 +1216,15 @@ function _navigateToVideo(videoId) {
 		return;
 	}
 
+	// Persist drawer state for snapshots
+	if (window.userSettings.activeMixSnapshotId && ytPlayerInstance) {
+		if (sessionStorage.getItem('yt-emc-nav-skip-save')) {
+			sessionStorage.removeItem('yt-emc-nav-skip-save');
+		} else {
+			sessionStorage.setItem('yt-emc-snapshot-drawer-state', ytPlayerInstance.drawerState);
+		}
+	}
+
 	const currentPlaylistId = PageUtils.getCurrentPlaylistIdFromUrl();
 	const useListParam = !window.userSettings.activeMixSnapshotId && !!currentPlaylistId;
 	const baseUrl = `${window.location.origin}/watch?v=${videoId}`;
@@ -1598,6 +1607,17 @@ function customPlayer_onSeekbarUpdate(newTimePercentage, newTimeSeconds, isFinal
  * @param {string} itemId - The ID of the playlist item to play
  */
 function customPlayer_onPlaylistItemClick(itemId, manualClick = false) {
+	// Persist drawer state for snapshots
+	if (window.userSettings.activeMixSnapshotId && ytPlayerInstance) {
+		if (manualClick && window.userSettings.returnToDefaultModeOnVideoSelect) {
+			sessionStorage.removeItem('yt-emc-snapshot-drawer-state');
+			sessionStorage.setItem('yt-emc-nav-skip-save', 'true');
+		} else {
+			sessionStorage.setItem('yt-emc-snapshot-drawer-state', ytPlayerInstance.drawerState);
+			sessionStorage.setItem('yt-emc-nav-skip-save', 'true');
+		}
+	}
+
 	// If we're repeating and the requested video is different, clear the repeat
 	if (repeatIndefinitely && nextUpVideoId && itemId !== nextUpVideoId) {
 		if (userSettings.repeatStickyAcrossVideos) {
@@ -1905,7 +1925,13 @@ function playNextVideo(allowSkipWhileRepeating = false) {
 function _resetActiveMixSnapshotIfInvalid() {
 	const activeId = window.userSettings.activeMixSnapshotId;
 	if (!activeId) return;
-	if (!PageUtils.isVideoWatchPage()) {
+	let keepSnapshot = false;
+	try {
+		keepSnapshot = !!window.sessionStorage?.getItem('mc_activeMixSnapshotId');
+	} catch (error) {
+		void error;
+	}
+	if (!PageUtils.isVideoWatchPage() && !keepSnapshot) {
 		window.saveUserSetting('activeMixSnapshotId', null);
 		if (window.userSettings.tempMixSnapshot) {
 			window.saveUserSetting('tempMixSnapshot', null);
@@ -1967,13 +1993,12 @@ function startPlayingMixSnapshot(mixId) {
 	window.saveUserSetting('activeMixSnapshotId', mixId);
 	const currentId = PageUtils.getCurrentVideoIdFromUrl();
 	const items = snap.items;
-	let index = items.findIndex((it) => it.id === currentId);
-	if (index === -1) index = 0;
-	const target = items[index];
-	if (currentId !== target.id) {
-		const fullUrl = `https://m.youtube.com/watch?v=${target.id}`;
-		window.location.href = fullUrl;
+	const target = items[0];
+	let fullUrl = `https://m.youtube.com/watch?v=${target.id}`;
+	if (currentId === target.id) {
+		fullUrl += `&mc_snap=${encodeURIComponent(mixId)}`;
 	}
+	window.location.href = fullUrl;
 	return true;
 }
 
@@ -3416,7 +3441,13 @@ async function manageCustomPlayerLifecycle() {
 			manualDrawerTargetHeightThisSession = null;
 			document.body.classList.remove('yt-custom-controls-drawn');
 		}
-		if (window.userSettings.activeMixSnapshotId) {
+		let keepSnapshot = false;
+		try {
+			keepSnapshot = !!window.sessionStorage?.getItem('mc_activeMixSnapshotId');
+		} catch (error) {
+			void error;
+		}
+		if (!keepSnapshot && window.userSettings.activeMixSnapshotId) {
 			window.saveUserSetting('activeMixSnapshotId', null);
 			if (window.userSettings.tempMixSnapshot) {
 				window.saveUserSetting('tempMixSnapshot', null);
@@ -3766,6 +3797,16 @@ function initializeEventListenersAndObservers() {
 					if (window.userSettings.hasOwnProperty(key)) {
 						settingsUpdated = true;
 						const newValue = changes[key].newValue;
+
+						if (key === 'activeMixSnapshotId') {
+							try {
+								window.sessionStorage?.removeItem('yt-emc-snapshot-drawer-state');
+								window.sessionStorage?.removeItem('yt-emc-nav-skip-save');
+							} catch (error) {
+								void error;
+							}
+						}
+
 						window.userSettings[key] = newValue;
 						changedSettings[key] = newValue;
 

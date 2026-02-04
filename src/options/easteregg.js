@@ -1473,8 +1473,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		typeof browser !== 'undefined' && browser.storage
 			? browser.storage
 			: typeof chrome !== 'undefined' && chrome.storage
-			? chrome.storage
-			: null;
+				? chrome.storage
+				: null;
 	const storageLocal = storageApi ? storageApi.local : null;
 	// Fallback default independent of options.js load order
 	const defaultEnable =

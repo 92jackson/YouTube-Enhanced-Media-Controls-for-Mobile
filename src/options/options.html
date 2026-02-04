@@ -639,6 +639,7 @@ System displays temporary NEW badge automatically.
 		.toggle-item--full .toggle-label-group { width: 100%; align-self: stretch; }
 
 		.toggle-subrow {
+			width: 100%;
 			display: flex;
 			align-items: flex-start;
 			justify-content: space-between;
@@ -1179,6 +1180,37 @@ System displays temporary NEW badge automatically.
 			color: #333;
 		}
 
+		.collapsible-donors-section .donors-table {
+			width: 100%;
+			border-collapse: collapse;
+			font-size: 12px;
+			color: #333;
+		}
+
+		.collapsible-donors-section .donors-table th,
+		.collapsible-donors-section .donors-table td {
+			padding: 6px 8px;
+			border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+			vertical-align: top;
+			text-align: left;
+		}
+
+		.collapsible-donors-section .donors-table th {
+			font-weight: 600;
+			color: #555;
+			background-color: rgba(240, 240, 240, 0.7);
+			text-align: center;
+			font-size: 11px;
+		}
+
+		.collapsible-donors-section .donors-table tr:last-child td {
+			border-bottom: none;
+		}
+
+		.collapsible-donors-section .donors-table tr td:first-child {
+			font-weight: bold;
+		}
+
 		.donors-footer {
 			padding: 5px 10px;
 			font-size: 0.7em;
@@ -1206,12 +1238,45 @@ System displays temporary NEW badge automatically.
 			text-decoration: underline;
 		}
 
+		.card--notices {
+			border: 1px solid rgba(255, 193, 7, 0.35);
+			background-color: rgba(255, 248, 225, 0.7);
+		}
+
+		.card--notices .card-header {
+			background-color: rgba(255, 236, 179, 0.7);
+		}
+
+		.known-issues-content {
+			font-size: 13px;
+			color: var(--md-color-on-surface);
+		}
+
+		.known-issues-list {
+			margin: 0;
+			padding-left: 18px;
+		}
+
+		.known-issues-list li {
+			line-height: 1.4;
+			margin-bottom: 8px;
+		}
+
+		.known-issues-list li:last-child {
+			margin-bottom: 0;
+		}
+
+		.known-issues-empty {
+			color: var(--md-color-on-surface-medium);
+		}
+
 		/* Utility */
 		.hidden { display: none; }
 		.card--support { background-color: #cce5ff; }
 		.no-results-message { text-align: center; padding: var(--space-xl) var(--space-lg); color: var(--md-color-on-surface-medium); font-size: 16px; }
 		.coffee-image { height: 40px; }
 		.support-row { display: flex; flex-direction: row; align-items: center; gap: var(--space-sm); }
+		#section-settings-transfer .support-row { justify-content: end; }
 		.date-input-row { display: flex; gap: var(--space-sm); }
 		.flex-1 { flex: 1; }
 		.flex-2 { flex: 2; }
@@ -1359,6 +1424,17 @@ System displays temporary NEW badge automatically.
 			</div>
 		</div>
 		<main class="main-content">
+			<div class="card card--notices" id="section-notices">
+				<div class="card-header">
+					<span class="icon">⚠️</span>
+					<h2>Notices / Known Issues</h2>
+				</div>
+				<div class="card-content">
+					<div id="known-issues-content" class="known-issues-content">
+						<div class="known-issues-empty">Loading notices...</div>
+					</div>
+				</div>
+			</div>
 			<div class="card" id="section-settings-transfer" data-added-version="3.0.0">
 				<div class="card-header">
 					<span class="icon">💾</span>
@@ -1555,12 +1631,10 @@ System displays temporary NEW badge automatically.
 							<div class="toggle-label-group" data-target-id="hideTimerDuration">
 								<div class="toggle-label-main"><div class="toggle-label-text" id="hideTimerDuration-label">Hide duration in timer</div></div>
 							</div>
-							<div class="toggle-subrow">
-								<label class="toggle-switch">
-									<input type="checkbox" id="hideTimerDuration" aria-labelledby="hideTimerDuration-label">
-									<span class="switch-slider"></span>
-								</label>
-							</div>
+							<label class="toggle-switch">
+								<input type="checkbox" id="hideTimerDuration" aria-labelledby="hideTimerDuration-label">
+								<span class="switch-slider"></span>
+							</label>
 						</div>
 					</fieldset>
 					<div class="setting-item toggle-item toggle-item--full" data-added-version="2.1.0">
@@ -2848,15 +2922,6 @@ System displays temporary NEW badge automatically.
 						</div>
 					</div>
 
-<!-- 
-		--
-		--
-		--	Easter egg (:
-		--		- delete this section to fully remove
-		--		- you can then safely delete src/options/easteregg.js
-		--
-		--
-		-->
 					<div class="setting-item toggle-item toggle-item--full">
 						<div class="toggle-label-group" data-target-id="enableEasterEggs">
 							<div class="toggle-label-main"><div class="toggle-label-text" id="enableEasterEggs-label">Enable Easter Eggs</div></div>
@@ -2883,16 +2948,7 @@ System displays temporary NEW badge automatically.
 							</div>
 						</div>
 					</fieldset>
-					<style id=easter-spider-styles>#easter-spider{touch-action:none;position:fixed;bottom:calc(10px + var(--spider-inset,0px));right:calc(10px + var(--spider-inset,0px));width:calc(12px * var(--spider-scale,1));height:calc(12px * var(--spider-scale,1));opacity:.5;color:var(--md-color-on-surface-medium);pointer-events:auto;will-change:transform;transform-origin:50% 60%;--spider-scale:1;--spider-hit:16px;transition:bottom 180ms ease,right 180ms ease,opacity 180ms ease;z-index:99}#easter-spider::before{content:"";position:absolute;top:calc(-1 * var(--spider-hit,16px));left:calc(-1 * var(--spider-hit,16px));width:calc(100% + var(--spider-hit,16px) * 2);height:calc(100% + var(--spider-hit,16px) * 2);pointer-events:auto}#easter-spider.message-visible{opacity:1}#easter-spider svg{width:100%;height:100%;display:block;transform-origin:50% 60%;transform-box:fill-box;transform:rotate(calc(var(--spider-rotate,0deg) + var(--spider-rot-wiggle,0deg)));filter:drop-shadow(0 0 1px rgba(0, 0, 0, .22));transition:transform 180ms ease}#easter-spider-message{position:absolute;bottom:calc(100% + var(--spider-msg-offset,0px));right:20px;min-width:200px;max-width:280px;padding:6px 8px;border-radius:8px;border-bottom-right-radius:0;background:rgba(22,22,22,.92);color:#fff;font-size:12px;line-height:1.25;box-shadow:0 2px 6px rgba(0,0,0,.2);opacity:0;transform:translateY(4px);transition:opacity .2s ease,transform 180ms ease;pointer-events:none;z-index:9999}#easter-spider.message-visible #easter-spider-message{opacity:1;transform:translateY(0)}#easter-spider.dragging{opacity:1}</style>
-					<div id=easter-spider role=button aria-label="Tiny spider easter egg"tabindex=0><svg fill=#000000 height=200px id=_x32_ version=1.1 viewBox="0 0 512 512"width=200px xml:space=preserve xmlns=http://www.w3.org/2000/svg xmlns:xlink=http://www.w3.org/1999/xlink><g id=SVGRepo_bgCarrier stroke-width=0></g><g id=SVGRepo_tracerCarrier stroke-linecap=round stroke-linejoin=round></g><g id=SVGRepo_iconCarrier><style>.st0{fill:#000}</style><g><path class=st0 d="M253.39,252.844c67.84,0,122.858-54.508,122.858-121.732c0-67.232-55.019-121.731-122.858-121.731 c-67.858,0-122.858,54.499-122.858,121.731C130.532,198.336,185.533,252.844,253.39,252.844z"></path><path class=st0 d="M279.385,369.018c-11.782,0-21.838,7.282-25.994,17.576c-4.174-10.294-14.213-17.576-26.013-17.576 c-15.516,0-28.09,12.584-28.09,28.099c0,15.516,12.574,28.099,28.09,28.099c11.8,0,21.839-7.282,26.013-17.576 c4.156,10.294,14.213,17.576,25.994,17.576c15.516,0,28.108-12.583,28.108-28.099C307.493,381.602,294.901,369.018,279.385,369.018 z"></path><path class=st0 d="M2.583,195.993l52.148,61.165c12.152,14.265,28.566,24.251,46.848,28.478l86.014,19.928 c-0.37,1.646-0.616,3.319-0.758,5.019l-56.215,2.343c-21.927,0.915-42.709,10.03-58.225,25.554l-55.494,55.493 c-4.226,4.228-4.226,11.079,0,15.305c4.227,4.228,11.078,4.228,15.305,0L87.7,353.784c11.676-11.685,27.316-18.545,43.818-19.232 l59.879-2.492c0.405,0.757,0.845,1.498,1.303,2.237l-59.703,36.606l-0.669,0.58c-14.917,12.901-25.026,30.442-28.724,49.814 l-13.032,68.474c-1.127,5.873,2.73,11.536,8.594,12.654c5.882,1.118,11.536-2.729,12.663-8.603l13.033-68.474 c2.747-14.38,10.214-27.394,21.204-37.072l62.169-38.112c11.887,8.137,27.72,13.139,45.156,13.139 c18.633,0,35.47-5.689,47.586-14.847l64.97,39.82c10.972,9.678,18.457,22.692,21.186,37.072l13.051,68.474 c1.109,5.874,6.78,9.722,12.644,8.603c5.883-1.118,9.722-6.781,8.612-12.654l-13.05-68.474 c-3.681-19.372-13.807-36.914-28.706-49.814l-0.67-0.572l-63.577-38.974c0.017-0.035,0.035-0.062,0.052-0.097l64.986,2.712 c16.502,0.687,32.142,7.546,43.836,19.232l55.494,55.494c4.226,4.228,11.078,4.228,15.304,0c4.227-4.226,4.227-11.077,0-15.305 l-55.494-55.493c-15.533-15.525-36.315-24.639-58.241-25.554l-61.447-2.563c-0.106-1.224-0.282-2.439-0.511-3.636l91.016-21.09 c18.263-4.227,34.677-14.213,46.847-28.478l52.131-61.165c3.875-4.544,3.346-11.377-1.216-15.252 c-4.544-3.875-11.377-3.337-15.252,1.216l-52.13,61.165c-9.158,10.734-21.522,18.245-35.259,21.433l-92.056,21.328 c-1.321,0.299-2.466,0.899-3.522,1.603c-1.444-1.709-2.976-3.364-4.667-4.914l83.215-57.449 c15.252-10.515,26.77-25.625,32.881-43.114L460.82,69.356c1.973-5.644-1.004-11.817-6.64-13.789 c-5.654-1.973-11.818,1.004-13.79,6.639l-39.415,112.652c-4.597,13.174-13.262,24.542-24.745,32.459l-87.511,60.408 c-1.092,0.758-1.938,1.726-2.66,2.765c-9.668-4.042-20.799-6.375-32.669-6.375c-10.355,0-20.113,1.796-28.848,4.922 c-0.441-0.432-0.74-0.951-1.268-1.312l-87.495-60.408c-11.482-7.917-20.147-19.285-24.762-32.459L71.621,62.207 c-1.973-5.636-8.154-8.612-13.79-6.639c-5.636,1.972-8.612,8.145-6.639,13.789l39.397,112.653 c6.129,17.489,17.646,32.599,32.898,43.122l80.327,55.451c-2.008,1.655-3.927,3.382-5.618,5.23l-91.738-21.257 c-13.755-3.188-26.118-10.699-35.259-21.433L19.05,181.957c-3.875-4.545-10.708-5.09-15.252-1.216 C-0.745,184.616-1.29,191.449,2.583,195.993z"></path></g></g></svg><div id=easter-spider-message role=status aria-live=polite></div></div>
-					<script src="easteregg.js"></script>			
-<!--
-		--
-		--
-		--	END of Easter egg
-		--
-		--
-		-->
+					
 					<hr />
 					<div class="link-item" id="support">
 						<a href="https://github.com/92jackson/YouTube-Enhanced-Media-Controls-for-Mobile"
@@ -2967,6 +3023,10 @@ System displays temporary NEW badge automatically.
 	<div id="status-snackbar">Settings saved!</div>
 	<script src="../utils/user-settings.js"></script>
 	<script src="options.js"></script>
+
+	<style id=easter-spider-styles>#easter-spider{touch-action:none;position:fixed;bottom:calc(10px + var(--spider-inset,0px));right:calc(10px + var(--spider-inset,0px));width:calc(12px * var(--spider-scale,1));height:calc(12px * var(--spider-scale,1));opacity:.5;color:var(--md-color-on-surface-medium);pointer-events:auto;will-change:transform;transform-origin:50% 60%;--spider-scale:1;--spider-hit:16px;transition:bottom 180ms ease,right 180ms ease,opacity 180ms ease;z-index:99}#easter-spider::before{content:"";position:absolute;top:calc(-1 * var(--spider-hit,16px));left:calc(-1 * var(--spider-hit,16px));width:calc(100% + var(--spider-hit,16px) * 2);height:calc(100% + var(--spider-hit,16px) * 2);pointer-events:auto}#easter-spider.message-visible{opacity:1}#easter-spider svg{width:100%;height:100%;display:block;transform-origin:50% 60%;transform-box:fill-box;transform:rotate(calc(var(--spider-rotate,0deg) + var(--spider-rot-wiggle,0deg)));filter:drop-shadow(0 0 1px rgba(0, 0, 0, .22));transition:transform 180ms ease}#easter-spider-message{position:absolute;bottom:calc(100% + var(--spider-msg-offset,0px));right:20px;min-width:200px;max-width:280px;padding:6px 8px;border-radius:8px;border-bottom-right-radius:0;background:rgba(22,22,22,.92);color:#fff;font-size:12px;line-height:1.25;box-shadow:0 2px 6px rgba(0,0,0,.2);opacity:0;transform:translateY(4px);transition:opacity .2s ease,transform 180ms ease;pointer-events:none;z-index:9999}#easter-spider.message-visible #easter-spider-message{opacity:1;transform:translateY(0)}#easter-spider.dragging{opacity:1}</style>
+	<div id=easter-spider role=button aria-label="Tiny spider easter egg"tabindex=0><svg fill=#000000 height=200px id=_x32_ version=1.1 viewBox="0 0 512 512"width=200px xml:space=preserve xmlns=http://www.w3.org/2000/svg xmlns:xlink=http://www.w3.org/1999/xlink><g id=SVGRepo_bgCarrier stroke-width=0></g><g id=SVGRepo_tracerCarrier stroke-linecap=round stroke-linejoin=round></g><g id=SVGRepo_iconCarrier><style>.st0{fill:#000}</style><g><path class=st0 d="M253.39,252.844c67.84,0,122.858-54.508,122.858-121.732c0-67.232-55.019-121.731-122.858-121.731 c-67.858,0-122.858,54.499-122.858,121.731C130.532,198.336,185.533,252.844,253.39,252.844z"></path><path class=st0 d="M279.385,369.018c-11.782,0-21.838,7.282-25.994,17.576c-4.174-10.294-14.213-17.576-26.013-17.576 c-15.516,0-28.09,12.584-28.09,28.099c0,15.516,12.574,28.099,28.09,28.099c11.8,0,21.839-7.282,26.013-17.576 c4.156,10.294,14.213,17.576,25.994,17.576c15.516,0,28.108-12.583,28.108-28.099C307.493,381.602,294.901,369.018,279.385,369.018 z"></path><path class=st0 d="M2.583,195.993l52.148,61.165c12.152,14.265,28.566,24.251,46.848,28.478l86.014,19.928 c-0.37,1.646-0.616,3.319-0.758,5.019l-56.215,2.343c-21.927,0.915-42.709,10.03-58.225,25.554l-55.494,55.493 c-4.226,4.228-4.226,11.079,0,15.305c4.227,4.228,11.078,4.228,15.305,0L87.7,353.784c11.676-11.685,27.316-18.545,43.818-19.232 l59.879-2.492c0.405,0.757,0.845,1.498,1.303,2.237l-59.703,36.606l-0.669,0.58c-14.917,12.901-25.026,30.442-28.724,49.814 l-13.032,68.474c-1.127,5.873,2.73,11.536,8.594,12.654c5.882,1.118,11.536-2.729,12.663-8.603l13.033-68.474 c2.747-14.38,10.214-27.394,21.204-37.072l62.169-38.112c11.887,8.137,27.72,13.139,45.156,13.139 c18.633,0,35.47-5.689,47.586-14.847l64.97,39.82c10.972,9.678,18.457,22.692,21.186,37.072l13.051,68.474 c1.109,5.874,6.78,9.722,12.644,8.603c5.883-1.118,9.722-6.781,8.612-12.654l-13.05-68.474 c-3.681-19.372-13.807-36.914-28.706-49.814l-0.67-0.572l-63.577-38.974c0.017-0.035,0.035-0.062,0.052-0.097l64.986,2.712 c16.502,0.687,32.142,7.546,43.836,19.232l55.494,55.494c4.226,4.228,11.078,4.228,15.304,0c4.227-4.226,4.227-11.077,0-15.305 l-55.494-55.493c-15.533-15.525-36.315-24.639-58.241-25.554l-61.447-2.563c-0.106-1.224-0.282-2.439-0.511-3.636l91.016-21.09 c18.263-4.227,34.677-14.213,46.847-28.478l52.131-61.165c3.875-4.544,3.346-11.377-1.216-15.252 c-4.544-3.875-11.377-3.337-15.252,1.216l-52.13,61.165c-9.158,10.734-21.522,18.245-35.259,21.433l-92.056,21.328 c-1.321,0.299-2.466,0.899-3.522,1.603c-1.444-1.709-2.976-3.364-4.667-4.914l83.215-57.449 c15.252-10.515,26.77-25.625,32.881-43.114L460.82,69.356c1.973-5.644-1.004-11.817-6.64-13.789 c-5.654-1.973-11.818,1.004-13.79,6.639l-39.415,112.652c-4.597,13.174-13.262,24.542-24.745,32.459l-87.511,60.408 c-1.092,0.758-1.938,1.726-2.66,2.765c-9.668-4.042-20.799-6.375-32.669-6.375c-10.355,0-20.113,1.796-28.848,4.922 c-0.441-0.432-0.74-0.951-1.268-1.312l-87.495-60.408c-11.482-7.917-20.147-19.285-24.762-32.459L71.621,62.207 c-1.973-5.636-8.154-8.612-13.79-6.639c-5.636,1.972-8.612,8.145-6.639,13.789l39.397,112.653 c6.129,17.489,17.646,32.599,32.898,43.122l80.327,55.451c-2.008,1.655-3.927,3.382-5.618,5.23l-91.738-21.257 c-13.755-3.188-26.118-10.699-35.259-21.433L19.05,181.957c-3.875-4.545-10.708-5.09-15.252-1.216 C-0.745,184.616-1.29,191.449,2.583,195.993z"></path></g></g></svg><div id=easter-spider-message role=status aria-live=polite></div></div>
+	<script src="easteregg.js"></script>
 </body>
 
 </html>
