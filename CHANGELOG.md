@@ -2,7 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.1.0]
+## [3.2.0] - 2026-02-07
+
+### Added
+
+- **Native Video Area Controls** - Added the ability to add certain action buttons to the exsisting native player controls.
+- **Hide Bottom Controls** - Option to hide the YTEMC bottom controls.
+- **Toggle Drawer Action** - Option added to navbar and bottom controls for toggling the Playlist Drawer.
+- **Hide Playlist Drawer Handle** - Option to hide the handle that appears at the top of the Playlist Drawer when the drawer is closed. To reopen, you will need to add either the navbar or bottom controls toggle action.
+
+### Changes
+
+- Improved layout of the Favorites Dialog when in Limited Height Mode.
+- Improved positioning of overlay video details in Limited Height Mode.
+- Improved layout of the Add to Favorites menu in the Favorites Dialog.
+- Other codebase optimisations, improvements and refactoring.
+- Fixed video height option now changed to a slider, with increments of 10%.
+
+### Fixed
+
+- Fixed play state not updating correctly when browser is refocused.
+
+## [3.1.0] - 2026-02-04
 
 ### Added
 

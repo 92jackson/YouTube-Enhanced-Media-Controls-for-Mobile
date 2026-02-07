@@ -12,18 +12,20 @@ window.userSettings = {
 	showUpdateNotifications: true,
 	enableCustomPlayer: true,
 	defaultPlayerLayout: 'normal',
-	enableLimitedHeightMode: true,
+	enableLimitedHeightMode: false,
 	hideNavbarInLimitedHeightMode: false,
 	enableHorizontalPlaylistBelowVideo: false,
 	horizontalPlaylistDetailsInHeaderControls: false,
-	enableFixedVideoHeight: false,
+	enableFixedVideoHeight: 0,
 	autoHidePlayerOnScroll: false,
 	hidePlayerForPanelActive: false,
 	customPlaylistMode: 'below-video',
+	hideDrawerHandleWhenClosed: false,
 	returnToDefaultModeOnVideoSelect: false,
 	autoClickContinueWatching: true,
 	parsingPreference: 'mixesAndPlaylists',
 	showBottomControls: true,
+	showPlayingDetails: true,
 	hideVideoPlayer: false,
 	voiceSearchFeelingLucky: false,
 	voiceSearchFeelingLuckyPreview: false,
@@ -108,7 +110,7 @@ window.userSettings = {
 	layoutDrawerHeaderSlot2: 'shuffle-toggle',
 	layoutDrawerHeaderSlot3: 'loop-toggle',
 	layoutDrawerHeaderSlot4: 'none',
-	repeatStickyAcrossVideos: false,
+	repeatStickyAcrossVideos: 'toggle-single-sticky',
 	repeatCurrentlyOn: false,
 	smartPreviousThreshold: 5,
 	gestureSensitivity: 'normal',
@@ -125,10 +127,18 @@ window.userSettings = {
 	christmasStartDate: '01/12',
 	christmasEndDate: '01/01',
 	christmasBypassOnPlaylistTitle: true,
+	additionalNativeControls: ['repeat'],
+	additionalNativeTopControls: [],
 };
 
 const defaultUserSettings = Object.assign({}, window.userSettings);
 defaultUserSettings.navbarRightSlots = (window.userSettings.navbarRightSlots || []).slice();
+defaultUserSettings.additionalNativeControls = (
+	window.userSettings.additionalNativeControls || []
+).slice();
+defaultUserSettings.additionalNativeTopControls = (
+	window.userSettings.additionalNativeTopControls || []
+).slice();
 
 const lockedSettingValues = {
 	layoutBottomCenterSlot3: 'play',
@@ -150,301 +160,6 @@ const legacyNavbarVisibilityActionMap = {
 };
 
 const layoutAllowedValues = {
-	layoutBottomLeftSlot1: new Set([
-		'none',
-		'repeat',
-		'repeat-show-when-active',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomLeftSlot1DoubleAction: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomLeftSlot1HoldAction: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomCenterSlot1: new Set([
-		'none',
-		'repeat',
-		'repeat-show-when-active',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomCenterSlot1DoubleAction: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomCenterSlot1HoldAction: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomCenterSlot2: new Set([
-		'none',
-		'repeat',
-		'repeat-show-when-active',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomCenterSlot2DoubleAction: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomCenterSlot2HoldAction: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomCenterSlot3: new Set([
-		'none',
-		'repeat',
-		'repeat-show-when-active',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomCenterSlot3DoubleAction: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomCenterSlot3HoldAction: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomCenterSlot4: new Set([
-		'none',
-		'repeat',
-		'repeat-show-when-active',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomCenterSlot4DoubleAction: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomCenterSlot4HoldAction: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomCenterSlot5: new Set([
-		'none',
-		'repeat',
-		'repeat-show-when-active',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomCenterSlot5DoubleAction: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomCenterSlot5HoldAction: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomRightSlot1: new Set([
-		'none',
-		'repeat',
-		'repeat-show-when-active',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomRightSlot1DoubleAction: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomRightSlot1HoldAction: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomRightSlot2: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomRightSlot2DoubleAction: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
-	layoutBottomRightSlot2HoldAction: new Set([
-		'none',
-		'repeat',
-		'seek-back',
-		'previous',
-		'restart-then-previous',
-		'play',
-		'skip',
-		'seek-forward',
-		'voice-search',
-		'limited-height-fab',
-	]),
 	layoutDrawerHeaderSlot1: new Set([
 		'none',
 		'focus-current',
@@ -482,6 +197,47 @@ const layoutAllowedValues = {
 		'close',
 	]),
 };
+const allowedBottomActions = [
+	'none',
+	'repeat',
+	'repeat-show-when-active',
+	'seek-back',
+	'previous',
+	'restart-then-previous',
+	'play',
+	'skip',
+	'seek-forward',
+	'voice-search',
+	'limited-height-fab',
+];
+for (const key of [
+	'layoutBottomLeftSlot1',
+	'layoutBottomLeftSlot1DoubleAction',
+	'layoutBottomLeftSlot1HoldAction',
+	'layoutBottomCenterSlot1',
+	'layoutBottomCenterSlot1DoubleAction',
+	'layoutBottomCenterSlot1HoldAction',
+	'layoutBottomCenterSlot2',
+	'layoutBottomCenterSlot2DoubleAction',
+	'layoutBottomCenterSlot2HoldAction',
+	'layoutBottomCenterSlot3',
+	'layoutBottomCenterSlot3DoubleAction',
+	'layoutBottomCenterSlot3HoldAction',
+	'layoutBottomCenterSlot4',
+	'layoutBottomCenterSlot4DoubleAction',
+	'layoutBottomCenterSlot4HoldAction',
+	'layoutBottomCenterSlot5',
+	'layoutBottomCenterSlot5DoubleAction',
+	'layoutBottomCenterSlot5HoldAction',
+	'layoutBottomRightSlot1',
+	'layoutBottomRightSlot1DoubleAction',
+	'layoutBottomRightSlot1HoldAction',
+	'layoutBottomRightSlot2',
+	'layoutBottomRightSlot2DoubleAction',
+	'layoutBottomRightSlot2HoldAction',
+]) {
+	layoutAllowedValues[key] = new Set(allowedBottomActions);
+}
 
 const navbarRightAllowedActions = new Set([
 	'none',
@@ -496,10 +252,32 @@ const navbarRightAllowedActions = new Set([
 	'voice-search',
 	'favourites',
 	'video-toggle',
+	'toggle-drawer',
 	'debug-logs',
 ]);
 
-const extraBottomLayoutActions = ['text-search', 'favourites', 'video-toggle', 'debug-logs'];
+const additionalNativeControlsAllowedActions = new Set([
+	'none',
+	'repeat',
+	'seek-back',
+	'seek-forward',
+	'restart',
+]);
+
+const additionalNativeTopControlsAllowedActions = new Set([
+	'none',
+	'favourites',
+	'voice-search',
+	'debug-logs',
+]);
+
+const extraBottomLayoutActions = [
+	'text-search',
+	'favourites',
+	'video-toggle',
+	'toggle-drawer',
+	'debug-logs',
+];
 for (const key in layoutAllowedValues) {
 	if (!key.startsWith('layoutBottom')) continue;
 	for (const actionId of extraBottomLayoutActions) {
@@ -521,6 +299,18 @@ function sanitizeUserSettingValue(key, value) {
 		if (!Array.isArray(value)) return defaultUserSettings[key].slice();
 		return value.map((actionId) =>
 			navbarRightAllowedActions.has(actionId) ? actionId : 'none'
+		);
+	}
+	if (key === 'additionalNativeControls') {
+		if (!Array.isArray(value)) return defaultUserSettings[key].slice();
+		return value.map((actionId) =>
+			additionalNativeControlsAllowedActions.has(actionId) ? actionId : 'none'
+		);
+	}
+	if (key === 'additionalNativeTopControls') {
+		if (!Array.isArray(value)) return defaultUserSettings[key].slice();
+		return value.map((actionId) =>
+			additionalNativeTopControlsAllowedActions.has(actionId) ? actionId : 'none'
 		);
 	}
 	const allowed = layoutAllowedValues[key];
@@ -657,6 +447,14 @@ window.loadUserSettings = async function () {
 				'navbarRightSlots',
 				window.userSettings.navbarRightSlots
 			);
+			window.userSettings.additionalNativeControls = sanitizeUserSettingValue(
+				'additionalNativeControls',
+				window.userSettings.additionalNativeControls
+			);
+			window.userSettings.additionalNativeTopControls = sanitizeUserSettingValue(
+				'additionalNativeTopControls',
+				window.userSettings.additionalNativeTopControls
+			);
 
 			const hasLegacyNavbarVisibility = legacyNavbarVisibilitySettingKeys.some((key) =>
 				Object.prototype.hasOwnProperty.call(allItems, key)
@@ -704,6 +502,17 @@ window.loadUserSettings = async function () {
 			const allLayoutKeys = Object.keys(window.userSettings).filter((key) =>
 				layoutKeyPrefixAllowlist.some((prefix) => key.startsWith(prefix))
 			);
+
+			if (
+				Object.prototype.hasOwnProperty.call(allItems, 'hidePlayingDetails') &&
+				!Object.prototype.hasOwnProperty.call(allItems, 'showPlayingDetails')
+			) {
+				const hideValue = allItems.hidePlayingDetails;
+				const showValue = isLegacyExplicitlyFalse(hideValue) ? true : !hideValue;
+				window.userSettings.showPlayingDetails = showValue;
+				layoutUpdates.showPlayingDetails = showValue;
+				legacySettingKeysToRemove.push('hidePlayingDetails');
+			}
 
 			if (Object.prototype.hasOwnProperty.call(allItems, 'previousButtonBehavior')) {
 				const legacyPreviousBehavior = String(allItems.previousButtonBehavior || '').trim();

@@ -31,10 +31,14 @@ class YTCustomNavbar {
 		this.maxChipObserverRetries = 3;
 
 		this._bindMethods();
-		this._createNavbar();
-		this._setupEventListeners();
-		this._setupChipObserver();
-		this._updateActiveStates();
+
+		// Only create visual elements if not in headless mode (indicated by option)
+		if (!this.options.headless) {
+			this._createNavbar();
+			this._setupEventListeners();
+			this._setupChipObserver();
+			this._updateActiveStates();
+		}
 
 		logger.log('Navbar', 'Custom navbar initialized', this.options);
 	}
@@ -53,6 +57,8 @@ class YTCustomNavbar {
 		this._handleFavouritesClick = this._handleFavouritesClick.bind(this);
 		this._handleDebugLogsClick = this._handleDebugLogsClick.bind(this);
 		this._handleVideoToggleClick = this._handleVideoToggleClick.bind(this);
+		this._handleToggleDrawerClick = this._handleToggleDrawerClick.bind(this);
+		this._handleDrawerStateChange = this._handleDrawerStateChange.bind(this);
 	}
 
 	/**
@@ -65,6 +71,9 @@ class YTCustomNavbar {
 		document.body.insertBefore(this.navbarElement, document.body.firstChild);
 		document.body.classList.add('yt-custom-navbar-active');
 		this.isVisible = true;
+
+		// Listen for drawer state changes
+		window.addEventListener('yt-drawer-state-change', this._handleDrawerStateChange);
 	}
 
 	/**
@@ -381,6 +390,73 @@ class YTCustomNavbar {
 				favouritesBtn.appendChild(favouritesSvg);
 				return favouritesBtn;
 			}
+			case 'toggle-drawer': {
+				const drawerBtn = document.createElement('button');
+				drawerBtn.className = 'yt-navbar-icon-button';
+				drawerBtn.setAttribute('data-action', 'toggle-drawer');
+				drawerBtn.setAttribute('aria-label', 'Toggle Playlist');
+
+				const drawerSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+				drawerSvg.setAttribute('viewBox', '0 0 24 24');
+				drawerSvg.setAttribute('width', '20');
+				drawerSvg.setAttribute('height', '20');
+
+				const drawerPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				// Initial icon (Restore/Open)
+				drawerPath.setAttribute(
+					'd',
+					'M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V6h14v12z'
+				);
+
+				drawerSvg.appendChild(drawerPath);
+				drawerBtn.appendChild(drawerSvg);
+
+				// Update icon state if player is available
+				if (window.ytPlayerInstance) {
+					// Defer slightly to ensure button is in DOM if needed,
+					// though here we are creating it, so we can just update it.
+					// Actually _updateDrawerToggleIcon searches by selector in navbarElement,
+					// so we need to wait until it is appended or manually set it.
+					// Let's just set the initial state if known.
+					const state = window.ytPlayerInstance.drawerState || 'closed';
+					let pathD =
+						'M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V6h14v12z';
+					let label = 'Open Playlist';
+
+					if (state === 'mid') {
+						const direction = window.ytPlayerInstance.drawerToggleDirection || 'up';
+						if (direction === 'up') {
+							pathD = 'M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z';
+							label = 'Expand Playlist';
+						} else {
+							pathD = 'M6 19h12v2H6z';
+							label = 'Close Playlist';
+						}
+					} else if (state === 'full') {
+						pathD = 'M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z';
+						label = 'Collapse to Mid';
+					}
+					drawerPath.setAttribute('d', pathD);
+					drawerBtn.setAttribute('aria-label', label);
+					const inst = window.ytPlayerInstance;
+					const canToggle =
+						typeof inst._canDragDrawer === 'function'
+							? inst._canDragDrawer()
+							: !!(
+									inst &&
+									inst.hasPlaylist &&
+									inst.options &&
+									inst.options.customPlaylistMode !== 'disabled' &&
+									inst.options.customPlaylistMode !== 'fixed-fully-open' &&
+									inst.options.customPlaylistMode !== 'fixed-below-video'
+								);
+					drawerBtn.style.display = canToggle ? '' : 'none';
+				} else {
+					drawerBtn.style.display = 'none';
+				}
+
+				return drawerBtn;
+			}
 			case 'text-search': {
 				const searchBtn = document.createElement('button');
 				searchBtn.className = 'yt-navbar-icon-button';
@@ -497,6 +573,9 @@ class YTCustomNavbar {
 					break;
 				case 'video-toggle':
 					this._handleVideoToggleClick();
+					break;
+				case 'toggle-drawer':
+					this._handleToggleDrawerClick();
 					break;
 			}
 		});
@@ -917,6 +996,24 @@ class YTCustomNavbar {
 	}
 
 	/**
+	 * @description Handles toggle drawer button click.
+	 */
+	_handleToggleDrawerClick() {
+		logger.log('Navbar', 'Toggle drawer button clicked');
+		if (
+			window.ytPlayerInstance &&
+			typeof window.ytPlayerInstance.toggleDrawerState === 'function'
+		) {
+			window.ytPlayerInstance.toggleDrawerState();
+		} else {
+			logger.warn(
+				'Navbar',
+				'YTMediaPlayer instance not found or toggleDrawerState not available'
+			);
+		}
+	}
+
+	/**
 	 * @description Updates the video toggle button icon based on current state.
 	 */
 	_updateVideoToggleIcon() {
@@ -943,6 +1040,75 @@ class YTCustomNavbar {
 			);
 			videoToggleBtn.setAttribute('aria-label', 'Hide Video Player');
 		}
+	}
+
+	/**
+	 * @description Handles drawer state change event.
+	 * @param {CustomEvent} event - The drawer state change event.
+	 */
+	_handleDrawerStateChange(event) {
+		const { state, toggleDirection } = event.detail;
+		this._updateDrawerToggleIcon(state, toggleDirection);
+	}
+
+	/**
+	 * @description Updates the drawer toggle button icon based on current state.
+	 * @param {string} state - The current drawer state ('closed', 'mid', 'full').
+	 * @param {string} toggleDirection - The current toggle direction ('up' or 'down').
+	 */
+	_updateDrawerToggleIcon(state, toggleDirection = 'up') {
+		const drawerBtn = this.navbarElement.querySelector('[data-action="toggle-drawer"]');
+		if (!drawerBtn) return;
+
+		const drawerPath = drawerBtn.querySelector('path');
+		if (!drawerPath) return;
+
+		const inst = window.ytPlayerInstance;
+		const canToggle =
+			typeof inst?._canDragDrawer === 'function'
+				? inst._canDragDrawer()
+				: !!(
+						inst &&
+						inst.hasPlaylist &&
+						inst.options &&
+						inst.options.customPlaylistMode !== 'disabled' &&
+						inst.options.customPlaylistMode !== 'fixed-fully-open' &&
+						inst.options.customPlaylistMode !== 'fixed-below-video'
+					);
+		drawerBtn.style.display = canToggle ? '' : 'none';
+		if (!canToggle) return;
+
+		let pathD = '';
+		let label = '';
+
+		switch (state) {
+			case 'mid':
+				if (toggleDirection === 'up') {
+					// Arrow Up (Expand)
+					pathD = 'M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z';
+					label = 'Expand Playlist';
+				} else {
+					// Minimize (Close)
+					pathD = 'M6 19h12v2H6z';
+					label = 'Close Playlist';
+				}
+				break;
+			case 'full':
+				// Arrow Down (Collapse)
+				pathD = 'M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z';
+				label = 'Collapse to Mid';
+				break;
+			case 'closed':
+			default:
+				// Restore (Open)
+				pathD =
+					'M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V6h14v12z';
+				label = 'Open Playlist';
+				break;
+		}
+
+		drawerPath.setAttribute('d', pathD);
+		drawerBtn.setAttribute('aria-label', label);
 	}
 
 	/**
@@ -996,6 +1162,22 @@ class YTCustomNavbar {
 		// Check if we're on a page with content we can add to favorites
 		const urlParams = new URLSearchParams(window.location.search);
 		const hasVideoId = !!urlParams.get('v');
+
+		let addToFavBtn = null;
+		if (hasVideoId) {
+			addToFavBtn = document.createElement('button');
+			addToFavBtn.className = 'yt-favourites-dialog-add-btn';
+			addToFavBtn.textContent = '+ Add';
+
+			addToFavBtn.addEventListener('click', (e) => {
+				const existingMenu = document.getElementById('yt-add-to-favourites-overlay');
+				if (existingMenu) {
+					this._hideAddToFavouritesDropdown();
+				} else {
+					this._showAddToFavouritesDropdown(e, addToFavBtn);
+				}
+			});
+		}
 
 		const filterButton = document.createElement('button');
 		filterButton.className = 'yt-favourites-dialog-filter-toggle';
@@ -1064,6 +1246,7 @@ class YTCustomNavbar {
 
 		closeBtn.addEventListener('click', () => this._hideFavouritesDialog());
 
+		if (addToFavBtn) rightSection.appendChild(addToFavBtn);
 		rightSection.appendChild(searchButton);
 		rightSection.appendChild(filterButton);
 		rightSection.appendChild(closeBtn);
@@ -1104,29 +1287,6 @@ class YTCustomNavbar {
 		// Create content area
 		const content = document.createElement('div');
 		content.className = 'yt-favourites-dialog-content';
-
-		// Add actions bar under header to prevent cramped layout
-		const actionsBar = document.createElement('div');
-		actionsBar.className = 'yt-favourites-dialog-actions';
-
-		if (hasVideoId) {
-			const addToFavBtn = document.createElement('button');
-			addToFavBtn.className = 'yt-favourites-dialog-add-btn';
-			addToFavBtn.textContent = '+ Add';
-
-			addToFavBtn.addEventListener('click', (e) => {
-				const existingDropdown = document.getElementById('yt-add-to-favourites-dropdown');
-				if (existingDropdown) {
-					this._hideAddToFavouritesDropdown();
-				} else {
-					this._showAddToFavouritesDropdown(e, addToFavBtn);
-				}
-			});
-
-			actionsBar.appendChild(addToFavBtn);
-		}
-
-		content.appendChild(actionsBar);
 
 		// Add favourites list container
 		const favouritesList = document.createElement('div');
@@ -2781,7 +2941,7 @@ class YTCustomNavbar {
 		}
 	}
 
-	_showAddToExistingSnapshotDialog() {
+	_showAddToExistingSnapshotDialog(mode = 'select', sourceSnapshotId = null) {
 		this._hideAddToExistingSnapshotDialog();
 
 		const snapshotsObj = window.userSettings.mixSnapshots || {};
@@ -2830,7 +2990,6 @@ class YTCustomNavbar {
 		const headerRight = document.createElement('div');
 		headerRight.className = 'yt-snapshot-reorder-done';
 		headerRight.style.visibility = 'hidden';
-		headerRight.textContent = 'Done';
 
 		header.appendChild(closeBtn);
 		header.appendChild(title);
@@ -2843,10 +3002,21 @@ class YTCustomNavbar {
 		list.className = 'yt-snapshot-reorder-list';
 
 		const renderSelectView = () => {
-			title.textContent = 'Select Snapshot';
+			if (mode === 'merge') {
+				title.textContent = 'Merge Into Snapshot';
+			} else if (mode === 'video') {
+				title.textContent = 'Add Video to Snapshot';
+			} else if (mode === 'playlist') {
+				title.textContent = 'Add Playlist to Snapshot';
+			} else {
+				title.textContent = 'Select Snapshot';
+			}
 			while (list.firstChild) list.removeChild(list.firstChild);
 
 			snapshots.forEach((snap) => {
+				if (mode === 'merge' && sourceSnapshotId && snap.id === sourceSnapshotId) {
+					return;
+				}
 				const firstItem =
 					Array.isArray(snap.items) && snap.items.length ? snap.items[0] : null;
 
@@ -2883,7 +3053,18 @@ class YTCustomNavbar {
 				row.appendChild(thumbWrap);
 				row.appendChild(textWrap);
 
-				row.addEventListener('click', () => {
+				row.addEventListener('click', async () => {
+					if (mode === 'merge') {
+						const mergeSourceId = sourceSnapshotId || activeSnapshotId;
+						await this._mergeSnapshots(snap.id, mergeSourceId);
+						this._hideAddToExistingSnapshotDialog();
+						return;
+					}
+					if (mode === 'video' || mode === 'playlist') {
+						await this._addToSnapshot(snap.id, mode);
+						this._hideAddToExistingSnapshotDialog();
+						return;
+					}
 					renderActionView(snap.id);
 				});
 
@@ -2922,6 +3103,20 @@ class YTCustomNavbar {
 				this._hideAddToExistingSnapshotDialog();
 			});
 
+			list.appendChild(backBtn);
+			if (canMerge) list.appendChild(mergeBtn);
+			const addLabel = isPlaylist ? 'Add Full Playlist/Mix' : 'Add Current Video';
+			const addMode = isPlaylist ? 'playlist' : 'video';
+			const addBtn = document.createElement('button');
+			addBtn.className = 'yt-dropdown-option';
+			addBtn.textContent = addLabel;
+			addBtn.addEventListener('click', async () => {
+				await this._addToSnapshot(snapshotId, addMode);
+				this._hideAddToExistingSnapshotDialog();
+			});
+			list.appendChild(addBtn);
+
+			if (!isPlaylist) return;
 			const addVideoBtn = document.createElement('button');
 			addVideoBtn.className = 'yt-dropdown-option';
 			addVideoBtn.textContent = 'Add Current Video';
@@ -2929,21 +3124,7 @@ class YTCustomNavbar {
 				await this._addToSnapshot(snapshotId, 'video');
 				this._hideAddToExistingSnapshotDialog();
 			});
-
-			list.appendChild(backBtn);
-			if (canMerge) list.appendChild(mergeBtn);
 			list.appendChild(addVideoBtn);
-
-			if (isPlaylist) {
-				const addPlaylistBtn = document.createElement('button');
-				addPlaylistBtn.className = 'yt-dropdown-option';
-				addPlaylistBtn.textContent = 'Add Full Playlist/Mix';
-				addPlaylistBtn.addEventListener('click', async () => {
-					await this._addToSnapshot(snapshotId, 'playlist');
-					this._hideAddToExistingSnapshotDialog();
-				});
-				list.appendChild(addPlaylistBtn);
-			}
 		};
 
 		content.appendChild(list);
@@ -3216,140 +3397,476 @@ class YTCustomNavbar {
 	 * @param {Event} event - The click event.
 	 * @param {HTMLElement} button - The button that was clicked.
 	 */
+	_createInfoButton() {
+		const infoBtn = document.createElement('button');
+		infoBtn.className = 'yt-add-to-favourites-info-btn';
+		infoBtn.setAttribute('aria-label', 'Info');
+
+		const infoIcon = document.createElement('span');
+		infoIcon.textContent = 'i';
+		infoIcon.style.fontWeight = 'bold';
+		infoIcon.style.fontFamily = 'serif';
+		infoIcon.style.fontSize = '18px';
+		infoIcon.style.lineHeight = '1';
+		infoBtn.appendChild(infoIcon);
+
+		const hideInfoPopup = () => {
+			const existing = document.getElementById('yt-add-favourites-info-overlay');
+			if (existing) existing.remove();
+		};
+
+		const showInfoPopup = () => {
+			hideInfoPopup();
+
+			const infoOverlay = document.createElement('div');
+			infoOverlay.className = 'yt-add-favourites-info-overlay';
+			infoOverlay.id = 'yt-add-favourites-info-overlay';
+
+			const infoModal = document.createElement('div');
+			infoModal.className = 'yt-add-favourites-info-modal';
+
+			const infoHeader = document.createElement('div');
+			infoHeader.className = 'yt-add-favourites-info-header';
+
+			const infoTitle = document.createElement('div');
+			infoTitle.className = 'yt-add-favourites-info-title';
+			infoTitle.textContent = 'About Playlists, Mixes & Snapshots';
+
+			const infoClose = document.createElement('button');
+			infoClose.className = 'yt-add-favourites-info-close';
+			infoClose.setAttribute('aria-label', 'Close');
+			infoClose.textContent = '×';
+			infoClose.addEventListener('click', hideInfoPopup);
+
+			infoHeader.appendChild(infoTitle);
+			infoHeader.appendChild(infoClose);
+
+			const infoBody = document.createElement('div');
+			infoBody.className = 'yt-add-favourites-info-body';
+
+			const para1 = document.createElement('p');
+			para1.textContent =
+				'YouTube mixes are dynamic and can change over time. Playlists can also be altered.';
+
+			const para2 = document.createElement('p');
+			para2.textContent =
+				'Snapshots preserve the current mix exactly as is, also allowing Looped and Shuffle playback. You can also easily rearrange and add additional videos and playlists to snapshots.';
+
+			const para3 = document.createElement('p');
+			para3.textContent = 'Recommendation: Backup favourites/snapshots in extension options.';
+
+			infoBody.appendChild(para1);
+			infoBody.appendChild(para2);
+			infoBody.appendChild(para3);
+
+			infoModal.appendChild(infoHeader);
+			infoModal.appendChild(infoBody);
+			infoOverlay.appendChild(infoModal);
+			document.body.appendChild(infoOverlay);
+
+			requestAnimationFrame(() => {
+				infoOverlay.classList.add('visible');
+			});
+
+			infoOverlay.addEventListener('click', (e) => {
+				if (e.target === infoOverlay) hideInfoPopup();
+			});
+		};
+
+		infoBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			const existing = document.getElementById('yt-add-favourites-info-overlay');
+			if (existing) {
+				hideInfoPopup();
+			} else {
+				showInfoPopup();
+			}
+		});
+
+		return infoBtn;
+	}
+
 	_showAddToFavouritesDropdown(event, button) {
-		// Remove any existing dropdown
 		this._hideAddToFavouritesDropdown();
 
 		const urlParams = new URLSearchParams(window.location.search);
-		const isPlaylist = !!urlParams.get('list');
+		const videoId = urlParams.get('v');
+		const playlistId = urlParams.get('list');
+		const isPlaylist = !!playlistId;
+
+		if (!videoId) {
+			this._flashAddButtonFeedback('✕ Cannot add', 'error');
+			return;
+		}
 
 		const activeSnapshotId = window.userSettings.activeMixSnapshotId;
-		const persistedSnapshot =
-			activeSnapshotId && (window.userSettings.mixSnapshots || {})[activeSnapshotId];
+		const snapshotsObj = window.userSettings.mixSnapshots || {};
+		const persistedSnapshot = activeSnapshotId && snapshotsObj[activeSnapshotId];
 		const tempSnapshot = window.userSettings.tempMixSnapshot || null;
 		const isTempSnapshotPlaying =
 			!!activeSnapshotId && !persistedSnapshot && tempSnapshot?.id === activeSnapshotId;
+		const activeSnapshot = persistedSnapshot || (isTempSnapshotPlaying ? tempSnapshot : null);
 
-		// Create dropdown container
-		const dropdown = document.createElement('div');
-		dropdown.className = 'yt-add-to-favourites-dropdown';
-		dropdown.id = 'yt-add-to-favourites-dropdown';
+		const overlay = document.createElement('div');
+		overlay.className = 'yt-snapshot-reorder-overlay yt-add-to-favourites-overlay';
+		overlay.id = 'yt-add-to-favourites-overlay';
 
-		// Create dropdown options
-		const addVideoOption = document.createElement('button');
-		addVideoOption.className = 'yt-dropdown-option';
-		addVideoOption.textContent = 'Add Current Video';
-		addVideoOption.addEventListener('click', () => {
-			this._addCurrentMixToFavourites(true);
-			this._hideAddToFavouritesDropdown();
-		});
+		const modal = document.createElement('div');
+		modal.className = 'yt-snapshot-reorder-modal yt-add-to-favourites-modal';
 
-		const addToSnapshotOption = document.createElement('button');
-		addToSnapshotOption.className = 'yt-dropdown-option';
-		addToSnapshotOption.textContent = 'Add to Existing Snapshot';
-		addToSnapshotOption.addEventListener('click', () => {
-			this._hideAddToFavouritesDropdown();
-			this._showAddToExistingSnapshotDialog();
-		});
+		const header = document.createElement('div');
+		header.className = 'yt-snapshot-reorder-header';
 
-		if (isPlaylist) {
-			const addMixOption = document.createElement('button');
-			addMixOption.className = 'yt-dropdown-option';
-			addMixOption.textContent = 'Add Mix/Playlist';
-			addMixOption.addEventListener('click', () => {
-				this._addCurrentMixToFavourites();
-				this._hideAddToFavouritesDropdown();
-			});
-			dropdown.appendChild(addMixOption);
-		}
-		dropdown.appendChild(addVideoOption);
-		dropdown.appendChild(addToSnapshotOption);
-		if (isTempSnapshotPlaying) {
-			const storeSnapshotOption = document.createElement('button');
-			storeSnapshotOption.className = 'yt-dropdown-option';
-			storeSnapshotOption.textContent = 'Store Snapshot';
-			storeSnapshotOption.addEventListener('click', async () => {
-				this._hideAddToFavouritesDropdown();
-				await this._storeActiveTempSnapshot();
-			});
-			dropdown.appendChild(storeSnapshotOption);
-		}
-		if (isPlaylist) {
-			const saveSnapshotOption = document.createElement('button');
-			saveSnapshotOption.className = 'yt-dropdown-option';
-			saveSnapshotOption.textContent = 'Save Snapshot of Current Mix';
-			saveSnapshotOption.addEventListener('click', () => {
-				const ok = window.createMixSnapshotFromCurrentMix?.();
-				if (ok) {
-					this._flashAddButtonFeedback('✓ Snapshot Saved', 'success');
-					this._updateFavouritesDialog();
-				} else {
-					this._flashAddButtonFeedback('✕ Failed', 'error');
-				}
-				this._hideAddToFavouritesDropdown();
-			});
-			dropdown.appendChild(saveSnapshotOption);
-		}
+		const closeBtn = document.createElement('button');
+		closeBtn.className = 'yt-snapshot-reorder-close';
+		closeBtn.setAttribute('aria-label', 'Close');
+		closeBtn.textContent = '×';
+		closeBtn.addEventListener('click', () => this._hideAddToFavouritesDropdown());
 
-		// Position dropdown relative to button
-		const buttonRect = button.getBoundingClientRect();
-		dropdown.style.position = 'absolute';
-		dropdown.style.top = `${buttonRect.bottom + 5}px`;
-		dropdown.style.right = `${window.innerWidth - buttonRect.right}px`;
-		dropdown.style.zIndex = '10001';
+		const title = document.createElement('div');
+		title.className = 'yt-snapshot-reorder-header-title';
+		title.textContent = 'Add to Favourites';
 
-		// Add to DOM
-		document.body.appendChild(dropdown);
+		const headerRight = document.createElement('div');
+		headerRight.className = 'yt-add-to-favourites-header-actions';
+		headerRight.appendChild(this._createInfoButton());
 
-		// Track active button for outside-click logic
-		this._activeAddToFavouritesButton = button;
+		header.appendChild(closeBtn);
+		header.appendChild(title);
+		header.appendChild(headerRight);
 
-		// Add capture-phase outside listener to close dropdown on any click elsewhere
-		this._dropdownOutsideHandler = (e) => {
-			const currentDropdown = document.getElementById('yt-add-to-favourites-dropdown');
-			if (!currentDropdown) {
-				return;
+		const content = document.createElement('div');
+		content.className = 'yt-add-to-favourites-content';
+
+		const createCard = (config) => {
+			const section = document.createElement('div');
+			section.className = 'yt-add-to-favourites-section';
+
+			const card = document.createElement('div');
+			card.className = 'yt-add-to-favourites-card';
+
+			const thumb = document.createElement('div');
+			thumb.className = 'yt-favourites-dialog-item-thumbnail';
+			if (config.stacked) {
+				thumb.classList.add('stacked');
 			}
-			// Ignore clicks inside the dropdown
-			if (currentDropdown.contains(e.target)) {
-				return;
+			const thumbImg = document.createElement('img');
+			if (config.thumbUrl) {
+				thumbImg.src = config.thumbUrl;
 			}
-			// Ignore clicks on the active add button (toggle handled separately)
-			if (
-				this._activeAddToFavouritesButton &&
-				this._activeAddToFavouritesButton.contains(e.target)
-			) {
-				return;
+			thumbImg.alt = config.title || '';
+			thumbImg.style.width = '100%';
+			thumbImg.style.height = '100%';
+			thumbImg.style.objectFit = 'cover';
+			thumbImg.style.borderRadius = '8px';
+			thumbImg.style.position = 'relative';
+			thumbImg.style.zIndex = '9';
+			thumb.appendChild(thumbImg);
+
+			const info = document.createElement('div');
+			info.className = 'yt-add-to-favourites-info';
+
+			const cardTitle = document.createElement('div');
+			cardTitle.className = 'yt-add-to-favourites-title';
+			if (config.badgeText) {
+				const badge = document.createElement('span');
+				badge.className = 'yt-mix-badge';
+				badge.textContent = config.badgeText;
+				cardTitle.appendChild(badge);
 			}
-			this._hideAddToFavouritesDropdown();
+			const titleText = document.createTextNode(config.title || '');
+			cardTitle.appendChild(titleText);
+
+			info.appendChild(cardTitle);
+
+			if (config.meta) {
+				const cardMeta = document.createElement('div');
+				cardMeta.className = 'yt-add-to-favourites-meta';
+				cardMeta.textContent = config.meta;
+				info.appendChild(cardMeta);
+			}
+
+			card.appendChild(thumb);
+			card.appendChild(info);
+
+			const actions = document.createElement('div');
+			actions.className = 'yt-add-to-favourites-actions';
+			config.actions.forEach((action) => {
+				const btn = document.createElement('button');
+				btn.className = 'yt-add-to-favourites-action';
+				btn.textContent = action.label;
+				btn.addEventListener('click', action.onClick);
+				actions.appendChild(btn);
+			});
+
+			section.appendChild(card);
+			section.appendChild(actions);
+			if (config.stacked && config.stackThumbUrl) {
+				ColorUtils.getAdaptiveColorFromThumbnail(config.stackThumbUrl)
+					.then((colors) => {
+						thumb.style.setProperty('--stack-color-1', colors.primary);
+						thumb.style.setProperty('--stack-color-2', colors.secondary);
+					})
+					.catch(() => {
+						thumb.style.setProperty('--stack-color-1', '#666666');
+						thumb.style.setProperty('--stack-color-2', '#888888');
+					});
+			}
+			return section;
 		};
-		document.addEventListener('pointerdown', this._dropdownOutsideHandler, true);
+
+		const nowPlaying = window.ytPlayerInstance?.options?.nowPlayingVideoDetails || null;
+		let videoTitle = nowPlaying?.title || '';
+		let videoAuthor = nowPlaying?.author || '';
+		let videoDuration = nowPlaying?.duration || '';
+
+		const playlistItems = window.ytPlayerInstance?.options?.currentPlaylist?.items || null;
+		if (Array.isArray(playlistItems) && playlistItems.length) {
+			const match = playlistItems.find((it) => it?.id === videoId);
+			if (match) {
+				if (!videoTitle) videoTitle = match.title || '';
+				if (!videoAuthor) videoAuthor = match.artist || '';
+				if (!videoDuration) videoDuration = match.duration || '';
+			}
+		}
+
+		if (!videoTitle) {
+			let rawTitle = document.title || '';
+			if (rawTitle.toLowerCase().endsWith(' - youtube')) {
+				rawTitle = rawTitle.substring(0, rawTitle.length - ' - youtube'.length).trim();
+			}
+			videoTitle = rawTitle || `Video - ${videoId}`;
+		}
+
+		const videoMetaParts = [];
+		if (videoAuthor) videoMetaParts.push(videoAuthor);
+		if (videoDuration) videoMetaParts.push(videoDuration);
+
+		const videoSection = createCard({
+			title: videoTitle,
+			meta: videoMetaParts.join(' • '),
+			thumbUrl: MediaUtils.getStandardThumbnailUrl(videoId) || nowPlaying?.thumbnailUrl || '',
+			actions: [
+				{
+					label: 'Add to Favourites',
+					onClick: () => {
+						this._addCurrentMixToFavourites(true);
+						this._hideAddToFavouritesDropdown();
+					},
+				},
+				{
+					label: 'Add to Snapshot',
+					onClick: () => {
+						this._hideAddToFavouritesDropdown();
+						this._showAddToExistingSnapshotDialog('video');
+					},
+				},
+			],
+		});
+
+		let variantType = null;
+		if (activeSnapshot) {
+			variantType = 'snapshot';
+		} else if (isPlaylist) {
+			variantType = 'playlist';
+		}
+
+		if (variantType) {
+			let variantTitle = '';
+			let variantMeta = '';
+			let variantThumb = '';
+			let variantBadge = '';
+			let variantStackThumb = '';
+			const actions = [];
+
+			if (variantType === 'snapshot') {
+				const snapItems = Array.isArray(activeSnapshot.items) ? activeSnapshot.items : [];
+				const firstItem = snapItems.length ? snapItems[0] : null;
+				variantTitle = activeSnapshot.title || 'Mix Snapshot';
+				variantMeta = `Snapshot • ${snapItems.length} items`;
+				variantThumb =
+					(firstItem?.id && MediaUtils.getStandardThumbnailUrl(firstItem.id)) ||
+					firstItem?.thumbnailUrl ||
+					'';
+				variantStackThumb =
+					(firstItem?.id && MediaUtils.getStandardThumbnailUrl(firstItem.id)) ||
+					firstItem?.thumbnailUrl ||
+					'';
+				variantBadge = 'SNAP';
+
+				if (isTempSnapshotPlaying) {
+					actions.push({
+						label: 'Store Snapshot',
+						onClick: async () => {
+							this._hideAddToFavouritesDropdown();
+							await this._storeActiveTempSnapshot();
+						},
+					});
+				}
+
+				if (activeSnapshotId) {
+					actions.push({
+						label: 'Merge Snapshot',
+						onClick: () => {
+							this._hideAddToFavouritesDropdown();
+							this._showAddToExistingSnapshotDialog('merge', activeSnapshotId);
+						},
+					});
+				}
+			} else {
+				const playlist = window.ytPlayerInstance?.options?.currentPlaylist || null;
+				const items = Array.isArray(playlist?.items) ? playlist.items : [];
+				const firstItem = items.length ? items[0] : null;
+				const itemCount = items.length;
+				variantTitle = playlist?.title || 'Playlist/Mix';
+				variantMeta = itemCount ? `Playlist • ${itemCount} items` : 'Playlist';
+				variantThumb =
+					(firstItem?.id && MediaUtils.getStandardThumbnailUrl(firstItem.id)) ||
+					firstItem?.thumbnailUrl ||
+					'';
+				variantStackThumb =
+					(firstItem?.id && MediaUtils.getStandardThumbnailUrl(firstItem.id)) ||
+					firstItem?.thumbnailUrl ||
+					'';
+				const isMix = /^(?:my\s+)?mix/i.test(variantTitle);
+				variantBadge = isMix ? 'Mix' : 'List';
+
+				actions.push(
+					{
+						label: 'Add to Favourites',
+						onClick: () => {
+							this._addCurrentMixToFavourites();
+							this._hideAddToFavouritesDropdown();
+						},
+					},
+					{
+						label: 'Save as Snapshot',
+						onClick: () => {
+							const ok = window.createMixSnapshotFromCurrentMix?.();
+							if (ok) {
+								this._flashAddButtonFeedback('✓ Snapshot Saved', 'success');
+								this._updateFavouritesDialog();
+							} else {
+								this._flashAddButtonFeedback('✕ Failed', 'error');
+							}
+							this._hideAddToFavouritesDropdown();
+						},
+					},
+					{
+						label: 'Add to Exsisting Snapshot',
+						onClick: () => {
+							this._hideAddToFavouritesDropdown();
+							this._showAddToExistingSnapshotDialog('playlist');
+						},
+					}
+				);
+
+				if (isTempSnapshotPlaying) {
+					actions.push({
+						label: 'Store Snapshot',
+						onClick: async () => {
+							this._hideAddToFavouritesDropdown();
+							await this._storeActiveTempSnapshot();
+						},
+					});
+				}
+			}
+
+			if (actions.length) {
+				const variantSection = createCard({
+					title: variantTitle,
+					meta: variantMeta,
+					thumbUrl: variantThumb,
+					actions,
+					badgeText: variantBadge,
+					stacked: true,
+					stackThumbUrl: variantStackThumb || variantThumb,
+				});
+				const tabs = document.createElement('div');
+				tabs.className = 'yt-add-to-favourites-tabs';
+				const panels = document.createElement('div');
+				panels.className = 'yt-add-to-favourites-panels';
+				const collectionPanel = document.createElement('div');
+				collectionPanel.className = 'yt-add-to-favourites-tab-panel';
+				const videoPanel = document.createElement('div');
+				videoPanel.className = 'yt-add-to-favourites-tab-panel';
+				collectionPanel.appendChild(variantSection);
+				videoPanel.appendChild(videoSection);
+				panels.appendChild(collectionPanel);
+				panels.appendChild(videoPanel);
+
+				const collectionTab = document.createElement('button');
+				collectionTab.className = 'yt-add-to-favourites-tab';
+				collectionTab.textContent =
+					variantType === 'snapshot' ? 'Snapshot' : 'Playlist/Mix';
+
+				const videoTab = document.createElement('button');
+				videoTab.className = 'yt-add-to-favourites-tab';
+				videoTab.textContent = 'Video';
+
+				const setActiveTab = (key) => {
+					const isCollection = key === 'collection';
+					collectionTab.classList.toggle('active', isCollection);
+					videoTab.classList.toggle('active', !isCollection);
+					collectionPanel.classList.toggle('active', isCollection);
+					videoPanel.classList.toggle('active', !isCollection);
+				};
+
+				collectionTab.addEventListener('click', () => setActiveTab('collection'));
+				videoTab.addEventListener('click', () => setActiveTab('video'));
+
+				tabs.appendChild(collectionTab);
+				tabs.appendChild(videoTab);
+
+				content.appendChild(tabs);
+				content.appendChild(panels);
+				setActiveTab('collection');
+			}
+		} else {
+			const panels = document.createElement('div');
+			panels.className = 'yt-add-to-favourites-panels';
+			const videoPanel = document.createElement('div');
+			videoPanel.className = 'yt-add-to-favourites-tab-panel active';
+			videoPanel.appendChild(videoSection);
+			panels.appendChild(videoPanel);
+			content.appendChild(panels);
+		}
+
+		modal.appendChild(header);
+		modal.appendChild(content);
+		overlay.appendChild(modal);
+
+		document.body.appendChild(overlay);
+
+		overlay.addEventListener('click', (e) => {
+			if (e.target === overlay) {
+				this._hideAddToFavouritesDropdown();
+			}
+		});
+
+		requestAnimationFrame(() => {
+			overlay.classList.add('visible');
+			modal.classList.add('slide-in');
+		});
 	}
 
 	/**
 	 * @description Hides the add to favourites dropdown.
 	 */
 	_hideAddToFavouritesDropdown() {
-		const dropdown = document.getElementById('yt-add-to-favourites-dropdown');
-		if (dropdown) {
-			dropdown.remove();
+		const infoOverlay = document.getElementById('yt-add-favourites-info-overlay');
+		if (infoOverlay) {
+			infoOverlay.remove();
 		}
-		// Clean up outside listener and active button reference
-		if (this._dropdownOutsideHandler) {
-			document.removeEventListener('pointerdown', this._dropdownOutsideHandler, true);
-			this._dropdownOutsideHandler = null;
-		}
-		this._activeAddToFavouritesButton = null;
-	}
-
-	/**
-	 * @description Handles clicks outside the dropdown to close it.
-	 * @param {Event} event - The click event.
-	 */
-	_handleDropdownOutsideClick(event) {
-		const dropdown = document.getElementById('yt-add-to-favourites-dropdown');
-		if (dropdown && !dropdown.contains(event.target)) {
-			this._hideAddToFavouritesDropdown();
+		const overlay = document.getElementById('yt-add-to-favourites-overlay');
+		const modal = overlay ? overlay.querySelector('.yt-add-to-favourites-modal') : null;
+		if (overlay && modal) {
+			overlay.classList.remove('visible');
+			modal.classList.remove('slide-in');
+			modal.classList.add('slide-out');
+			setTimeout(() => {
+				overlay.remove();
+			}, 300);
 		}
 	}
 
@@ -3384,6 +3901,9 @@ class YTCustomNavbar {
 				this._handleRepeatClick(
 					this.navbarElement?.querySelector('[data-action="repeat"]')
 				);
+				if (typeof updateNavbarRepeatButtonVisual === 'function') {
+					updateNavbarRepeatButtonVisual();
+				}
 				break;
 			case 'home':
 				logger.log('Navbar', 'Calling _handleLogoClick');
@@ -3420,6 +3940,10 @@ class YTCustomNavbar {
 			case 'video-toggle':
 				logger.log('Navbar', 'Calling _handleVideoToggleClick');
 				this._handleVideoToggleClick();
+				break;
+			case 'toggle-drawer':
+				logger.log('Navbar', 'Calling _handleToggleDrawerClick');
+				this._handleToggleDrawerClick();
 				break;
 			case 'debug-logs':
 				logger.log('Navbar', 'Calling _handleDebugLogsClick');
@@ -3465,18 +3989,27 @@ class YTCustomNavbar {
 	_handleSeekClick(direction) {
 		const inst = window.ytPlayerInstance;
 		if (!inst || !inst.options || !inst.options.callbacks) return;
-		const secs = Number(inst.options.seekSkipSeconds) || 10;
+		const secs = ActionUtils.getSeekSkipSeconds(inst);
 		inst.options.callbacks.onGestureSeek?.(direction * secs);
 	}
 
 	_handleRepeatClick(button) {
 		const inst = window.ytPlayerInstance;
 		if (!inst || !inst.options || !inst.options.callbacks) return;
-		const next = !window.userSettings.repeatCurrentlyOn;
-		inst.options.callbacks.onRepeatClick?.(next);
+		const raw = window.userSettings.repeatStickyAcrossVideos;
+		const mode =
+			raw === true ? 'always-sticky' : raw === false || raw == null ? 'always-single' : raw;
+		const cycle = window.repeatCycleState
+			? window.repeatCycleState
+			: window.userSettings.repeatCurrentlyOn
+				? 'sticky'
+				: 'off';
+		const nextEnabled = mode === 'toggle-single-sticky' ? cycle !== 'sticky' : cycle === 'off';
+		inst.options.callbacks.onRepeatClick?.(nextEnabled);
 		if (button) {
-			button.classList.toggle('active', next);
-			button.setAttribute('aria-pressed', String(next));
+			const afterActive = nextEnabled || mode !== 'toggle-single-sticky' ? nextEnabled : true;
+			button.classList.toggle('active', afterActive);
+			button.setAttribute('aria-pressed', String(afterActive));
 		}
 	}
 

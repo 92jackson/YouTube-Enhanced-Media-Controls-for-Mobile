@@ -1417,12 +1417,14 @@ System displays temporary NEW badge automatically.
 				<a href="#section-snapshots">📸 Snapshots</a>
 				<a href="#section-player-behavior">▶️ Behavior</a>
 				<a href="#section-gesture-controls">🖐️ Gesture Controls</a>
+				<a href="#section-native-enhancements">▶️ Native Enhancements</a>
 				<a href="#section-youtube-behaviors">📄 YouTube Behaviors</a>
 				<a href="#section-content-filtering">🚧 Content Filtering</a>
 				<a href="#section-blacklisted-videos">🚫 Blacklisted Videos</a>
 				<a href="#section-developer">🐞 Developer</a>
 			</div>
 		</div>
+
 		<main class="main-content">
 			<div class="card card--notices" id="section-notices">
 				<div class="card-header">
@@ -1660,6 +1662,18 @@ System displays temporary NEW badge automatically.
 						<div class="description">Choose how the title text contrasts with the seekbar background (for when the accent color reduces visibility of the text). <i>Per-letter may slightly increase CPU/GPU usage, especially with scrolling titles; could impact battery life or performance on low-end devices.</i> Has no effect in <code>Compact</code> mode.</div>
 					</div>
 					<div class="setting-item toggle-item toggle-item--full">
+						<div class="toggle-label-group" data-target-id="showPlayingDetails" data-added-version="3.2.0">
+							<div class="toggle-label-main"><div class="toggle-label-text" id="showPlayingDetails-label">Show Playing Details</div></div>
+						</div>
+						<div class="toggle-subrow">
+							<div class="toggle-label-description">Shows the current track details and seekbar.</div>
+							<label class="toggle-switch">
+								<input type="checkbox" id="showPlayingDetails" aria-labelledby="showPlayingDetails-label">
+								<span class="switch-slider"></span>
+							</label>
+						</div>
+					</div>
+					<div class="setting-item toggle-item toggle-item--full">
 						<div class="toggle-label-group" data-target-id="showBottomControls">
 							<div class="toggle-label-main"><div class="toggle-label-text" id="showBottomControls-label">Show Bottom Controls</div></div>
 						</div>
@@ -1692,6 +1706,7 @@ System displays temporary NEW badge automatically.
 								<option value="seek-forward">Seek Forward</option>
 								<option value="voice-search">Voice Search</option>
 								<option value="limited-height-fab">Limited Height Menu</option>
+								<option value="toggle-drawer">Toggle Drawer</option>
 							</select>
 							<select id="layoutBottomCenterSlot1">
 								<option value="none">None</option>
@@ -1705,6 +1720,7 @@ System displays temporary NEW badge automatically.
 								<option value="seek-forward">Seek Forward</option>
 								<option value="voice-search">Voice Search</option>
 								<option value="limited-height-fab">Limited Height Menu</option>
+								<option value="toggle-drawer">Toggle Drawer</option>
 							</select>
 							<select id="layoutBottomCenterSlot2">
 								<option value="none">None</option>
@@ -1718,6 +1734,7 @@ System displays temporary NEW badge automatically.
 								<option value="seek-forward">Seek Forward</option>
 								<option value="voice-search">Voice Search</option>
 								<option value="limited-height-fab">Limited Height Menu</option>
+								<option value="toggle-drawer">Toggle Drawer</option>
 							</select>
 							<select id="layoutBottomCenterSlot3" disabled>
 								<option value="play">Play/Pause</option>
@@ -1734,6 +1751,7 @@ System displays temporary NEW badge automatically.
 								<option value="seek-forward">Seek Forward</option>
 								<option value="voice-search">Voice Search</option>
 								<option value="limited-height-fab">Limited Height Menu</option>
+								<option value="toggle-drawer">Toggle Drawer</option>
 							</select>
 							<select id="layoutBottomCenterSlot5">
 								<option value="none">None</option>
@@ -1747,6 +1765,7 @@ System displays temporary NEW badge automatically.
 								<option value="seek-forward">Seek Forward</option>
 								<option value="voice-search">Voice Search</option>
 								<option value="limited-height-fab">Limited Height Menu</option>
+								<option value="toggle-drawer">Toggle Drawer</option>
 							</select>
 							<select id="layoutBottomRightSlot1">
 								<option value="none">None</option>
@@ -1760,6 +1779,7 @@ System displays temporary NEW badge automatically.
 								<option value="seek-forward">Seek Forward</option>
 								<option value="voice-search">Voice Search</option>
 								<option value="limited-height-fab">Limited Height Menu</option>
+								<option value="toggle-drawer">Toggle Drawer</option>
 							</select>
 							<select id="layoutBottomRightSlot2" disabled>
 								<option value="limited-height-fab">Limited Height Menu</option>
@@ -1796,7 +1816,7 @@ System displays temporary NEW badge automatically.
 						<div class="toggle-subrow">
 							<div class="toggle-label-description">Automatically switch to a compact player with a
 								horizontal playlist when the browser height is small (i.e. when in landscape or using
-								splitscreen).</div>
+								splitscreen). This moode is mainly intended for music video playback as the controls will cover the video player.</div>
 							<label class="toggle-switch">
 								<input type="checkbox" id="enableLimitedHeightMode" aria-labelledby="enableLimitedHeightMode-label">
 								<span class="switch-slider"></span>
@@ -2167,6 +2187,20 @@ System displays temporary NEW badge automatically.
 								<div class="description">Delay before scrolling back to the currently playing video in the playlist. Default: 2.5 seconds.</div>
 							</div>
 						</fieldset>
+						<div class="setting-item toggle-item toggle-item--full" data-added-version="3.2.0">
+							<div class="toggle-label-group" data-target-id="hideDrawerHandleWhenClosed">
+								<div class="toggle-label-main">
+									<div class="toggle-label-text" id="hideDrawerHandleWhenClosed-label">Hide Drawer Handle When Closed</div>
+								</div>
+							</div>
+							<div class="toggle-subrow">
+								<div class="toggle-label-description">Hides the drag handle when the playlist drawer is fully closed. Note: Ensure you have the Drawer Toggle button added to the navbar, otherwise you'll be unable to reopen the drawer.</div>
+								<label class="toggle-switch">
+									<input type="checkbox" id="hideDrawerHandleWhenClosed" aria-labelledby="hideDrawerHandleWhenClosed-label">
+									<span class="switch-slider"></span>
+								</label>
+							</div>
+						</div>
 					</fieldset>
 				</div>
 			</div>
@@ -2303,17 +2337,16 @@ System displays temporary NEW badge automatically.
 						</div>
 						<div class="description">How many seconds to skip when tapping seek back/forward.</div>
 					</div>
-					<div class="setting-item toggle-item toggle-item--full" data-added-version="3.0.0">
-						<div class="toggle-label-group" data-target-id="repeatStickyAcrossVideos">
-							<div class="toggle-label-main"><div class="toggle-label-text" id="repeatStickyAcrossVideos-label">Keep Repeat On Across Videos</div></div>
+					<div class="setting-item select-item" data-added-version="3.2.0">
+						<div class="toggle-label-main"><div class="toggle-label-text" id="repeatStickyAcrossVideos-label">Repeat Mode</div></div>
+						<div class="select-wrapper">
+							<select id="repeatStickyAcrossVideos" aria-labelledby="repeatStickyAcrossVideos-label">
+								<option value="always-sticky">Always Sticky</option>
+								<option value="toggle-single-sticky">Toggle Single/Sticky</option>
+								<option value="always-single">Always Single</option>
+							</select>
 						</div>
-						<div class="toggle-subrow">
-							<div class="toggle-label-description">When repeat is enabled, keep it enabled for subsequent videos until manually turned off.</div>
-							<label class="toggle-switch">
-								<input type="checkbox" id="repeatStickyAcrossVideos" aria-labelledby="repeatStickyAcrossVideos-label">
-								<span class="switch-slider"></span>
-							</label>
-						</div>
+						<div class="description">Controls how the Repeat button behaves: Always Sticky keeps repeat across videos; Toggle cycles Off → Single → Sticky; Always Single repeats only the current video.</div>
 					</div>
 					<div class="setting-item toggle-item toggle-item--full" data-added-version="2.1.0">
 						<div class="toggle-label-group" data-target-id="voiceSearchFeelingLucky">
@@ -2525,6 +2558,55 @@ System displays temporary NEW badge automatically.
 					</fieldset>
 				</div>
 			</div>
+			<!-- Native Player Enhancements -->
+			<div class="card" id="section-native-enhancements">
+				<div class="card-header">
+					<span class="icon">▶️</span>
+					<h2>Native Player Controls</h2>
+				</div>
+				<div class="card-content">
+					<div class="setting-item" style="pointer-events: none;" data-added-version="3.2.0">
+						<div class="toggle-label-group">
+							<div class="toggle-label-main">
+								<div class="toggle-label-text">Additional Bottom Controls</div>
+							</div>
+							<div class="toggle-label-description">Add custom controls to the native player overlay.</div>
+						</div>
+					</div>
+					<fieldset>
+						<div class="mb-md">
+							<button id="add-native-control" class="blacklisted-video-remove">Add Control</button>
+							<button id="clear-native-controls" class="clear-all-button">Clear All</button>
+						</div>
+						<div id="native-controls-container">
+							<div id="native-controls-list"></div>
+							<div id="no-native-controls" class="hidden no-results-message">
+								No additional controls configured.
+							</div>
+						</div>
+					</fieldset>
+					<div class="setting-item" style="pointer-events: none;" data-added-version="3.2.0">
+						<div class="toggle-label-group">
+							<div class="toggle-label-main">
+								<div class="toggle-label-text">Additional Top Controls</div>
+							</div>
+							<div class="toggle-label-description">Add custom controls to the top of the native player overlay.</div>
+						</div>
+					</div>
+					<fieldset>
+						<div class="mb-md">
+							<button id="add-native-top-control" class="blacklisted-video-remove">Add Control</button>
+							<button id="clear-native-top-controls" class="clear-all-button">Clear All</button>
+						</div>
+						<div id="native-top-controls-container">
+							<div id="native-top-controls-list"></div>
+							<div id="no-native-top-controls" class="hidden no-results-message">
+								No additional top controls configured.
+							</div>
+						</div>
+					</fieldset>
+				</div>
+			</div>
 			<!-- YouTube Page Settings -->
 			<div class="card" id="section-youtube-behaviors">
 				<div class="card-header">
@@ -2532,19 +2614,19 @@ System displays temporary NEW badge automatically.
 					<h2>YouTube Behaviors</h2>
 				</div>
 				<div class="card-content">
-					<div class="setting-item select-item">
-						<div class="toggle-label-main"><div class="toggle-label-text" id="autoPlayPreference-label">Autoplay</div></div>
-						<div class="select-wrapper">
-						<select id="autoPlayPreference" aria-labelledby="autoPlayPreference-label">
-								<option value="default">Default (YouTube's behavior)</option>
-								<option value="attemptUnmuted">Attempt Unmuted Autoplay</option>
-							</select>
+					<div class="setting-item toggle-item toggle-item--full">
+						<div class="toggle-label-group" data-target-id="autoPlayPreference">
+							<div class="toggle-label-main"><div class="toggle-label-text" id="autoPlayPreference-label">Prevent Muted Autoplay</div></div>
 						</div>
-						<div class="description">
-							<ul>
-								<li><strong>Default</strong> - No changes to initial page load</li>
-								<li><strong>Attempt Unmuted Autoplay</strong> - Unmutes the video and closes the large play button overlay to prepare for autoplay (your browser may still pause the video automatically).</li>
-							</ul>
+						<div class="toggle-subrow">
+							<div class="toggle-label-description">
+								Enable to prevent muted autoplay by unmuting on page load
+								<span class="small">(modern browsers may pause until user interaction)</span>.
+							</div>
+							<label class="toggle-switch">
+								<input type="checkbox" id="autoPlayPreference" aria-labelledby="autoPlayPreference-label">
+								<span class="switch-slider"></span>
+							</label>
 						</div>
 					</div>
 					<div class="setting-item toggle-item toggle-item--full">
@@ -2613,17 +2695,15 @@ System displays temporary NEW badge automatically.
 							</label>
 						</div>
 					</div>
-					<div class="setting-item toggle-item toggle-item--full" data-added-version="2.0.0">
-						<div class="toggle-label-group" data-target-id="enableFixedVideoHeight">
-							<div class="toggle-label-main"><div class="toggle-label-text" id="enableFixedVideoHeight-label">Fixed Video Height</div></div>
+					<div class="setting-item select-item" data-added-version="3.2.0">
+						<div class="toggle-label-main"><div class="toggle-label-text" id="enableFixedVideoHeight-label">Fixed Video Height</div></div>
+						<div class="material-slider-wrapper">
+							<input type="range" id="enableFixedVideoHeight" class="material-slider" aria-labelledby="enableFixedVideoHeight-label"
+								data-increments="0,10,20,30,40,50,60"
+								data-labels="Off,10%,20%,30%,40%,50%,60%" min="0" max="6" step="1" value="3" />
+							<div class="slider-labels"></div>
 						</div>
-						<div class="toggle-subrow">
-							<div class="toggle-label-description">Sets the YouTube video element to a fixed height of 30% of the screen height.</div>
-							<label class="toggle-switch">
-								<input type="checkbox" id="enableFixedVideoHeight" aria-labelledby="enableFixedVideoHeight-label">
-								<span class="switch-slider"></span>
-							</label>
-						</div>
+						<div class="toggle-label-description">Sets the video element height as a percentage of screen height.</div>
 					</div>
 					<div class="setting-item toggle-item toggle-item--full" data-badges="fix experimental">
 						<div class="toggle-label-group" data-target-id="rapidBufferDetection">

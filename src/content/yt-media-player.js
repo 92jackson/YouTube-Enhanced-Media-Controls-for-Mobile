@@ -47,7 +47,9 @@ class YTMediaPlayer {
 			customPlaylistMode: window.userSettings.customPlaylistMode,
 			returnToDefaultModeOnVideoSelect: window.userSettings.returnToDefaultModeOnVideoSelect,
 			showBottomControls: window.userSettings.showBottomControls,
+			showPlayingDetails: window.userSettings.showPlayingDetails,
 			navbarShowHomeButton: window.userSettings.navbarShowHomeButton,
+			hideDrawerHandleWhenClosed: window.userSettings.hideDrawerHandleWhenClosed,
 
 			// Appearance
 			customPlayerTheme: window.userSettings.customPlayerTheme,
@@ -152,6 +154,7 @@ class YTMediaPlayer {
 		this.drawerUpdateThrottle = 100; // ms
 		this._suppressNextClick = false; // prevent mouse click on drag release
 		this.lastBodyUpdateDrawerState = null;
+		this.drawerToggleDirection = 'up'; // 'up' or 'down' for toggle cycle
 
 		// Cached measurements - invalidated on resize
 		this.cachedMeasurements = {
@@ -580,6 +583,9 @@ class YTMediaPlayer {
 		if (!this.options.showBottomControls) {
 			classes.push('bottom-controls-hidden');
 		}
+		if (!this.options.showPlayingDetails) {
+			classes.push('hide-playing-details');
+		}
 
 		return classes.join(' ');
 	}
@@ -811,52 +817,20 @@ class YTMediaPlayer {
 	 * Handle speed dial actions by delegating to yt-navbar.js
 	 */
 	_handleSpeedDialAction(action) {
-		// Get the custom navbar instance from window
-		if (window.customNavbar && typeof window.customNavbar.handleAction === 'function') {
-			window.customNavbar.handleAction(action);
-		} else {
-			// Fallback: try to call the individual methods directly
-			switch (action) {
-				case 'voice-search':
-					if (
-						window.customNavbar &&
-						typeof window.customNavbar._handleVoiceSearchClick === 'function'
-					) {
-						window.customNavbar._handleVoiceSearchClick();
-					}
-					break;
-				case 'text-search':
-					if (
-						window.customNavbar &&
-						typeof window.customNavbar._handleTextSearchClick === 'function'
-					) {
-						window.customNavbar._handleTextSearchClick();
-					}
-					break;
-				case 'home':
-					if (
-						window.customNavbar &&
-						typeof window.customNavbar._handleLogoClick === 'function'
-					) {
-						window.customNavbar._handleLogoClick();
-					}
-					break;
-				case 'favourites':
-					if (
-						window.customNavbar &&
-						typeof window.customNavbar._handleFavouritesClick === 'function'
-					) {
-						window.customNavbar._handleFavouritesClick();
-					}
-					break;
-				case 'video-toggle':
-					if (
-						window.customNavbar &&
-						typeof window.customNavbar._handleVideoToggleClick === 'function'
-					) {
-						window.customNavbar._handleVideoToggleClick();
-					}
-					break;
+		if (
+			action === 'text-search' ||
+			action === 'voice-search' ||
+			action === 'favourites' ||
+			action === 'video-toggle' ||
+			action === 'toggle-drawer' ||
+			action === 'debug-logs'
+		) {
+			ActionUtils.performAction(action);
+			return;
+		}
+		if (action === 'home') {
+			if (window.customNavbar && typeof window.customNavbar._handleLogoClick === 'function') {
+				window.customNavbar._handleLogoClick();
 			}
 		}
 	}
@@ -1287,6 +1261,7 @@ class YTMediaPlayer {
 			case 'text-search':
 			case 'favourites':
 			case 'video-toggle':
+			case 'toggle-drawer':
 			case 'debug-logs':
 				return this._createNavbarActionButton(actionId);
 			case 'voice-search':
@@ -1324,6 +1299,37 @@ class YTMediaPlayer {
 					? 'M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM14 13h-3v3H9v-3H6v-2h3V8h2v3h3v2z'
 					: 'M21 6.5l-4 4V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11zM9.5 16L8 14.5 10.5 12 8 9.5 9.5 8 12 10.5 14.5 8 16 9.5 13.5 12 16 14.5 14.5 16 12 13.5 9.5 16z'
 			);
+		} else if (actionId === 'toggle-drawer') {
+			const setPathByState = (state, toggleDirection) => {
+				let d = '';
+				if (state === 'mid') {
+					if (toggleDirection === 'up') {
+						d = 'M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z';
+					} else {
+						d = 'M6 19h12v2H6z';
+					}
+				} else if (state === 'full') {
+					d = 'M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z';
+				} else {
+					d =
+						'M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V6h14v12z';
+				}
+				path.setAttribute('d', d);
+			};
+			let initialState = 'closed';
+			if (document.body.classList.contains('yt-drawer-full')) initialState = 'full';
+			else if (document.body.classList.contains('yt-drawer-mid')) initialState = 'mid';
+			setPathByState(initialState, 'up');
+			const updateVisibilityAndIcon = (ev) => {
+				const state = ev?.detail?.state;
+				const toggleDirection = ev?.detail?.toggleDirection || 'up';
+				setPathByState(state || initialState, toggleDirection);
+				const canToggle =
+					typeof this._canDragDrawer === 'function' ? this._canDragDrawer() : false;
+				button.style.display = canToggle ? '' : 'none';
+			};
+			updateVisibilityAndIcon();
+			window.addEventListener('yt-drawer-state-change', updateVisibilityAndIcon);
 		} else if (actionId === 'favourites') {
 			path.setAttribute(
 				'd',
@@ -1553,12 +1559,53 @@ class YTMediaPlayer {
 		repeatOnSvg.setAttribute('class', 'icon repeat-on');
 		repeatOnSvg.setAttribute('viewBox', '0 0 24 24');
 		const repeatOnPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		// Base arrows (no center)
 		repeatOnPath.setAttribute(
 			'd',
-			'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z'
+			'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z'
 		);
 		repeatOnSvg.appendChild(repeatOnPath);
+		// Center indicator: dot or "1" depending on sticky setting
+		const rawRepeatMode = window.userSettings.repeatStickyAcrossVideos;
+		const sticky =
+			rawRepeatMode === true ||
+			rawRepeatMode === 'always-sticky' ||
+			window.userSettings.repeatCurrentlyOn === true;
+		if (sticky) {
+			const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+			dot.setAttribute('class', 'repeat-on-center');
+			dot.setAttribute('cx', '12');
+			dot.setAttribute('cy', '12');
+			dot.setAttribute('r', '2');
+			repeatOnSvg.appendChild(dot);
+		} else {
+			const one = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			one.setAttribute('class', 'repeat-on-center');
+			one.setAttribute('d', 'M13 15V9h-1l-2 1v1h1.5v4H13z');
+			repeatOnSvg.appendChild(one);
+		}
 		button.appendChild(repeatOnSvg);
+
+		this._updateRepeatOnIconCenter = (isSticky) => {
+			const centerEl =
+				repeatOnSvg.querySelector('.repeat-on-center') ||
+				repeatOnSvg.querySelector('circle') ||
+				repeatOnSvg.querySelector('path.repeat-on-center');
+			if (centerEl) centerEl.remove();
+			if (isSticky) {
+				const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+				dot.setAttribute('class', 'repeat-on-center');
+				dot.setAttribute('cx', '12');
+				dot.setAttribute('cy', '12');
+				dot.setAttribute('r', '2');
+				repeatOnSvg.appendChild(dot);
+			} else {
+				const one = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				one.setAttribute('class', 'repeat-on-center');
+				one.setAttribute('d', 'M13 15V9h-1l-2 1v1h1.5v4H13z');
+				repeatOnSvg.appendChild(one);
+			}
+		};
 
 		return button;
 	}
@@ -1697,6 +1744,11 @@ class YTMediaPlayer {
 			this.options.titleContrastMode === 'per-letter' &&
 				!(this.playerControls && this.playerControls.classList.contains('compact'))
 		);
+
+		// Hide drawer handle when closed
+		if (this.options.hideDrawerHandleWhenClosed) {
+			this.playerWrapper.classList.add('hide-drawer-handle-when-closed');
+		}
 	}
 
 	/**
@@ -1780,6 +1832,9 @@ class YTMediaPlayer {
 		const buttonGroupWidth = this.buttonGroup.offsetWidth;
 		const wrapperHeight = this.playerWrapper.offsetHeight;
 		const OPEN_HANDLE_HEIGHT = 70;
+		const controlsHidden =
+			this.playerWrapper.classList.contains('bottom-controls-hidden') &&
+			this.playerWrapper.classList.contains('hide-playing-details');
 
 		logger.log(
 			'Measurements',
@@ -1787,7 +1842,7 @@ class YTMediaPlayer {
 		);
 
 		// If controls height is still 0, we're measuring too early
-		if (controlsHeight === 0) {
+		if (controlsHeight === 0 && !controlsHidden) {
 			logger.log(
 				'Measurements',
 				'Controls height is 0 - measurements too early, keeping invalid'
@@ -2230,6 +2285,18 @@ class YTMediaPlayer {
 
 		// Update CSS variables
 		this._updateCSSVariables();
+
+		// Dispatch drawer state change event
+		window.dispatchEvent(
+			new CustomEvent('yt-drawer-state-change', {
+				detail: {
+					state: this.drawerState,
+					isOpen: isOpen,
+					hasPlaylist: this.hasPlaylist,
+					toggleDirection: this.drawerToggleDirection,
+				},
+			})
+		);
 	}
 
 	/**
@@ -2242,8 +2309,16 @@ class YTMediaPlayer {
 		document.body.classList.remove('yt-horizontal-playlist');
 		document.body.classList.remove('yt-fixed-video-height');
 
-		// Apply fixed video height class if enabled
-		if (this.options.enableFixedVideoHeight) {
+		const fixedVal = this.options.enableFixedVideoHeight;
+		if (typeof fixedVal === 'number') {
+			if (fixedVal > 0) {
+				document.body.style.setProperty('--yt-fixed-video-height', `${fixedVal}vh`);
+				document.body.classList.add('yt-fixed-video-height');
+			} else {
+				document.body.style.removeProperty('--yt-fixed-video-height');
+			}
+		} else if (fixedVal) {
+			document.body.style.setProperty('--yt-fixed-video-height', `30vh`);
 			document.body.classList.add('yt-fixed-video-height');
 		}
 
@@ -3214,7 +3289,7 @@ class YTMediaPlayer {
 			seekForward10: () =>
 				this.options.callbacks.onGestureSeek?.(this.options.seekSkipSeconds),
 			togglePlaylist: () => {
-				this._togglePlaylistDrawer();
+				this.toggleDrawerState();
 				this.options.callbacks.onGestureTogglePlaylist?.();
 			},
 			toggleFavourites: () => {
@@ -3233,24 +3308,50 @@ class YTMediaPlayer {
 	}
 
 	/**
-	 * Toggle playlist drawer (for gesture)
+	 * Toggle playlist drawer
 	 */
-	_togglePlaylistDrawer() {
+	toggleDrawerState() {
 		if (!this._canDragDrawer() || !this.hasPlaylist) return;
 
 		const currentHeight = this.playerDrawer.offsetHeight;
 		const snapPoints = this._getSnapPoints();
 
-		// Find current position and go to next
-		let targetHeight = snapPoints[0]; // Default to closed
+		if (snapPoints.length <= 1) return;
 
+		// Find closest snap point index
+		let closestIndex = 0;
+		let minDiff = Infinity;
 		for (let i = 0; i < snapPoints.length; i++) {
-			if (Math.abs(currentHeight - snapPoints[i]) < this.MIN_MEANINGFUL_SNAP_DIFFERENCE / 2) {
-				const nextIndex = (i + 1) % snapPoints.length;
-				targetHeight = snapPoints[nextIndex];
-				break;
+			const diff = Math.abs(currentHeight - snapPoints[i]);
+			if (diff < minDiff) {
+				minDiff = diff;
+				closestIndex = i;
 			}
 		}
+
+		// Determine direction based on position at extremes
+		if (closestIndex === 0) {
+			this.drawerToggleDirection = 'up';
+		} else if (closestIndex === snapPoints.length - 1) {
+			this.drawerToggleDirection = 'down';
+		}
+
+		// Calculate next index based on direction
+		let nextIndex = closestIndex + (this.drawerToggleDirection === 'up' ? 1 : -1);
+
+		// Handle bounds and bounces
+		if (nextIndex >= snapPoints.length) {
+			nextIndex = snapPoints.length - 2;
+			this.drawerToggleDirection = 'down';
+		} else if (nextIndex < 0) {
+			nextIndex = 1;
+			this.drawerToggleDirection = 'up';
+		}
+
+		// Ensure valid index
+		nextIndex = Math.max(0, Math.min(nextIndex, snapPoints.length - 1));
+
+		const targetHeight = snapPoints[nextIndex];
 
 		if (this.options.callbacks.onDrawerUserToggle) {
 			this.options.callbacks.onDrawerUserToggle(targetHeight > 0, targetHeight);
@@ -3497,7 +3598,9 @@ class YTMediaPlayer {
 					this.drawerCenteredOverlay.classList.add('visible');
 				}
 			}
+			this._setPlayerControlsOverlayVisible(true);
 		} else {
+			this._setPlayerControlsOverlayVisible(false);
 			// Default centered overlay
 			if (this.centeredOverlayTitle) {
 				this.centeredOverlayTitle.textContent = titleEl?.textContent || '';
@@ -3531,6 +3634,7 @@ class YTMediaPlayer {
 		if (this.controlsCenteredOverlay) {
 			this.controlsCenteredOverlay.classList.remove('visible');
 		}
+		this._setPlayerControlsOverlayVisible(false);
 		clearTimeout(this.centeredOverlayHideTimer);
 		this._overlaySuppressUntil = Date.now() + 300;
 		if (resetHighlight && this.playlistWrapper) {
@@ -4117,6 +4221,7 @@ class YTMediaPlayer {
 			let clickTimeout = null;
 			let holdTimeout = null;
 			let holdInterval = null;
+			let holdController = null;
 			let lastClickAt = 0;
 			let didHold = false;
 			let pointerDownActive = false;
@@ -4135,6 +4240,10 @@ class YTMediaPlayer {
 					clearInterval(holdInterval);
 					holdInterval = null;
 				}
+				if (holdController) {
+					holdController.stop();
+					holdController = null;
+				}
 			};
 
 			const stopHold = () => {
@@ -4145,6 +4254,10 @@ class YTMediaPlayer {
 				if (holdInterval) {
 					clearInterval(holdInterval);
 					holdInterval = null;
+				}
+				if (holdController) {
+					holdController.stop();
+					holdController = null;
 				}
 				this._clearBottomControlHoldIcon(buttonEl);
 			};
@@ -4163,16 +4276,21 @@ class YTMediaPlayer {
 				if (!holdAction || holdAction === 'none') return;
 				didHold = false;
 				if (holdTimeout) clearTimeout(holdTimeout);
+				if (isSeekAction(holdAction)) {
+					const dir = getSeekDirection(holdAction);
+					holdController = ActionUtils.startSeekHold(dir, (delta) => {
+						if (!didHold) {
+							didHold = true;
+							this._setBottomControlHoldIcon(buttonEl, holdAction);
+						}
+						this.options.callbacks.onGestureSeek?.(delta);
+					});
+					holdController.start();
+					return;
+				}
 				holdTimeout = setTimeout(() => {
 					didHold = true;
 					this._setBottomControlHoldIcon(buttonEl, holdAction);
-					if (isSeekAction(holdAction)) {
-						const dir = getSeekDirection(holdAction);
-						holdInterval = setInterval(() => {
-							this.options.callbacks.onGestureSeek?.(dir * HOLD_REPEAT_SEEK_STEP);
-						}, HOLD_REPEAT_INTERVAL);
-						return;
-					}
 					executeAction(holdAction);
 				}, HOLD_TRIGGER_DELAY);
 			};
@@ -4387,11 +4505,23 @@ class YTMediaPlayer {
 
 		if (actionId === 'repeat') {
 			if (!this.repeatButton) return;
-			const isCurrentlyOn = this.repeatButton.classList.contains('on');
-			const newState = isCurrentlyOn ? 'off' : 'on';
+			const raw = window.userSettings.repeatStickyAcrossVideos;
+			const mode =
+				raw === true
+					? 'always-sticky'
+					: raw === false || raw == null
+						? 'always-single'
+						: raw;
+			const cycle = window.repeatCycleState
+				? window.repeatCycleState
+				: window.userSettings.repeatCurrentlyOn
+					? 'sticky'
+					: 'off';
+			const nextEnabled =
+				mode === 'toggle-single-sticky' ? cycle !== 'sticky' : cycle === 'off';
 			this.repeatButton.classList.remove('on', 'off');
-			this.repeatButton.classList.add(newState);
-			this.options.callbacks.onRepeatClick?.(newState === 'on');
+			this.repeatButton.classList.add(nextEnabled ? 'on' : 'off');
+			this.options.callbacks.onRepeatClick?.(nextEnabled);
 			return;
 		}
 
@@ -4408,6 +4538,7 @@ class YTMediaPlayer {
 			actionId === 'text-search' ||
 			actionId === 'favourites' ||
 			actionId === 'video-toggle' ||
+			actionId === 'toggle-drawer' ||
 			actionId === 'debug-logs'
 		) {
 			this._handleSpeedDialAction(actionId);
@@ -4693,6 +4824,11 @@ class YTMediaPlayer {
 				this._addGestureListeners();
 			}
 		}
+	}
+
+	_setPlayerControlsOverlayVisible(visible) {
+		if (!this.playerControls) return;
+		this.playerControls.classList.toggle('yt-centered-overlay-visible', visible);
 	}
 
 	/**
@@ -6520,7 +6656,23 @@ class YTMediaPlayer {
 		const currentVid = this.options.nowPlayingVideoDetails?.videoId;
 		if (
 			this.hasPlaylist &&
-			window.userSettings.repeatStickyAcrossVideos &&
+			(() => {
+				const raw = window.userSettings.repeatStickyAcrossVideos;
+				const mode =
+					raw === true
+						? 'always-sticky'
+						: raw === false || raw == null
+							? 'always-single'
+							: raw;
+				const cycle = window.repeatCycleState
+					? window.repeatCycleState
+					: window.userSettings.repeatCurrentlyOn
+						? mode === 'always-sticky'
+							? 'sticky'
+							: 'single'
+						: 'off';
+				return cycle === 'sticky';
+			})() &&
 			window.userSettings.repeatCurrentlyOn &&
 			currentVid &&
 			(!this.nextUpVideoId || this.nextUpVideoId === currentVid)
@@ -6835,6 +6987,12 @@ class YTMediaPlayer {
 				}
 				this.options.hideTimerDuration = !!enabled;
 				break;
+			case 'showPlayingDetails':
+				if (this.playerWrapper) {
+					this.playerWrapper.classList.toggle('hide-playing-details', !enabled);
+				}
+				this.options.showPlayingDetails = !!enabled;
+				break;
 			case 'enableTitleMarquee':
 				logger.log('TitleMarquee', 'Setting changed:', !!enabled);
 				this.setTitleMarqueeEnabled(!!enabled);
@@ -6849,6 +7007,15 @@ class YTMediaPlayer {
 			case 'hidePlayerForPanelActive':
 				document.body.classList.toggle('yt-player-hide-for-panel-active', !!enabled);
 				this.options.hidePlayerForPanelActive = !!enabled;
+				break;
+			case 'hideDrawerHandleWhenClosed':
+				if (this.playerWrapper) {
+					this.playerWrapper.classList.toggle(
+						'hide-drawer-handle-when-closed',
+						!!enabled
+					);
+				}
+				this.options.hideDrawerHandleWhenClosed = !!enabled;
 				break;
 			default:
 				this.options[key] = enabled;

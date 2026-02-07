@@ -615,6 +615,7 @@ function getNavbarRightActionOptions() {
 		{ value: 'voice-search', label: 'Voice Search' },
 		{ value: 'favourites', label: 'Favourites' },
 		{ value: 'video-toggle', label: 'Video Toggle' },
+		{ value: 'toggle-drawer', label: 'Toggle Drawer' },
 		{ value: 'debug-logs', label: 'Debug Logs (Visible when Debug Mode is enabled)' },
 	];
 }
@@ -634,6 +635,7 @@ function getBottomControlsGestureActionOptions() {
 		{ value: 'text-search', label: 'Text Search' },
 		{ value: 'favourites', label: 'Favourites' },
 		{ value: 'video-toggle', label: 'Video Toggle' },
+		{ value: 'toggle-drawer', label: 'Toggle Drawer' },
 		{ value: 'debug-logs', label: 'Debug Logs' },
 	];
 }
@@ -664,6 +666,25 @@ function initLegacyBottomControlsGestureSelects() {
 		if (select.options && select.options.length > 0) return;
 		populateSelectWithOptions(select, options);
 	});
+}
+
+function getNativeControlOptions() {
+	return [
+		{ value: 'none', label: 'None' },
+		{ value: 'repeat', label: 'Repeat' },
+		{ value: 'seek-back', label: 'Seek Back' },
+		{ value: 'seek-forward', label: 'Seek Forward' },
+		{ value: 'restart', label: 'Restart' },
+	];
+}
+
+function getNativeTopControlOptions() {
+	return [
+		{ value: 'none', label: 'None' },
+		{ value: 'favourites', label: 'Favourites' },
+		{ value: 'voice-search', label: 'Voice Search' },
+		{ value: 'debug-logs', label: 'Debug Logs' },
+	];
 }
 
 function readNavbarRightSlotsFromUI() {
@@ -776,6 +797,224 @@ function initNavbarRightSlotsEditor(slots) {
 	renderNavbarRightSlots(Array.isArray(slots) ? slots : []);
 }
 
+function readNativeControlsFromUI() {
+	const list = document.getElementById('native-controls-list');
+	if (!list) return null;
+	return Array.from(list.querySelectorAll('select[data-native-control]')).map((el) => el.value);
+}
+
+function renderNativeControls(slots) {
+	const list = document.getElementById('native-controls-list');
+	const noSlotsMessage = document.getElementById('no-native-controls');
+	if (!list) return;
+
+	while (list.firstChild) {
+		list.removeChild(list.firstChild);
+	}
+
+	if (!Array.isArray(slots) || slots.length === 0) {
+		showElement(noSlotsMessage);
+		return;
+	}
+
+	hideElement(noSlotsMessage);
+
+	const options = getNativeControlOptions();
+	slots.forEach((actionId, index) => {
+		const slotItem = document.createElement('div');
+		slotItem.className = 'blacklisted-video-item';
+
+		const slotInfo = document.createElement('div');
+		slotInfo.className = 'blacklisted-video-info';
+
+		const slotLabel = document.createElement('div');
+		slotLabel.className = 'blacklisted-video-id';
+		slotLabel.textContent = `Control ${index + 1}`;
+
+		const selectWrapper = document.createElement('div');
+		selectWrapper.className = 'select-wrapper';
+
+		const select = document.createElement('select');
+		select.setAttribute('data-native-control', String(index));
+
+		options.forEach((opt) => {
+			const option = document.createElement('option');
+			option.value = opt.value;
+			option.textContent = opt.label;
+			select.appendChild(option);
+		});
+
+		select.value = typeof actionId === 'string' ? actionId : 'none';
+
+		selectWrapper.appendChild(select);
+		slotInfo.appendChild(slotLabel);
+		slotInfo.appendChild(selectWrapper);
+
+		const removeButton = document.createElement('button');
+		removeButton.className = 'blacklisted-video-remove';
+		removeButton.textContent = '✕';
+		removeButton.setAttribute('aria-label', `Remove control ${index + 1}`);
+		removeButton.setAttribute('title', `Remove control ${index + 1}`);
+		removeButton.addEventListener('click', () => {
+			const current = readNativeControlsFromUI() || [];
+			current.splice(index, 1);
+			renderNativeControls(current);
+			save_options();
+		});
+
+		slotItem.appendChild(slotInfo);
+		slotItem.appendChild(removeButton);
+		list.appendChild(slotItem);
+	});
+}
+
+let nativeControlsEditorInitialized = false;
+function initNativeControlsEditor(slots) {
+	const addButton = document.getElementById('add-native-control');
+	const clearButton = document.getElementById('clear-native-controls');
+	const list = document.getElementById('native-controls-list');
+	if (!list) return;
+
+	if (!nativeControlsEditorInitialized) {
+		list.addEventListener('change', (e) => {
+			if (e.target && e.target.matches('select[data-native-control]')) {
+				save_options();
+			}
+		});
+		if (addButton) {
+			addButton.addEventListener('click', () => {
+				const current = readNativeControlsFromUI() || [];
+				current.push('none');
+				renderNativeControls(current);
+				save_options();
+			});
+		}
+		if (clearButton) {
+			clearButton.addEventListener('click', () => {
+				const confirmed = confirm(
+					'Are you sure you want to clear all additional native controls?'
+				);
+				if (!confirmed) return;
+				renderNativeControls([]);
+				save_options();
+			});
+		}
+		nativeControlsEditorInitialized = true;
+	}
+
+	renderNativeControls(Array.isArray(slots) ? slots : []);
+}
+
+function readNativeTopControlsFromUI() {
+	const list = document.getElementById('native-top-controls-list');
+	if (!list) return null;
+	return Array.from(list.querySelectorAll('select[data-native-top-control]')).map(
+		(el) => el.value
+	);
+}
+
+function renderNativeTopControls(slots) {
+	const list = document.getElementById('native-top-controls-list');
+	const noSlotsMessage = document.getElementById('no-native-top-controls');
+	if (!list) return;
+
+	while (list.firstChild) {
+		list.removeChild(list.firstChild);
+	}
+
+	if (!Array.isArray(slots) || slots.length === 0) {
+		showElement(noSlotsMessage);
+		return;
+	}
+
+	hideElement(noSlotsMessage);
+
+	const options = getNativeTopControlOptions();
+	slots.forEach((actionId, index) => {
+		const slotItem = document.createElement('div');
+		slotItem.className = 'blacklisted-video-item';
+
+		const slotInfo = document.createElement('div');
+		slotInfo.className = 'blacklisted-video-info';
+
+		const slotLabel = document.createElement('div');
+		slotLabel.className = 'blacklisted-video-id';
+		slotLabel.textContent = `Control ${index + 1}`;
+
+		const selectWrapper = document.createElement('div');
+		selectWrapper.className = 'select-wrapper';
+
+		const select = document.createElement('select');
+		select.setAttribute('data-native-top-control', String(index));
+
+		options.forEach((opt) => {
+			const option = document.createElement('option');
+			option.value = opt.value;
+			option.textContent = opt.label;
+			select.appendChild(option);
+		});
+
+		select.value = typeof actionId === 'string' ? actionId : 'none';
+
+		selectWrapper.appendChild(select);
+		slotInfo.appendChild(slotLabel);
+		slotInfo.appendChild(selectWrapper);
+
+		const removeButton = document.createElement('button');
+		removeButton.className = 'blacklisted-video-remove';
+		removeButton.textContent = '✕';
+		removeButton.setAttribute('aria-label', `Remove control ${index + 1}`);
+		removeButton.setAttribute('title', `Remove control ${index + 1}`);
+		removeButton.addEventListener('click', () => {
+			const current = readNativeTopControlsFromUI() || [];
+			current.splice(index, 1);
+			renderNativeTopControls(current);
+			save_options();
+		});
+
+		slotItem.appendChild(slotInfo);
+		slotItem.appendChild(removeButton);
+		list.appendChild(slotItem);
+	});
+}
+
+let nativeTopControlsEditorInitialized = false;
+function initNativeTopControlsEditor(slots) {
+	const addButton = document.getElementById('add-native-top-control');
+	const clearButton = document.getElementById('clear-native-top-controls');
+	const list = document.getElementById('native-top-controls-list');
+	if (!list) return;
+
+	if (!nativeTopControlsEditorInitialized) {
+		list.addEventListener('change', (e) => {
+			if (e.target && e.target.matches('select[data-native-top-control]')) {
+				save_options();
+			}
+		});
+		if (addButton) {
+			addButton.addEventListener('click', () => {
+				const current = readNativeTopControlsFromUI() || [];
+				current.push('none');
+				renderNativeTopControls(current);
+				save_options();
+			});
+		}
+		if (clearButton) {
+			clearButton.addEventListener('click', () => {
+				const confirmed = confirm(
+					'Are you sure you want to clear all additional native top controls?'
+				);
+				if (!confirmed) return;
+				renderNativeTopControls([]);
+				save_options();
+			});
+		}
+		nativeTopControlsEditorInitialized = true;
+	}
+
+	renderNativeTopControls(Array.isArray(slots) ? slots : []);
+}
+
 const BOTTOM_CONTROL_SLOT_SPECS = [
 	{
 		label: 'Left Slot 1',
@@ -875,6 +1114,12 @@ const BOTTOM_CONTROL_ACTION_ICON_SVGS = {
 	'limited-height-fab': {
 		viewBox: '0 0 24 24',
 		paths: ['M3 18h18v-2H3v2z', 'M3 13h18v-2H3v2z', 'M3 8h18V6H3z'],
+	},
+	'toggle-drawer': {
+		viewBox: '0 0 24 24',
+		paths: [
+			'M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V6h14v12z',
+		],
 	},
 };
 
@@ -1111,7 +1356,17 @@ function save_options() {
 		const element = document.getElementById(key);
 		if (element) {
 			if (element.type === 'checkbox') {
-				settingsToSave[key] = element.checked;
+				if (key === 'autoPlayPreference') {
+					settingsToSave[key] = element.checked ? 'attemptUnmuted' : 'default';
+				} else {
+					settingsToSave[key] = element.checked;
+				}
+			} else if (key === 'repeatStickyAcrossVideos') {
+				settingsToSave[key] = element.value;
+			} else if (key === 'enableFixedVideoHeight') {
+				const increments = element.dataset.increments.split(',').map((v) => parseInt(v));
+				const index = parseInt(element.value);
+				settingsToSave[key] = increments[index] ?? 30;
 			} else if (key === 'customPlayerFontMultiplier') {
 				const increments = element.dataset.increments.split(',').map(parseFloat);
 				const index = parseInt(element.value);
@@ -1135,6 +1390,16 @@ function save_options() {
 	const navbarRightSlots = readNavbarRightSlotsFromUI();
 	if (navbarRightSlots) {
 		settingsToSave.navbarRightSlots = navbarRightSlots;
+	}
+
+	const additionalNativeControls = readNativeControlsFromUI();
+	if (additionalNativeControls) {
+		settingsToSave.additionalNativeControls = additionalNativeControls;
+	}
+
+	const additionalNativeTopControls = readNativeTopControlsFromUI();
+	if (additionalNativeTopControls) {
+		settingsToSave.additionalNativeTopControls = additionalNativeTopControls;
 	}
 
 	const storageApi = typeof browser !== 'undefined' ? browser.storage : chrome.storage;
@@ -1191,8 +1456,29 @@ async function restore_options() {
 	for (const key in items) {
 		const element = document.getElementById(key);
 		if (element) {
-			if (element.type === 'checkbox') {
-				element.checked = items[key];
+			if (key === 'repeatStickyAcrossVideos') {
+				const raw = items[key];
+				let val;
+				if (typeof raw === 'boolean') {
+					val = raw ? 'always-sticky' : 'always-single';
+				} else if (typeof raw === 'string') {
+					val = raw || 'always-single';
+				} else {
+					val = 'always-single';
+				}
+				element.value = val;
+			} else if (key === 'enableFixedVideoHeight') {
+				const increments = element.dataset.increments.split(',').map((v) => parseInt(v));
+				const raw = items[key];
+				const value = typeof raw === 'number' ? raw : raw === true ? 30 : 0;
+				const index = increments.indexOf(value);
+				element.value = index !== -1 ? String(index) : '3';
+			} else if (element.type === 'checkbox') {
+				if (key === 'autoPlayPreference') {
+					element.checked = items[key] === 'attemptUnmuted';
+				} else {
+					element.checked = items[key];
+				}
 				console.log(
 					'Set checkbox',
 					key,
@@ -1216,6 +1502,8 @@ async function restore_options() {
 	}
 
 	initNavbarRightSlotsEditor(items.navbarRightSlots);
+	initNativeControlsEditor(items.additionalNativeControls);
+	initNativeTopControlsEditor(items.additionalNativeTopControls);
 	initBottomControlsActionsEditor();
 
 	const fontSlider = document.getElementById('customPlayerFontMultiplier');
@@ -2011,7 +2299,19 @@ async function initKnownIssuesSection() {
 	const container = document.getElementById('known-issues-content');
 	if (!container) return;
 
-	const formatInline = (text) => text.replace(/`([^`]+)`/g, '<code>$1</code>');
+	const appendInlineText = (target, text) => {
+		const parts = text.split('`');
+		parts.forEach((part, index) => {
+			if (!part) return;
+			if (index % 2 === 1) {
+				const code = document.createElement('code');
+				code.textContent = part;
+				target.appendChild(code);
+				return;
+			}
+			target.appendChild(document.createTextNode(part));
+		});
+	};
 	const parseMarkdown = (markdown) => {
 		const items = [];
 		let current = '';
@@ -2045,8 +2345,8 @@ async function initKnownIssuesSection() {
 			throw new Error(`HTTP error! status: ${response.status}`);
 		}
 		const markdown = await response.text();
-		const items = parseMarkdown(markdown).map(formatInline);
-		container.innerHTML = '';
+		const items = parseMarkdown(markdown);
+		container.replaceChildren();
 		if (!items.length) {
 			const empty = document.createElement('div');
 			empty.className = 'known-issues-empty';
@@ -2058,13 +2358,13 @@ async function initKnownIssuesSection() {
 		list.className = 'known-issues-list';
 		items.forEach((item) => {
 			const li = document.createElement('li');
-			li.innerHTML = item;
+			appendInlineText(li, item);
 			list.appendChild(li);
 		});
 		container.appendChild(list);
 	} catch (error) {
 		console.error('Error fetching known issues:', error);
-		container.innerHTML = '';
+		container.replaceChildren();
 		const empty = document.createElement('div');
 		empty.className = 'known-issues-empty';
 		empty.textContent = 'Failed to load notices. Please try again later.';
@@ -2186,18 +2486,15 @@ function initDonorsSection() {
 				if (!dataRows.length) {
 					const pElement = document.createElement('p');
 					pElement.textContent = 'No supporters found yet.';
-					donorsList.innerHTML = '';
-					donorsList.appendChild(pElement);
+					donorsList.replaceChildren(pElement);
 					return;
 				}
-				donorsList.innerHTML = ''; // Clear existing content
-				donorsList.appendChild(table);
+				donorsList.replaceChildren(table);
 			} catch (error) {
 				console.error('Error fetching donors:', error);
 				const pElement = document.createElement('p');
 				pElement.textContent = 'Failed to load donors. Please try again later.';
-				donorsList.innerHTML = ''; // Clear existing content
-				donorsList.appendChild(pElement);
+				donorsList.replaceChildren(pElement);
 			}
 		}
 	});

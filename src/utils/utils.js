@@ -1341,3 +1341,82 @@ const StringUtils = {
 		return title.replace(/^mix\s*[-–—]\s*/i, '');
 	},
 };
+
+const ActionUtils = {
+	getSeekSkipSeconds: (inst) => {
+		const secs = Number(inst?.options?.seekSkipSeconds);
+		return Number.isFinite(secs) && secs > 0 ? secs : 10;
+	},
+	performSeek: (dir, step) => {
+		const video = DOMHelper.findVideoElement();
+		if (!video || typeof video.currentTime !== 'number' || isNaN(video.duration)) return;
+		const newTime = Math.max(0, Math.min(video.duration, video.currentTime + dir * step));
+		video.currentTime = newTime;
+		if (window.ytPlayerInstance && window.ytPlayerInstance.isPlayerVisible) {
+			window.ytPlayerInstance.setCurrentTime(video.currentTime, video.duration, true);
+		}
+	},
+	performAction: (actionId) => {
+		const inst = window.ytPlayerInstance;
+		switch (actionId) {
+			case 'previous':
+			case 'restart-then-previous':
+				inst?.options?.callbacks?.onPreviousClick?.(actionId);
+				return;
+			case 'skip':
+				inst?.options?.callbacks?.onSkipClick?.();
+				return;
+			case 'seek-back':
+				inst?.options?.callbacks?.onGestureSeek?.(-ActionUtils.getSeekSkipSeconds(inst));
+				return;
+			case 'seek-forward':
+				inst?.options?.callbacks?.onGestureSeek?.(ActionUtils.getSeekSkipSeconds(inst));
+				return;
+			case 'repeat':
+				const next = !window.userSettings.repeatCurrentlyOn;
+				inst?.options?.callbacks?.onRepeatClick?.(next);
+				return;
+			case 'text-search':
+			case 'voice-search':
+			case 'favourites':
+			case 'video-toggle':
+			case 'toggle-drawer':
+			case 'debug-logs':
+				if (window.customNavbar && typeof window.customNavbar.handleAction === 'function') {
+					window.customNavbar.handleAction(actionId);
+				} else if (typeof window.YTCustomNavbar === 'function') {
+					const dummy = new window.YTCustomNavbar({ headless: true });
+					try {
+						dummy.handleAction?.(actionId);
+					} finally {
+						dummy.destroy?.();
+					}
+				}
+				return;
+		}
+	},
+	startSeekHold: (dir, onStep) => {
+		const HOLD_TRIGGER_DELAY = 350;
+		const HOLD_REPEAT_INTERVAL = 160;
+		const HOLD_REPEAT_SEEK_STEP = 2;
+		let t = null;
+		let i = null;
+		const stop = () => {
+			if (t) {
+				clearTimeout(t);
+				t = null;
+			}
+			if (i) {
+				clearInterval(i);
+				i = null;
+			}
+		};
+		const start = () => {
+			stop();
+			t = setTimeout(() => {
+				i = setInterval(() => onStep(dir * HOLD_REPEAT_SEEK_STEP), HOLD_REPEAT_INTERVAL);
+			}, HOLD_TRIGGER_DELAY);
+		};
+		return { start, stop };
+	},
+};
