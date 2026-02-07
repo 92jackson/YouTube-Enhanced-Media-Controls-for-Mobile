@@ -1399,7 +1399,7 @@ async function _handleStandardPrevious() {
 async function _handleRestartCurrent() {
 	const videoElement = DOMHelper.findVideoElement();
 	if (videoElement) {
-		videoElement.currentTime = 1; // Restart from 1s - not 0s to avoid SponsorBlock breaking feature
+		videoElement.currentTime = 0;
 		if (ytPlayerInstance && ytPlayerInstance.isPlayerVisible) {
 			ytPlayerInstance.setCurrentTime(videoElement.currentTime, videoElement.duration, true);
 		}
@@ -4028,7 +4028,11 @@ function initializeEventListenersAndObservers() {
 				if (nextUpVideoId && PageUtils.isVideoWatchPage()) {
 					const currentVideoId = PageUtils.getCurrentVideoIdFromUrl();
 					// Only trigger if we're not already on the next video
-					if (currentVideoId !== nextUpVideoId) {
+
+					// THIS IS TEMP DISABLED TO ENSURE ISSUE WITH INCORRECT
+					// REDIRECTING WHEN STICKY REPEAT IS RESOLVED
+					// ..not sure why I didnt just comment it out, but 1 will never be 2 🤪
+					if (currentVideoId !== nextUpVideoId && 1 == 2) {
 						logger.log(
 							'Manager',
 							`URL changed detected, checking for custom next video. Current: ${currentVideoId}, Next queued: ${nextUpVideoId}`

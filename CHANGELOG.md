@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.1] - 2026-02-07
+
+### Fixed
+
+- (Hopefully) Fixed issue with incorrect redirecting when Sticky Repeat is enabled and a new video is manually started from the search results.
+
 ## [3.2.0] - 2026-02-07
 
 ### Added
