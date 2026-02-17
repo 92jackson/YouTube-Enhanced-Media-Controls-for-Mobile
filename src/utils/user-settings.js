@@ -5,7 +5,7 @@
  *              are not found in storage. They are overridden by stored settings
  *              upon successful loading.
  */
-const defaultNavbarRightSlots = ['debug-logs', 'favourites', 'text-search'];
+const defaultNavbarRightSlots = ['debug-logs', 'favourites', 'custom-search'];
 
 window.userSettings = {
 	lastKnownVersion: '0.0.0',
@@ -102,9 +102,11 @@ window.userSettings = {
 	activeMixSnapshotId: null,
 	tempMixSnapshot: null,
 	snapshotSplashMode: 'spinner',
+	splashScreenMode: 'default',
 	enableMediaSessionHandlers: true,
 	alwaysHideDesktopBanner: false,
-	spoofUserAgent: false,
+	applyNativeElementStylingFixes: true,
+	spoofUserAgentWhenCrossPlatform: true,
 	autoSkipAds: false,
 	layoutDrawerHeaderSlot1: 'focus-current',
 	layoutDrawerHeaderSlot2: 'shuffle-toggle',
@@ -249,6 +251,7 @@ const navbarRightAllowedActions = new Set([
 	'seek-forward',
 	'repeat',
 	'text-search',
+	'custom-search',
 	'voice-search',
 	'favourites',
 	'video-toggle',
@@ -286,6 +289,7 @@ for (const key in layoutAllowedValues) {
 }
 
 const snapshotSplashModeAllowedValues = new Set(['standard', 'spinner', 'none']);
+const splashScreenModeAllowedValues = new Set(['default', 'theme', 'disabled']);
 
 function sanitizeUserSettingValue(key, value) {
 	if (lockedSettingValues[key]) {
@@ -294,6 +298,10 @@ function sanitizeUserSettingValue(key, value) {
 	if (key === 'snapshotSplashMode') {
 		const strValue = typeof value === 'string' ? value : defaultUserSettings[key];
 		return snapshotSplashModeAllowedValues.has(strValue) ? strValue : defaultUserSettings[key];
+	}
+	if (key === 'splashScreenMode') {
+		const strValue = typeof value === 'string' ? value : defaultUserSettings[key];
+		return splashScreenModeAllowedValues.has(strValue) ? strValue : defaultUserSettings[key];
 	}
 	if (key === 'navbarRightSlots') {
 		if (!Array.isArray(value)) return defaultUserSettings[key].slice();
@@ -442,6 +450,10 @@ window.loadUserSettings = async function () {
 			window.userSettings.snapshotSplashMode = sanitizeUserSettingValue(
 				'snapshotSplashMode',
 				window.userSettings.snapshotSplashMode
+			);
+			window.userSettings.splashScreenMode = sanitizeUserSettingValue(
+				'splashScreenMode',
+				window.userSettings.splashScreenMode
 			);
 			window.userSettings.navbarRightSlots = sanitizeUserSettingValue(
 				'navbarRightSlots',
@@ -661,6 +673,11 @@ window.loadUserSettings = async function () {
 							defaultUserSettings.snapshotSplashMode
 					)
 				);
+				const splashMode = String(
+					window.userSettings.splashScreenMode || defaultUserSettings.splashScreenMode
+				);
+				window.sessionStorage?.setItem('mc_splashMode', splashMode);
+				window.localStorage?.setItem('mc_splashMode', splashMode);
 			} catch (error) {
 				void error;
 			}
@@ -729,6 +746,15 @@ window.saveUserSetting = async function (key, value) {
 		if (key === 'snapshotSplashMode') {
 			try {
 				window.sessionStorage?.setItem('mc_snapshotSplashMode', String(value));
+			} catch (error) {
+				void error;
+			}
+		}
+		if (key === 'splashScreenMode') {
+			try {
+				const strValue = String(value);
+				window.sessionStorage?.setItem('mc_splashMode', strValue);
+				window.localStorage?.setItem('mc_splashMode', strValue);
 			} catch (error) {
 				void error;
 			}

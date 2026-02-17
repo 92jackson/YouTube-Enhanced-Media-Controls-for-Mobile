@@ -1617,6 +1617,17 @@ System displays temporary NEW badge automatically.
 						</div>
 						<div class="description">Sets the browser's UI color (Kiwi only 😢)</div>
 					</div>
+					<div class="setting-item select-item" data-added-version="4.0.0">
+						<div class="toggle-label-main"><div class="toggle-label-text" id="splashScreenMode-label">Splash Screen</div></div>
+						<div class="select-wrapper">
+							<select id="splashScreenMode" aria-labelledby="splashScreenMode-label">
+								<option value="default">Default</option>
+								<option value="theme">Match Theme Colors</option>
+								<option value="disabled">Disable</option>
+							</select>
+						</div>
+						<div class="description">Controls the inital page-load splash screen.</div>
+					</div>
 					<div class="setting-item select-item" data-added-version="2.1.0">
 						<div class="toggle-label-main"><div class="toggle-label-text" id="playerTimeDisplayMode-label">Play Time Display Mode</div></div>
 						<div class="select-wrapper">
@@ -1898,7 +1909,7 @@ System displays temporary NEW badge automatically.
 								<span class="switch-slider"></span>
 							</label>
 						</div>
-						<div class="setting-item" style="pointer-events: none;" data-added-version="3.0.0">
+						<div class="setting-item" style="pointer-events: none;" data-added-version="4.0.0">
 							<div class="toggle-label-group">
 								<div class="toggle-label-main"><div class="toggle-label-text">Navbar Right Controls Layout</div></div>
 								<div class="toggle-label-description">Choose what each right-side slot shows. Duplicates are ignored.</div>
@@ -1919,7 +1930,7 @@ System displays temporary NEW badge automatically.
 						<div class="setting-item" style="pointer-events: none;">
 							<div class="toggle-label-group" data-badges="experimental">
 								<div class="toggle-label-main"><div class="toggle-label-text">Navbar Links</div></div>
-								<div class="toggle-label-description">These links depend on corresponding chips being available in the YouTube home top menu (these chips are dynamic and not available for all).</div>
+								<div class="toggle-label-description">These links depend on corresponding chips being available in the YouTube home top menu (these chips are dynamic and not available for all). <b>THESE DO NOT CURRENTLY WORK ON THE DESKTOP SITE.</b></div>
 							</div>
 						</div>
 						<fieldset>
@@ -2629,6 +2640,30 @@ System displays temporary NEW badge automatically.
 							</label>
 						</div>
 					</div>
+					<div class="setting-item toggle-item toggle-item--full" data-added-version="4.0.0">
+						<div class="toggle-label-group" data-target-id="spoofUserAgentWhenCrossPlatform">
+							<div class="toggle-label-main"><div class="toggle-label-text" id="spoofUserAgentWhenCrossPlatform-label">Prevent YouTube Forcing Mobile/Desktop Site</div></div>
+						</div>
+						<div class="toggle-subrow">
+							<div class="toggle-label-description">Prevents YouTube redirecting you between m.youtube.com and youtube.com by spoofing a compatible User-Agent for the site you're attempting to load. If disabled and you attempt to visit the desktop site from your mobile device, YouTube will redirect you back to m.youtube (vice versa).</div>
+							<label class="toggle-switch">
+								<input type="checkbox" id="spoofUserAgentWhenCrossPlatform" aria-labelledby="spoofUserAgentWhenCrossPlatform-label">
+								<span class="switch-slider"></span>
+							</label>
+						</div>
+					</div>
+					<div class="setting-item toggle-item toggle-item--full" data-added-version="4.0.0">
+						<div class="toggle-label-group" data-target-id="applyNativeElementStylingFixes">
+							<div class="toggle-label-main"><div class="toggle-label-text" id="applyNativeElementStylingFixes-label">Native Element Styling Fixes</div></div>
+						</div>
+						<div class="toggle-subrow">
+							<div class="toggle-label-description">Applies subtle fixes and optimisations to the styling of some native elements.</div>
+							<label class="toggle-switch">
+								<input type="checkbox" id="applyNativeElementStylingFixes" aria-labelledby="applyNativeElementStylingFixes-label">
+								<span class="switch-slider"></span>
+							</label>
+						</div>
+					</div>
 					<div class="setting-item toggle-item toggle-item--full">
 						<div class="toggle-label-group" data-target-id="autoClickContinueWatching">
 							<div class="toggle-label-main"><div class="toggle-label-text" id="autoClickContinueWatching-label">Auto-dismiss Interruptions</div></div>
@@ -2655,11 +2690,12 @@ System displays temporary NEW badge automatically.
 					</div>
 					<div class="setting-item toggle-item toggle-item--full">
 						<div class="toggle-label-group" data-target-id="allowBackgroundPlay">
-							<div class="toggle-label-main"><div class="toggle-label-text" id="allowBackgroundPlay-label">Background Playback</div></div>
+							<div class="toggle-label-main"><div class="toggle-label-text" id="allowBackgroundPlay-label">Background Playback (Intentionally Broken by YouTube for m.youtube.com!)</div></div>
 						</div>
 						<div class="toggle-subrow">
 							<div class="toggle-label-description">Keeps YouTube playing while using other tabs, apps, or with the screen off.
-								<i>Note: Most browsers may still pause the video, but you can resume playback from your notification controls.</i></div>
+								<i>Note: Most browsers may still pause the video, but you can resume playback from your notification controls.</i><br>
+								<b>UPDATE FOR VER 4.0.0: Use the YouTube desktop site for background playback (youtube.com, not m.youtube.com).</b></div>
 							<label class="toggle-switch">
 								<input type="checkbox" id="allowBackgroundPlay" aria-labelledby="allowBackgroundPlay-label">
 								<span class="switch-slider"></span>

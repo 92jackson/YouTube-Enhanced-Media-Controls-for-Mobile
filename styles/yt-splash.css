@@ -24,9 +24,26 @@ html.yt-pageload body {
 	background-color: var(--yt-player-bg-primary, #ffffff);
 }
 
+#splash-screen.splash--theme {
+	background-color: var(--yt-player-bg-primary, #ffffff);
+}
+
 #splash-screen img {
 	max-width: 150px;
 	max-height: 150px;
+	animation: pulse 1s ease-in-out infinite;
+}
+
+#splash-screen .splash-icon {
+	width: 150px;
+	height: 150px;
+	background-color: var(--yt-player-text-primary, #111111);
+	-webkit-mask-size: contain;
+	-webkit-mask-repeat: no-repeat;
+	-webkit-mask-position: center;
+	mask-size: contain;
+	mask-repeat: no-repeat;
+	mask-position: center;
 	animation: pulse 1s ease-in-out infinite;
 }
 

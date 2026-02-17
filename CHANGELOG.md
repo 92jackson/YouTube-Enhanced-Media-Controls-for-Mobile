@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.0.0] - 2026-02-17
+
+### Added
+
+- **Support for YouTube Desktop Site - EXPERIMENTAL** - Added support for the desktop site of YouTube, now you can use the extension on the desktop site as well as the mobile site. Using the desktop site will re-allow background playback (youtube.com rather than m.youtube.com).
+- **Spoof User-Agent** - Option to spoof the User-Agent to prevent YouTube redirecting when accessing the desktop site on mobile, or when accessing the mobile site on desktop.
+- **Match Splashscreen Colours to Theme** - Option to match the colours of the splashscreen to the selected player theme, or hide it completely.
+
+### Changes
+
+- Subtle changes to styling of drawer header toggles.
+
+### Fixed
+
+- Restart then Previous button - was always jumping to the previous video rather than allowing the restart action.
+
 ## [3.2.1] - 2026-02-07
 
 ### Fixed

@@ -1,7 +1,7 @@
 ﻿{
 	"manifest_version": 3,
 	"name": "YouTube Enhanced Media Controls (for Mobile)",
-	"version": "3.2.1",
+	"version": "4.0.0",
 	"description": "Adds an enhanced player wrapper to the YouTube mobile site (m.youtube.com), adding greater accessibility and providing fixes.",
 	"permissions": ["storage", "declarativeNetRequestWithHostAccess", "downloads"],
 	"host_permissions": [
@@ -39,13 +39,17 @@
 	},
 	"content_scripts": [
 		{
-			"matches": ["*://m.youtube.com/*"],
+			"matches": ["*://*.youtube.com/*"],
 			"js": ["src/utils/utils.js", "src/utils/user-settings.js", "src/content/yt-splash.js"],
-			"css": ["styles/yt-splash.css", "styles/yt-media-player.css", "styles/yt-update-notification.css"],
+			"css": [
+				"styles/yt-splash.css",
+				"styles/yt-media-player.css",
+				"styles/yt-update-notification.css"
+			],
 			"run_at": "document_start"
 		},
 		{
-			"matches": ["*://m.youtube.com/*"],
+			"matches": ["*://*.youtube.com/*"],
 			"js": [
 				"src/content/yt-media-player.js",
 				"src/content/yt-navbar.js",
@@ -54,16 +58,6 @@
 				"src/content/update-notification.js",
 				"src/content/content.js"
 			],
-			"run_at": "document_idle"
-		},
-		{
-			"matches": ["*://www.youtube.com/*", "*://youtube.com/*"],
-			"js": [
-				"src/utils/utils.js",
-				"src/utils/user-settings.js",
-				"src/content/yt-desktop-banner.js"
-			],
-			"css": ["styles/yt-desktop-banner.css"],
 			"run_at": "document_idle"
 		}
 	],
@@ -83,92 +77,4 @@
 		}
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

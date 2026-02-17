@@ -1867,9 +1867,7 @@ class YTMediaPlayer {
 
 			if (isVideoPlayerHidden) {
 				// When video is hidden, use the metadata section height
-				const metadataElement = DOMUtils.getElement(
-					'ytm-slim-video-metadata-section-renderer'
-				);
+				const metadataElement = DOMUtils.getElement(CSS_SELECTORS.metadataSection);
 				logger.log('Measurements', `Metadata section element found: ${!!metadataElement}`);
 				if (metadataElement) {
 					const metadataRect = metadataElement.getBoundingClientRect();
@@ -2777,7 +2775,7 @@ class YTMediaPlayer {
 				this.scrollVelocity
 			}, direction=${this.scrollDirection}, safety=${isInSafetyZone}, hidden=${
 				this.isAutoHidden
-			}, container=${scrollContainer === window ? 'window' : '.watch-below-the-player'}`
+			}, container=${scrollContainer === window ? 'window' : 'watchBelowPlayer'}`
 		);
 
 		// Hide player when scrolling down with sufficient velocity - very low threshold
@@ -3088,10 +3086,10 @@ class YTMediaPlayer {
 			'.yt-drawer-close-button',
 			'.yt-drawer-loop-toggle-button',
 			'[data-action]',
-			'ytm-related-chip-cloud-renderer',
-			'.ytm-infocards-creator-custom-url-buttons',
-			'ytm-engagement-panel',
 			'yt-drawer-focus-current-button',
+			CSS_SELECTORS.chipCloudRenderer,
+			CSS_SELECTORS.infocardsCreatorCustomUrlButtons,
+			CSS_SELECTORS.playlistPanel,
 		];
 
 		for (const selector of interactiveSelectors) {
@@ -4788,20 +4786,16 @@ class YTMediaPlayer {
 					passive: true,
 				});
 
-				// Also listen for scroll events on .watch-below-the-player element if it exists
-				this.watchBelowPlayerElement = document.querySelector('.watch-below-the-player');
+				this.watchBelowPlayerElement = DOMUtils.getElement(CSS_SELECTORS.watchBelowPlayer);
 				if (this.watchBelowPlayerElement) {
 					this.watchBelowPlayerElement.addEventListener(
 						'scroll',
 						this._handleScrollThrottled_bound,
 						{ passive: true }
 					);
-					logger.log(
-						'AutoHide',
-						'Added scroll listener to .watch-below-the-player element'
-					);
+					logger.log('AutoHide', 'Added scroll listener to watch-below container');
 				} else {
-					logger.log('AutoHide', '.watch-below-the-player element not found');
+					logger.log('AutoHide', 'Watch-below container not found');
 				}
 				// Initialize scroll position - detect which container is scrollable
 				if (
@@ -6179,7 +6173,7 @@ class YTMediaPlayer {
 			// Listen for scroll events on body
 			window.addEventListener('scroll', this._handleScrollThrottled_bound, { passive: true });
 
-			// Also listen for scroll events on .watch-below-the-player element if it exists
+			// Also listen for scroll events on a dedicated scroll container if it exists
 			if (this.watchBelowPlayerElement) {
 				this.watchBelowPlayerElement.addEventListener(
 					'scroll',
@@ -6593,6 +6587,43 @@ class YTMediaPlayer {
 			if (element) {
 				// Update existing
 				element.classList.toggle('active', isActive);
+				const thumbnailEl = element.querySelector('.yt-playlist-item-thumbnail');
+				if (thumbnailEl) {
+					const thumb =
+						item.thumbnailUrl ||
+						(typeof browser !== 'undefined' ? browser : chrome).runtime.getURL(
+							'/assets/default_thumb.png'
+						);
+					const nextBg = `url('${thumb}')`;
+					if (thumbnailEl.style.backgroundImage !== nextBg) {
+						thumbnailEl.style.backgroundImage = nextBg;
+					}
+				}
+
+				const titleEl = element.querySelector('.yt-playlist-item-title');
+				if (titleEl) {
+					const titleText = item.title || 'Unknown Title';
+					if (titleEl.textContent !== titleText) titleEl.textContent = titleText;
+					if (titleEl.getAttribute('title') !== titleText) {
+						titleEl.setAttribute('title', titleText);
+					}
+				}
+
+				const artistEl = element.querySelector('.yt-playlist-item-artist');
+				if (artistEl) {
+					const artistText = item.artist || 'Unknown Artist';
+					if (artistEl.textContent !== artistText) artistEl.textContent = artistText;
+					if (artistEl.getAttribute('title') !== artistText) {
+						artistEl.setAttribute('title', artistText);
+					}
+				}
+
+				const durationEl = element.querySelector('.yt-playlist-item-duration');
+				if (durationEl) {
+					const durationText = item.duration || '0:00';
+					if (durationEl.textContent !== durationText)
+						durationEl.textContent = durationText;
+				}
 				if (this.playlistWrapper.children[visibleIndex] !== element) {
 					this.playlistWrapper.insertBefore(
 						element,

@@ -1,98 +1,4 @@
 // content.js
-/** @const {Object} Centralized CSS selectors used throughout the extension */
-const CSS_SELECTORS = {
-	// Video and player elements
-	videoElement: '#player-container-id video',
-	playerContainer: '#player-container-id',
-	moviePlayer: '#movie_player',
-	playPauseButton: 'button.player-control-play-pause-icon',
-	previousButton: 'button[aria-label="Previous video"]',
-	nextButton: 'button[aria-label="Next video"]',
-	largePlayButton: 'button.ytp-large-play-button',
-	unmuteButton: 'button.ytp-unmute',
-	adSkipButton: 'button.ytp-ad-skip-button-modern',
-	nativeControlsRight: '#player-control-overlay .player-controls-bottom-right',
-	nativeControlsTop: '#player-control-overlay .player-controls-top',
-
-	// Playlist elements
-	playlistPanel: 'ytm-engagement-panel .engagement-panel-playlist',
-	playlistContentWrapper:
-		'ytm-engagement-panel .engagement-panel-playlist .engagement-panel-content-wrapper',
-	playlistSpinner: 'ytm-section-list-renderer .spinner',
-	playlistItems: 'ytm-playlist-panel-video-renderer',
-	playlistItemLink: 'a[href*="/watch"]',
-	playlistTitle: [
-		'.playlist-engagement-panel-mix-title',
-		'.playlist-engagement-panel-list-title',
-	],
-	playlistItemHeadline: [
-		'.compact-media-item-headline span.yt-core-attributed-string',
-		'h4.YtmCompactMediaItemHeadline',
-	],
-	playlistItemByline: [
-		'.compact-media-item-byline span.yt-core-attributed-string',
-		'.YtmCompactMediaItemByline',
-	],
-	playlistItemDuration: ['.badge-shape-wiz__text', 'ytm-thumbnail-overlay-time-status-renderer'],
-	playlistCloseButton: 'ytm-button-renderer.icon-close button',
-	playlistEntryPointButton:
-		'ytm-playlist-panel-entry-point button[aria-label="Show playlist videos"]',
-	playlistSpinner: 'ytm-section-list-renderer .spinner',
-
-	// Video metadata elements
-	metadataSection: 'ytm-slim-video-metadata-section-renderer',
-	titleContainer: [
-		'ytm-slim-video-metadata-renderer',
-		'.slim-video-information-title-and-badges',
-	],
-	videoTitle: [
-		'ytm-slim-video-metadata-section-renderer .title',
-		'.slim-video-metadata-header h2',
-		'.slim-video-information-title',
-	],
-	videoAuthor: [
-		'ytm-slim-owner-renderer .ytm-channel-name',
-		'.slim-owner-channel-name',
-		'ytm-slim-video-metadata-renderer .byline-separated-item',
-		'.slim-owner-bidi-wrapper a',
-	],
-
-	mobileTopbar: 'ytm-mobile-topbar-renderer',
-	// Voice search elements
-	voiceSearchDialog: 'ytm-voice-search-dialog-renderer',
-	headerVoiceButton: 'button[aria-label="Search with your voice"]',
-	headerSearchButton: 'button.topbar-menu-button-avatar-button[aria-label="Search YouTube"]',
-	headerCloseSearchButton: 'ytm-mobile-topbar-renderer .mobile-topbar-back-arrow',
-	dialogMicButton: 'ytm-voice-search-dialog-renderer .voice-search-mic-container',
-	dialogCancelButton: 'ytm-voice-search-dialog-renderer button[aria-label*="Cancel"]',
-
-	// Search elements
-	searchSuggestions: '.yt-searchbox-suggestions-container',
-	resultsPageTextSearchButton: 'button.search-bar-text',
-	resultsItems: 'ytm-item-section-renderer ytm-video-with-context-renderer',
-	resultsFirstVideoAnchor: 'ytm-video-with-context-renderer a.media-item-thumbnail-container',
-
-	// Loading and buffering indicators
-	playerSpinner: '.player-controls-spinner .spinner',
-	mobileSpinner: 'ytm-spinner',
-
-	// Dialog and popup elements
-	dialogs: 'dialog',
-	shoppingPopup: ['.ytm-bottom-sheet-overlay-container', 'ytm-bottom-sheet-overlay-renderer'],
-	shoppingCloseButton: [
-		'.ytm-bottom-sheet-overlay-renderer-close button',
-		'.YtmBottomSheetOverlayRendererClose button',
-	],
-
-	pageContainerInert: '.page-container[inert]',
-	chipCloudRenderer: 'ytm-related-chip-cloud-renderer',
-
-	// Content filtering
-	contentSection: 'ytm-rich-section-renderer',
-	shortsTitle: 'h2.yt-shelf-header-layout__title',
-	playableTitle: 'h2.rich-shelf-title',
-};
-
 const NATIVE_CONTROL_ICONS = {
 	repeat: 'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z',
 	restart:
@@ -291,13 +197,28 @@ function _resolveSkipTarget(direction) {
 	if (direction !== 'backward' && nextUpVideoId && nextUpVideoId !== curId) {
 		return { id: nextUpVideoId, type: 'explicit' };
 	}
-	const snap = _getActiveSnapshot();
-	if (snap && curId) {
-		const id =
-			direction === 'backward'
-				? _getSnapshotPrevId(snap, curId)
-				: _getSnapshotNextId(snap, curId);
-		if (id) return { id, type: 'snapshot' };
+	const snapInfo = _getActiveSnapshotInfo();
+	if (snapInfo && curId) {
+		const { snap, snapType, activeMixId } = snapInfo;
+		if (snap.shuffleEnabled) {
+			const order = _ensureSnapshotShuffleOrder(snap, snapType, activeMixId, curId);
+			const idx = order.indexOf(curId);
+			let id = null;
+			if (direction === 'backward') {
+				id = idx > 0 ? order[idx - 1] : null;
+				if (!id && snap.loopEnabled) id = order[order.length - 1] || null;
+			} else {
+				id = idx >= 0 ? order[idx + 1] : order[0];
+				if (!id && snap.loopEnabled) id = order[0] || null;
+			}
+			if (id) return { id, type: 'snapshot' };
+		} else {
+			const id =
+				direction === 'backward'
+					? _getSnapshotPrevId(snap, curId)
+					: _getSnapshotNextId(snap, curId);
+			if (id) return { id, type: 'snapshot' };
+		}
 	}
 	const playlistId = _getAdjacentPlaylistId(direction);
 	if (playlistId) return { id: playlistId, type: 'playlist' };
@@ -347,6 +268,8 @@ let customControlsInitiatedPause = false;
 let shuffledAccentColors = [];
 /** @type {number} Index for the current color in `shuffledAccentColors`. */
 let currentAccentColorIndex = 0;
+let desktopWatchPanelToggleScheduled = false;
+let desktopWatchPanelToggleView = null;
 
 /** @type {boolean} Tracks if the video was playing before voice search was activated, to restore state. */
 let wasPlayingBeforeVoiceSearch = false;
@@ -961,6 +884,7 @@ function persistSplashThemeColors() {
 		const styles = window.getComputedStyle(document.body);
 		const bgPrimary = (styles.getPropertyValue('--yt-player-bg-primary') || '').trim();
 		const accentPrimary = (styles.getPropertyValue('--yt-player-accent-primary') || '').trim();
+		const textPrimary = (styles.getPropertyValue('--yt-player-text-primary') || '').trim();
 
 		let isLight = document.body.classList.contains('yt-theme-light');
 		if (document.body.classList.contains('yt-theme-system')) {
@@ -970,7 +894,7 @@ function persistSplashThemeColors() {
 			isLight = !isDark;
 		}
 
-		const payload = JSON.stringify({ bgPrimary, accentPrimary, isLight });
+		const payload = JSON.stringify({ bgPrimary, accentPrimary, textPrimary, isLight });
 		window.sessionStorage?.setItem('mc_splash_theme', payload);
 		window.localStorage?.setItem('mc_splash_theme', payload);
 	} catch (error) {
@@ -1439,13 +1363,12 @@ function _navigateToVideo(videoId) {
 async function _handleSmartPrevious() {
 	await handlePreemptiveYouTubeButtons();
 	logger.log('NativePlayer', '[Smart] Checking previous video button');
-	if (!handlePreviousWhenAdPlayingInPlaylist()) {
-		const videoElement = DOMHelper.findVideoElement();
-		const threshold = window.userSettings.smartPreviousThreshold || 5;
-		if (videoElement && videoElement.currentTime > threshold) {
-			_handleRestartCurrent();
-			return;
-		}
+	const videoElement = DOMHelper.findVideoElement();
+	const threshold = window.userSettings.smartPreviousThreshold || 5;
+	if (videoElement && videoElement.currentTime > threshold) {
+		_handleRestartCurrent();
+		return;
+	} else if (!handlePreviousWhenAdPlayingInPlaylist()) {
 		if (_attemptPreviousViaCustomPlaylist()) return;
 		DOMUtils.clickElement(CSS_SELECTORS.previousButton);
 		logger.log('NativePlayer', '[Smart] Previous video button clicked');
@@ -1662,6 +1585,10 @@ function customPlayer_onPlayPauseClick(requestedState, details) {
  * Handles previous button clicks in the custom player
  */
 function customPlayer_onPreviousClick(actionId) {
+	if (actionId === 'restart-then-previous') {
+		_handleSmartPrevious();
+		return;
+	}
 	native_handlePrevious(actionId);
 }
 
@@ -1932,49 +1859,18 @@ function playNextVideo(allowSkipWhileRepeating = false) {
 		}, 1000);
 		return true;
 	}
-	const explicitNextId = nextUpVideoId && nextUpVideoId !== currentVideoId ? nextUpVideoId : null;
-	if (explicitNextId) {
-		if (PageUtils.isPlaylistPage()) {
-			logger.log('PlayNext', `Honoring explicit next: ${explicitNextId}`);
-			customPlayer_onPlaylistItemClick(explicitNextId);
-		} else {
-			_navigateToVideo(explicitNextId);
-		}
+	const target = _resolveSkipTarget('forward');
+	if (target) {
+		_navigateForTarget(target);
 		return true;
 	}
-	const snapInfo = _getActiveSnapshotInfo();
-	if (snapInfo) {
-		const { snap, snapType, activeMixId } = snapInfo;
-		const items = snap.items || [];
-		if (items.length) {
-			const curId = PageUtils.getCurrentVideoIdFromUrl();
-			let nextItem = null;
-			if (snap.shuffleEnabled) {
-				const order = _ensureSnapshotShuffleOrder(snap, snapType, activeMixId, curId);
-				const idx = order.indexOf(curId);
-				const nextId = idx >= 0 ? order[idx + 1] : order[0];
-				nextItem = nextId ? items.find((it) => it.id === nextId) : null;
-				if (!nextItem && snap.loopEnabled) {
-					const firstId = order[0];
-					nextItem = firstId ? items.find((it) => it.id === firstId) : null;
-				}
-			} else {
-				const idx = items.findIndex((it) => it.id === curId);
-				nextItem = idx >= 0 ? items[idx + 1] : items[0];
-				if (!nextItem && snap.loopEnabled) {
-					nextItem = items[0];
-				}
-			}
-			if (nextItem?.id) {
-				nextUpVideoId = nextItem.id;
-				const fullUrl = `https://m.youtube.com/watch?v=${nextItem.id}`;
-				window.location.href = fullUrl;
-				return true;
-			}
-			if (!snap.loopEnabled) {
-				_stopPlaybackAtEnd();
-				return true;
-			}
+	const snap = _getActiveSnapshot();
+	const curId = PageUtils.getCurrentVideoIdFromUrl();
+	if (snap && curId && !snap.loopEnabled) {
+		const nextId = _getSnapshotNextId(snap, curId);
+		if (!nextId) {
+			_stopPlaybackAtEnd();
+			return true;
 		}
 	}
 	return false;
@@ -2238,7 +2134,7 @@ async function setupVoiceDialogStateObserver(voiceDialog) {
 			},
 			{
 				attributes: true,
-				attributeFilter: ['class'],
+				attributeFilter: ['class', 'state'],
 			},
 			'VoiceSearch'
 		);
@@ -2273,12 +2169,17 @@ function setVoiceSearchMicState(dialogMicButton) {
 	// Check for specific state classes
 	if (
 		micClasses.includes('voice-search-mic-state-listening') ||
-		micClasses.includes('voice-search-mic-state-speaking')
+		micClasses.includes('voice-search-mic-state-speaking') ||
+		dialogMicButton.getAttribute('state')?.includes('listening') ||
+		dialogMicButton.getAttribute('state')?.includes('speaking')
 	) {
 		ytPlayerInstance.setVoiceSearchState(window.VoiceState.LISTENING);
 		lastVoiceSearchMicState = window.VoiceState.LISTENING;
 		logger.log('VoiceSearch', "Set custom voice search state to 'listening'.");
-	} else if (micClasses.includes('voice-search-mic-state-try-again')) {
+	} else if (
+		micClasses.includes('voice-search-mic-state-try-again') ||
+		dialogMicButton.getAttribute('state')?.includes('try-again')
+	) {
 		ytPlayerInstance.setVoiceSearchState(window.VoiceState.FAILED);
 		lastVoiceSearchMicState = window.VoiceState.FAILED;
 		logger.log('VoiceSearch', "Set custom voice search state to 'failed'.");
@@ -3641,6 +3542,156 @@ function registerFeatures() {
 		},
 		logContext: 'Standalone - MediaSession',
 	});
+
+	featureManager.register('desktopWatchPanelsToggle', {
+		isEnabled: () =>
+			window.userSettings.applyNativeElementStylingFixes &&
+			PageUtils.isVideoWatchPage() &&
+			!window.location.hostname.startsWith('m.'),
+		initialize: () => {
+			_desktopWatchPanelsToggleEnsure();
+			if (!featureManager.observerManager.get('desktopWatchPanelsToggle')) {
+				featureManager.observerManager.create(
+					'desktopWatchPanelsToggle',
+					document.body,
+					() => {
+						if (desktopWatchPanelToggleScheduled) return;
+						desktopWatchPanelToggleScheduled = true;
+						setTimeout(() => {
+							desktopWatchPanelToggleScheduled = false;
+							_desktopWatchPanelsToggleEnsure();
+						}, 100);
+					},
+					{ childList: true, subtree: true },
+					'NativeStyleFixes'
+				);
+			}
+		},
+		cleanup: () => {
+			featureManager.observerManager.disconnect('desktopWatchPanelsToggle');
+			_desktopWatchPanelsToggleCleanup();
+		},
+		logContext: 'NativeStyleFixes - DesktopWatchPanelsToggle',
+	});
+}
+
+function _desktopWatchPanelsToggleEnsure() {
+	if (
+		!window.userSettings.applyNativeElementStylingFixes ||
+		!PageUtils.isVideoWatchPage() ||
+		window.location.hostname.startsWith('m.')
+	) {
+		_desktopWatchPanelsToggleCleanup();
+		return;
+	}
+
+	const related = DOMUtils.getElement(CSS_SELECTORS.relatedSection);
+	if (!related) return;
+
+	document.body.classList.add('yt-desktop-watch-panels-toggle-active');
+
+	const comments = DOMUtils.getElement(CSS_SELECTORS.commentsSection);
+	const existingToggle = document.getElementById('ytemc-desktop-watch-panels-toggle');
+	const toggle = existingToggle || _desktopWatchPanelsToggleCreateElement(!!comments);
+
+	if (!existingToggle || toggle.nextSibling !== related) {
+		related.parentNode.insertBefore(toggle, related);
+	}
+
+	_desktopWatchPanelsToggleSync(toggle, related, comments);
+}
+
+function _desktopWatchPanelsToggleCreateElement(hasComments) {
+	const root = document.createElement('div');
+	root.id = 'ytemc-desktop-watch-panels-toggle';
+
+	const relatedBtn = document.createElement('button');
+	relatedBtn.type = 'button';
+	relatedBtn.dataset.panel = 'related';
+	relatedBtn.textContent = 'Related';
+
+	const commentsBtn = document.createElement('button');
+	commentsBtn.type = 'button';
+	commentsBtn.dataset.panel = 'comments';
+	commentsBtn.textContent = 'Comments';
+	commentsBtn.disabled = !hasComments;
+
+	root.appendChild(relatedBtn);
+	root.appendChild(commentsBtn);
+
+	root.addEventListener('click', (e) => {
+		const btn = e.target?.closest?.('button');
+		if (!btn || btn.disabled) return;
+		const panel = btn.dataset.panel;
+		if (panel !== 'related' && panel !== 'comments') return;
+		_desktopWatchPanelsToggleSetView(panel);
+		_desktopWatchPanelsToggleEnsure();
+	});
+
+	return root;
+}
+
+function _desktopWatchPanelsToggleSetView(view) {
+	desktopWatchPanelToggleView = view;
+	try {
+		window.sessionStorage?.setItem('ytemc_desktop_watch_panel_view', view);
+	} catch (error) {
+		void error;
+	}
+}
+
+function _desktopWatchPanelsToggleGetView() {
+	if (desktopWatchPanelToggleView === 'related' || desktopWatchPanelToggleView === 'comments') {
+		return desktopWatchPanelToggleView;
+	}
+	let stored = null;
+	try {
+		stored = window.sessionStorage?.getItem('ytemc_desktop_watch_panel_view') || null;
+	} catch (error) {
+		void error;
+	}
+	desktopWatchPanelToggleView = stored === 'comments' ? 'comments' : 'related';
+	return desktopWatchPanelToggleView;
+}
+
+function _desktopWatchPanelsToggleSync(toggleEl, relatedEl, commentsEl) {
+	const view = _desktopWatchPanelsToggleGetView();
+
+	const relatedBtn = toggleEl.querySelector('button[data-panel="related"]');
+	const commentsBtn = toggleEl.querySelector('button[data-panel="comments"]');
+
+	if (commentsBtn) commentsBtn.disabled = !commentsEl;
+
+	let effectiveView = view === 'comments' && !commentsEl ? 'related' : view;
+	if (effectiveView !== view) {
+		_desktopWatchPanelsToggleSetView(effectiveView);
+	}
+
+	if (relatedBtn) relatedBtn.setAttribute('aria-pressed', effectiveView === 'related');
+	if (commentsBtn) commentsBtn.setAttribute('aria-pressed', effectiveView === 'comments');
+
+	document.body.classList.remove(
+		'yt-desktop-watch-panels-view-related',
+		'yt-desktop-watch-panels-view-comments'
+	);
+	document.body.classList.add(
+		effectiveView === 'comments'
+			? 'yt-desktop-watch-panels-view-comments'
+			: 'yt-desktop-watch-panels-view-related'
+	);
+}
+
+function _desktopWatchPanelsToggleCleanup() {
+	const toggle = document.getElementById('ytemc-desktop-watch-panels-toggle');
+	if (toggle) toggle.remove();
+
+	if (document.body) {
+		document.body.classList.remove(
+			'yt-desktop-watch-panels-toggle-active',
+			'yt-desktop-watch-panels-view-related',
+			'yt-desktop-watch-panels-view-comments'
+		);
+	}
 }
 
 /**
@@ -3958,10 +4009,19 @@ async function manageFeatures() {
 	logger.log('Manager', 'Managing features based on settings...', window.userSettings);
 
 	// Update body classes
+	const siteVariant =
+		typeof window.Selectors?.getVariant === 'function'
+			? window.Selectors.getVariant()
+			: window.location.hostname.startsWith('m.')
+				? 'mobile'
+				: 'desktop';
 	const bodyClasses = {
 		'yt-custom-playlist-active':
 			window.userSettings.enableCustomPlayer &&
 			window.userSettings.customPlaylistMode !== 'disabled',
+		'yt-mobile': siteVariant === 'mobile',
+		'yt-desktop': siteVariant === 'desktop',
+		'yt-native-style-fixes-active': window.userSettings.applyNativeElementStylingFixes,
 		'yt-auto-continue-active': window.userSettings.autoClickContinueWatching,
 		'yt-custom-voice-search-active':
 			window.userSettings.enableCustomPlayer && isVoiceSearchEnabledByLayout(),

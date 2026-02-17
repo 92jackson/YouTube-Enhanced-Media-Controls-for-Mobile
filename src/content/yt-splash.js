@@ -26,6 +26,27 @@
 		return;
 	}
 
+	let splashScreenMode = 'default';
+	try {
+		const fromSession = window.sessionStorage?.getItem('mc_splashMode');
+		const fromLocal = fromSession ? null : window.localStorage?.getItem('mc_splashMode');
+		const raw = (fromSession || fromLocal || '').trim();
+		if (raw) splashScreenMode = raw;
+	} catch (error) {
+		void error;
+	}
+	if (
+		splashScreenMode !== 'default' &&
+		splashScreenMode !== 'theme' &&
+		splashScreenMode !== 'disabled'
+	) {
+		splashScreenMode = 'default';
+	}
+
+	if (!isSnapshotNavigation && splashScreenMode === 'disabled') {
+		return;
+	}
+
 	let theme = null;
 	try {
 		const fromSession = window.sessionStorage?.getItem('mc_splash_theme');
@@ -36,6 +57,9 @@
 		void error;
 		theme = null;
 	}
+
+	const runtimeApi = typeof browser !== 'undefined' ? browser : chrome;
+	const splashAssetUrl = runtimeApi.runtime.getURL('/assets/splash.png');
 
 	const splash = document.createElement('div');
 	splash.id = 'splash-screen';
@@ -57,11 +81,30 @@
 		}
 		splash.appendChild(spinner);
 	} else {
-		const logo = document.createElement('img');
-		logo.src = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL(
-			'/assets/splash.png'
-		);
-		splash.appendChild(logo);
+		const shouldUseThemeMode = !isSnapshotNavigation && splashScreenMode === 'theme';
+		if (shouldUseThemeMode) {
+			splash.classList.add('splash--theme');
+			if (theme && theme.bgPrimary) {
+				splash.style.backgroundColor = theme.bgPrimary;
+			}
+
+			const icon = document.createElement('div');
+			icon.className = 'splash-icon';
+			icon.style.webkitMaskImage = `url("${splashAssetUrl}")`;
+			icon.style.maskImage = `url("${splashAssetUrl}")`;
+			if (theme && theme.textPrimary) {
+				icon.style.backgroundColor = theme.textPrimary;
+			} else if (theme && theme.isLight) {
+				icon.style.backgroundColor = '#111111';
+			} else if (theme && theme.isLight === false) {
+				icon.style.backgroundColor = '#ffffff';
+			}
+			splash.appendChild(icon);
+		} else {
+			const logo = document.createElement('img');
+			logo.src = splashAssetUrl;
+			splash.appendChild(logo);
+		}
 	}
 
 	document.documentElement.appendChild(splash);

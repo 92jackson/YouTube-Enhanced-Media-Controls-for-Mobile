@@ -29,6 +29,8 @@ class YTCustomNavbar {
 		this.currentActivePage = null;
 		this.chipObserverRetryCount = 0;
 		this.maxChipObserverRetries = 3;
+		this.customSearchOverlay = null;
+		this.customSearchInput = null;
 
 		this._bindMethods();
 
@@ -53,12 +55,15 @@ class YTCustomNavbar {
 		this._handleLiveClick = this._handleLiveClick.bind(this);
 		this._handleMusicClick = this._handleMusicClick.bind(this);
 		this._handleTextSearchClick = this._handleTextSearchClick.bind(this);
+		this._handleCustomSearchClick = this._handleCustomSearchClick.bind(this);
 		this._handleVoiceSearchClick = this._handleVoiceSearchClick.bind(this);
 		this._handleFavouritesClick = this._handleFavouritesClick.bind(this);
 		this._handleDebugLogsClick = this._handleDebugLogsClick.bind(this);
 		this._handleVideoToggleClick = this._handleVideoToggleClick.bind(this);
 		this._handleToggleDrawerClick = this._handleToggleDrawerClick.bind(this);
 		this._handleDrawerStateChange = this._handleDrawerStateChange.bind(this);
+		this._hideCustomSearchOverlay = this._hideCustomSearchOverlay.bind(this);
+		this._submitCustomSearch = this._submitCustomSearch.bind(this);
 	}
 
 	/**
@@ -84,6 +89,7 @@ class YTCustomNavbar {
 		// Create main navbar
 		const navbar = document.createElement('nav');
 		navbar.className = 'yt-custom-navbar';
+		navbar.classList.toggle('yt-navbar-has-logo', !!this.options.showHomeButton);
 
 		// Create home button if enabled
 		if (this.options.showHomeButton) {
@@ -183,6 +189,11 @@ class YTCustomNavbar {
 		}
 
 		navbar.appendChild(rightDiv);
+
+		const customSearchOverlay = this._createCustomSearchOverlayElement();
+		if (customSearchOverlay) {
+			navbar.appendChild(customSearchOverlay);
+		}
 
 		return navbar;
 	}
@@ -458,10 +469,34 @@ class YTCustomNavbar {
 				return drawerBtn;
 			}
 			case 'text-search': {
+				if (window.Selectors.getVariant() === 'desktop') {
+					// TODO- Fix native search for desktop
+					return;
+				}
+
 				const searchBtn = document.createElement('button');
 				searchBtn.className = 'yt-navbar-icon-button';
 				searchBtn.setAttribute('data-action', 'text-search');
 				searchBtn.setAttribute('aria-label', 'Search');
+
+				const searchSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+				searchSvg.setAttribute('viewBox', '0 0 24 24');
+				searchSvg.setAttribute('width', '20');
+				searchSvg.setAttribute('height', '20');
+				const searchPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				searchPath.setAttribute(
+					'd',
+					'M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'
+				);
+				searchSvg.appendChild(searchPath);
+				searchBtn.appendChild(searchSvg);
+				return searchBtn;
+			}
+			case 'custom-search': {
+				const searchBtn = document.createElement('button');
+				searchBtn.className = 'yt-navbar-icon-button yt-navbar-custom-search';
+				searchBtn.setAttribute('data-action', 'custom-search');
+				searchBtn.setAttribute('aria-label', 'Custom Search');
 
 				const searchSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 				searchSvg.setAttribute('viewBox', '0 0 24 24');
@@ -562,6 +597,9 @@ class YTCustomNavbar {
 				case 'text-search':
 					this._handleTextSearchClick();
 					break;
+				case 'custom-search':
+					this._handleCustomSearchClick();
+					break;
 				case 'voice-search':
 					this._handleVoiceSearchClick();
 					break;
@@ -582,12 +620,111 @@ class YTCustomNavbar {
 		// Add event listener to close dialog when pressing Escape
 		document.addEventListener('keydown', (event) => {
 			if (event.key === 'Escape') {
+				if (
+					this.navbarElement &&
+					this.navbarElement.classList.contains('yt-navbar-custom-search-active')
+				) {
+					this._hideCustomSearchOverlay();
+					return;
+				}
 				const overlay = document.querySelector('.yt-favourites-dialog-overlay');
 				if (overlay && overlay.classList.contains('visible')) {
 					this._hideFavouritesDialog();
 				}
 			}
 		});
+	}
+
+	_createCustomSearchOverlayElement() {
+		const overlay = document.createElement('div');
+		overlay.className = 'yt-navbar-custom-search-overlay';
+
+		const backBtn = document.createElement('button');
+		backBtn.className = 'yt-navbar-icon-button yt-navbar-custom-search-back';
+		backBtn.setAttribute('aria-label', 'Back');
+		backBtn.addEventListener('click', () => {
+			this._hideCustomSearchOverlay();
+		});
+
+		const backSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		backSvg.setAttribute('viewBox', '0 0 24 24');
+		backSvg.setAttribute('width', '20');
+		backSvg.setAttribute('height', '20');
+		const backPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		backPath.setAttribute('d', 'M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z');
+		backSvg.appendChild(backPath);
+		backBtn.appendChild(backSvg);
+
+		const input = document.createElement('input');
+		input.type = 'text';
+		input.className = 'yt-navbar-custom-search-input';
+		input.setAttribute('aria-label', 'Search query');
+		input.placeholder = 'Search';
+		input.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') {
+				e.preventDefault();
+				this._submitCustomSearch();
+			} else if (e.key === 'Escape') {
+				e.preventDefault();
+				this._hideCustomSearchOverlay();
+			}
+		});
+
+		const submitBtn = document.createElement('button');
+		submitBtn.className = 'yt-navbar-icon-button yt-navbar-custom-search-submit';
+		submitBtn.setAttribute('aria-label', 'Search');
+		submitBtn.addEventListener('click', () => {
+			this._submitCustomSearch();
+		});
+
+		const submitSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		submitSvg.setAttribute('viewBox', '0 0 24 24');
+		submitSvg.setAttribute('width', '20');
+		submitSvg.setAttribute('height', '20');
+		const submitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		submitPath.setAttribute(
+			'd',
+			'M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'
+		);
+		submitSvg.appendChild(submitPath);
+		submitBtn.appendChild(submitSvg);
+
+		overlay.appendChild(backBtn);
+		overlay.appendChild(input);
+		overlay.appendChild(submitBtn);
+
+		this.customSearchOverlay = overlay;
+		this.customSearchInput = input;
+		return overlay;
+	}
+
+	_handleCustomSearchClick() {
+		if (!this.navbarElement || !this.customSearchInput) return;
+		this.navbarElement.classList.add('yt-navbar-custom-search-active');
+		this.customSearchInput.value = '';
+		setTimeout(() => {
+			this.customSearchInput.focus();
+		}, 0);
+	}
+
+	_hideCustomSearchOverlay() {
+		if (!this.navbarElement || !this.customSearchInput) return;
+		this.navbarElement.classList.remove('yt-navbar-custom-search-active');
+		this.customSearchInput.value = '';
+	}
+
+	_submitCustomSearch() {
+		if (!this.customSearchInput) return;
+		const query = this.customSearchInput.value.trim();
+		if (!query) {
+			this.customSearchInput.focus();
+			return;
+		}
+		const path = `/results?search_query=${encodeURIComponent(query)}`;
+		window.history.pushState({}, '', path);
+		window.dispatchEvent(new PopStateEvent('popstate'));
+		this._hideCustomSearchOverlay();
+		this._handleNavigation();
 	}
 
 	/**
@@ -599,7 +736,7 @@ class YTCustomNavbar {
 		const RETRY_DELAY = 300;
 
 		// Try to find the chip bar first
-		const chipBar = document.querySelector('#filter-chip-bar');
+		const chipBar = DOMUtils.getElement(CSS_SELECTORS.filterChipBar);
 		if (!chipBar && attempt < MAX_ATTEMPTS) {
 			setTimeout(() => {
 				this._updateActiveStatesWithRetry(attempt + 1);
@@ -621,7 +758,7 @@ class YTCustomNavbar {
 			return;
 		}
 
-		const chipBar = document.querySelector('#filter-chip-bar');
+		const chipBar = DOMUtils.getElement(CSS_SELECTORS.filterChipBar);
 		if (!chipBar) {
 			// Retry with exponential backoff if chip bar isn't loaded yet
 			if (this.chipObserverRetryCount < this.maxChipObserverRetries) {
@@ -708,9 +845,7 @@ class YTCustomNavbar {
 	 * @returns {Element|null} The navbar link element that should be active, or null if none.
 	 */
 	_getActiveLinkFromChips() {
-		const activeChip = document.querySelector(
-			'#filter-chip-bar ytm-chip-cloud-chip-renderer.selected'
-		);
+		const activeChip = DOMUtils.getElement(CSS_SELECTORS.filterChipSelected);
 
 		if (!activeChip) return null;
 
@@ -815,18 +950,28 @@ class YTCustomNavbar {
 		const RETRY_DELAY = 300;
 
 		setTimeout(() => {
-			const chipContainer = document.querySelector(
-				`#filter-chip-bar .chip-container[aria-label='${chipLabel}']`
-			);
+			const chipSelector = window.Selectors.format('filterChipContainerByLabel', {
+				chipLabel,
+			});
+			let chipContainer = DOMUtils.getElement(chipSelector);
+
+			if (!chipContainer || window.Selectors.getVariant() === 'desktop') {
+				chipContainer = DOMUtils.getElement(
+					CSS_SELECTORS.filterChipContainerByLabel,
+					document,
+					false,
+					chipLabel
+				);
+			}
 
 			if (chipContainer) {
-				const chipRenderer = chipContainer.closest('ytm-chip-cloud-chip-renderer');
-				if (chipRenderer) {
-					logger.log('Navbar', `Clicking filter chip: ${chipLabel}`);
-					chipRenderer.click();
-				} else {
-					logger.warn('Navbar', `Chip renderer not found for: ${chipLabel}`);
-				}
+				const clickTarget =
+					chipContainer.closest('button') ||
+					chipContainer.querySelector('button') ||
+					chipContainer;
+
+				logger.log('Navbar', `Clicking filter chip: ${chipLabel}`);
+				clickTarget.click();
 			} else if (attempt < MAX_ATTEMPTS) {
 				logger.log(
 					'Navbar',
@@ -930,18 +1075,11 @@ class YTCustomNavbar {
 	 * @description Handles voice search button click.
 	 */
 	_handleVoiceSearchClick() {
-		const selectors = {
-			headerVoiceButton: 'button[aria-label="Search with your voice"]',
-			headerSearchButton:
-				'button.topbar-menu-button-avatar-button[aria-label="Search YouTube"]',
-			headerCloseSearchButton: 'ytm-mobile-topbar-renderer .mobile-topbar-back-arrow',
-		};
-
 		(async () => {
-			const success = await DOMUtils.clickElement(selectors.headerVoiceButton, {
-				primeSelectorOrElement: selectors.headerSearchButton,
-				primeReadySelectorOrElement: selectors.headerCloseSearchButton,
-				primeUndoSelectorOrElement: selectors.headerCloseSearchButton,
+			const success = await DOMUtils.clickElement(CSS_SELECTORS.headerVoiceButton, {
+				primeSelectorOrElement: CSS_SELECTORS.headerSearchButton,
+				primeReadySelectorOrElement: CSS_SELECTORS.headerCloseSearchButton,
+				primeUndoSelectorOrElement: CSS_SELECTORS.headerCloseSearchButton,
 			});
 
 			if (success) {
@@ -3929,6 +4067,10 @@ class YTCustomNavbar {
 				logger.log('Navbar', 'Calling _handleTextSearchClick');
 				this._handleTextSearchClick();
 				break;
+			case 'custom-search':
+				logger.log('Navbar', 'Calling _handleCustomSearchClick');
+				this._handleCustomSearchClick();
+				break;
 			case 'voice-search':
 				logger.log('Navbar', 'Calling _handleVoiceSearchClick');
 				this._handleVoiceSearchClick();
@@ -4018,7 +4160,10 @@ class YTCustomNavbar {
 		if (inst && typeof inst.getPlayState === 'function') {
 			return inst.getPlayState();
 		}
-		const video = document.querySelector('video');
+		const video = DOMUtils.getElement([
+			CSS_SELECTORS.videoElement,
+			CSS_SELECTORS.videoElementAny,
+		]);
 		if (video) {
 			return video.paused
 				? window.PlayState

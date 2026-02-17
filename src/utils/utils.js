@@ -172,30 +172,259 @@ window.logger = (() => {
 	};
 })();
 
+/** @const {Object} Centralized CSS selectors used throughout the extension */
+const CSS_SELECTORS_MOBILE = {
+	// Video and player elements
+	videoElement: '#player-container-id video',
+	videoElementAny: 'video',
+	playerContainer: '#player-container-id',
+	moviePlayer: '#movie_player',
+	playPauseButton: 'button.player-control-play-pause-icon',
+	previousButton: 'button[aria-label="Previous video"]',
+	nextButton: 'button[aria-label="Next video"]',
+	largePlayButton: 'button.ytp-large-play-button',
+	unmuteButton: 'button.ytp-unmute',
+	adSkipButton: 'button.ytp-ad-skip-button-modern',
+	nativeControlsRight: '#player-control-overlay .player-controls-bottom-right',
+	nativeControlsTop: '#player-control-overlay .player-controls-top',
+
+	// Playlist elements
+	playlistPanel: 'ytm-engagement-panel .engagement-panel-playlist',
+	playlistContentWrapper:
+		'ytm-engagement-panel .engagement-panel-playlist .engagement-panel-content-wrapper',
+	playlistSpinner: 'ytm-section-list-renderer .spinner',
+	playlistItems: 'ytm-playlist-panel-video-renderer',
+	playlistItemLink: 'a[href*="/watch"]',
+	playlistTitle: [
+		'.playlist-engagement-panel-mix-title',
+		'.playlist-engagement-panel-list-title',
+	],
+	playlistItemHeadline: [
+		'.compact-media-item-headline span.yt-core-attributed-string',
+		'h4.YtmCompactMediaItemHeadline',
+	],
+	playlistItemByline: [
+		'.compact-media-item-byline span.yt-core-attributed-string',
+		'.YtmCompactMediaItemByline',
+	],
+	playlistItemDuration: ['.badge-shape-wiz__text', 'ytm-thumbnail-overlay-time-status-renderer'],
+	playlistCloseButton: 'ytm-button-renderer.icon-close button',
+	playlistEntryPointButton:
+		'ytm-playlist-panel-entry-point button[aria-label="Show playlist videos"]',
+
+	// Video metadata elements
+	metadataSection: 'ytm-slim-video-metadata-section-renderer',
+	titleContainer: [
+		'ytm-slim-video-metadata-renderer',
+		'.slim-video-information-title-and-badges',
+	],
+	videoTitle: [
+		'ytm-slim-video-metadata-section-renderer .title',
+		'.slim-video-metadata-header h2',
+		'.slim-video-information-title',
+	],
+	videoAuthor: [
+		'ytm-slim-owner-renderer .ytm-channel-name',
+		'.slim-owner-channel-name',
+		'ytm-slim-video-metadata-renderer .byline-separated-item',
+		'.slim-owner-bidi-wrapper a',
+	],
+	mobileTopbar: 'ytm-mobile-topbar-renderer',
+	watchBelowPlayer: '.watch-below-the-player',
+
+	// Voice search elements
+	voiceSearchDialog: 'ytm-voice-search-dialog-renderer',
+	headerVoiceButton: 'button[aria-label="Search with your voice"]',
+	headerSearchButton: 'button.topbar-menu-button-avatar-button[aria-label="Search YouTube"]',
+	headerCloseSearchButton: 'ytm-mobile-topbar-renderer .mobile-topbar-back-arrow',
+	dialogMicButton: 'ytm-voice-search-dialog-renderer .voice-search-mic-container',
+	dialogCancelButton: 'ytm-voice-search-dialog-renderer button[aria-label*="Cancel"]',
+
+	// Search elements
+	searchSuggestions: '.yt-searchbox-suggestions-container',
+	resultsPageTextSearchButton: 'button.search-bar-text',
+	resultsItems: 'ytm-item-section-renderer ytm-video-with-context-renderer',
+	resultsFirstVideoAnchor: 'ytm-video-with-context-renderer a.media-item-thumbnail-container',
+
+	// Dialog and popup elements
+	dialogs: 'dialog',
+	shoppingPopup: ['.ytm-bottom-sheet-overlay-container', 'ytm-bottom-sheet-overlay-renderer'],
+	shoppingCloseButton: [
+		'.ytm-bottom-sheet-overlay-renderer-close button',
+		'.YtmBottomSheetOverlayRendererClose button',
+	],
+	pageContainerInert: '.page-container[inert]',
+	chipCloudRenderer: 'ytm-related-chip-cloud-renderer',
+	infocardsCreatorCustomUrlButtons: '.ytm-infocards-creator-custom-url-buttons',
+
+	// Content filtering
+	contentSection: 'ytm-rich-section-renderer',
+	shortsTitle: 'h2.yt-shelf-header-layout__title',
+	playableTitle: 'h2.rich-shelf-title',
+	filterChipBar: '#filter-chip-bar',
+	filterChipSelected: '#filter-chip-bar ytm-chip-cloud-chip-renderer.selected',
+	filterChipContainerByLabel: "#filter-chip-bar .chip-container[aria-label='{chipLabel}']",
+	relatedSection: ':not(*)',
+	commentsSection: ':not(*)',
+};
+
+const CSS_SELECTORS_DESKTOP = {
+	videoElement: '#ytd-player video',
+	videoElementAny: 'video',
+	playerContainer: '#ytd-player',
+	moviePlayer: '#ytd-player',
+	playPauseButton: 'button.ytp-play-button',
+	previousButton: 'a.ytp-prev-button',
+	nextButton: 'a.ytp-next-button',
+	largePlayButton: 'button.ytp-large-play-button',
+	unmuteButton: 'button.ytp-unmute',
+	adSkipButton: 'button.ytp-ad-skip-button-modern',
+	nativeControlsRight: '.ytp-right-controls',
+	nativeControlsTop: '.ytp-chrome-top',
+
+	playlistPanel: 'ytd-playlist-panel-renderer:not([hidden])',
+	playlistContentWrapper: 'ytd-playlist-panel-renderer:not([hidden]) .playlist-items',
+	playlistSpinner: ':not(*)',
+	playlistItems: 'ytd-playlist-panel-video-renderer',
+	playlistItemLink: 'a#wc-endpoint',
+	playlistTitle: ['h3.ytd-playlist-panel-renderer .title'],
+	playlistItemHeadline: ['#meta #video-title'],
+	playlistItemByline: ['#meta #byline-container span#byline'],
+	playlistItemDuration: [
+		'ytd-thumbnail-overlay-time-status-renderer span.ytd-thumbnail-overlay-time-status-renderer',
+	],
+	playlistCloseButton: 'button[aria-label="Collapse"]',
+	playlistEntryPointButton:
+		'ytd-playlist-panel-renderer[collapsed] #header-contents button[aria-label="Expand"]',
+
+	metadataSection: 'ytd-watch-metadata',
+	titleContainer: [':not(*)'],
+	videoTitle: ['h1.ytd-watch-metadata'],
+	videoAuthor: ['ytd-channel-name a'],
+	mobileTopbar: '#masthead-container',
+	watchBelowPlayer: '.watch-below-the-player',
+
+	voiceSearchDialog: 'ytd-voice-search-dialog-renderer',
+	headerVoiceButton: '#voice-search-button button[aria-label="Search with your voice"]',
+	headerSearchButton: "#search-button-narrow button[aria-label='Search']",
+	headerCloseSearchButton: '#masthead-container button[aria-label="Back"]',
+	dialogMicButton: 'ytd-voice-search-dialog-renderer #microphone',
+	dialogCancelButton: 'ytd-voice-search-dialog-renderer button[aria-label*="Cancel"]',
+
+	searchSuggestions: '.ytSearchboxComponentSuggestionsContainer',
+	resultsPageTextSearchButton: 'button[aria-label="Search"]',
+	resultsItems: 'ytd-video-renderer',
+	resultsFirstVideoAnchor: 'ytd-video-renderer a#video-title',
+
+	dialogs: 'tp-yt-paper-dialog',
+	shoppingPopup: [':not(*)'], //TODO: Complete...
+	shoppingCloseButton: [':not(*)'],
+	pageContainerInert: ':not(*)',
+	chipCloudRenderer: ':not(*)',
+	infocardsCreatorCustomUrlButtons: ':not(*)',
+
+	contentSection: ':not(*)',
+	shortsTitle: ':not(*)',
+	playableTitle: ':not(*)',
+	filterChipBar: 'ytd-feed-filter-chip-bar-renderer',
+	filterChipSelected: 'ytd-feed-filter-chip-bar-renderer yt-chip-cloud-chip-renderer.selected',
+	filterChipContainerByLabel:
+		'ytd-feed-filter-chip-bar-renderer yt-chip-cloud-chip-renderer .ytChipShapeTextContent',
+	relatedSection: '#related',
+	commentsSection: 'ytd-comments#comments',
+};
+
+function _getYouTubeSiteVariant() {
+	return window.location.hostname.startsWith('m.') ? 'mobile' : 'desktop';
+}
+
+function getCSSSelectors(variant = _getYouTubeSiteVariant()) {
+	if (variant === 'desktop') return CSS_SELECTORS_DESKTOP;
+	return CSS_SELECTORS_MOBILE;
+}
+
+window.getCSSSelectors = getCSSSelectors;
+window.getCSSSelector = (key, variant) => getCSSSelectors(variant)?.[key];
+
+window.Selectors = {
+	getVariant: _getYouTubeSiteVariant,
+	get: (key, variant) => getCSSSelectors(variant)?.[key],
+	getAll: (key, variant) => {
+		const value = getCSSSelectors(variant)?.[key];
+		return Array.isArray(value) ? value : [value];
+	},
+	format: (key, params = {}, variant) => {
+		let template = getCSSSelectors(variant)?.[key];
+		if (Array.isArray(template)) template = template[0];
+		if (typeof template !== 'string') return null;
+		return template.replace(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ''));
+	},
+};
+
+const CSS_SELECTORS = new Proxy(
+	{},
+	{
+		get: (_target, key) => getCSSSelectors()?.[key],
+	}
+);
+window.CSS_SELECTORS_MOBILE = CSS_SELECTORS_MOBILE;
+window.CSS_SELECTORS_DESKTOP = CSS_SELECTORS_DESKTOP;
+window.CSS_SELECTORS = CSS_SELECTORS;
+
 /**
  * DOM manipulation utilities
  */
 class DOMUtils {
 	/**
 	 * A utility to query for the first matching DOM element using one or more fallback selectors.
+	 * Optionally filters by normalized text content.
+	 *
 	 * @param {string|string[]} selectors - A CSS selector string or an array of fallback selectors to try.
 	 * @param {Document|Element} [parent=document] - The parent element to search within.
 	 * @param {boolean} [getAll=false] - Whether to return all matching elements.
-	 * @returns {Element|NodeList|Element[]|null} The first found element, a NodeList of elements, or an array of elements, or null if none are found.
+	 * @param {string} [lookFor] - Optional text to match against element textContent (normalized).
+	 * @returns {Element|NodeList|Element[]|null}
 	 */
-	static getElement(selectors, parent = document, getAll = false) {
-		if (typeof selectors !== 'array') {
+	static getElement(selectors, parent = document, getAll = false, lookFor) {
+		if (!Array.isArray(selectors)) {
 			selectors = [selectors];
 		}
+
+		const normalize = (str) => str.replace(/\s+/g, ' ').trim().toLowerCase();
+
+		const needle = typeof lookFor === 'string' && lookFor.length ? normalize(lookFor) : null;
+
 		for (const selector of selectors) {
 			if (getAll) {
 				const els = parent.querySelectorAll(selector);
-				if (els.length) return els;
+				if (!els.length) continue;
+
+				if (!needle) return els;
+
+				const matches = [];
+				for (const el of els) {
+					const text = normalize(el.textContent || '');
+					if (text.includes(needle)) {
+						matches.push(el);
+					}
+				}
+				if (matches.length) return matches;
 			} else {
-				const el = parent.querySelector(selector);
-				if (el) return el;
+				if (!needle) {
+					const el = parent.querySelector(selector);
+					if (el) return el;
+				} else {
+					const els = parent.querySelectorAll(selector);
+					for (const el of els) {
+						const text = normalize(el.textContent || '');
+						if (text.includes(needle)) {
+							return el;
+						}
+					}
+				}
 			}
 		}
+
 		return null;
 	}
 
@@ -239,7 +468,7 @@ class DOMUtils {
 			}
 		}
 
-		return value;
+		return defaultValue;
 	}
 
 	/**

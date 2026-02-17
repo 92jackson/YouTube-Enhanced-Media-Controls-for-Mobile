@@ -611,7 +611,11 @@ function getNavbarRightActionOptions() {
 		{ value: 'seek-back', label: 'Seek Back' },
 		{ value: 'seek-forward', label: 'Seek Forward' },
 		{ value: 'repeat', label: 'Repeat' },
-		{ value: 'text-search', label: 'Text Search' },
+		{
+			value: 'text-search',
+			label: 'Text Search (Triggers Native Search, Incompatible with Desktop Site)',
+		},
+		{ value: 'custom-search', label: 'Text Search Bar' },
 		{ value: 'voice-search', label: 'Voice Search' },
 		{ value: 'favourites', label: 'Favourites' },
 		{ value: 'video-toggle', label: 'Video Toggle' },

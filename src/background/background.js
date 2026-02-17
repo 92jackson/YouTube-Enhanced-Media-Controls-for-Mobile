@@ -21,15 +21,18 @@ function updateSpoofing(enabled) {
 
 // Load stored setting and apply it
 function applyStoredSetting() {
-	chrome.storage.local.get('spoofUserAgent', ({ spoofUserAgent = false }) => {
-		updateSpoofing(spoofUserAgent);
-	});
+	chrome.storage.local.get(
+		'spoofUserAgentWhenCrossPlatform',
+		({ spoofUserAgentWhenCrossPlatform = true }) => {
+			updateSpoofing(spoofUserAgentWhenCrossPlatform === true);
+		}
+	);
 }
 
 // Listen for changes to the setting
 chrome.storage.onChanged.addListener((changes, area) => {
-	if (area === 'local' && changes.spoofUserAgent) {
-		updateSpoofing(changes.spoofUserAgent.newValue === true);
+	if (area === 'local' && changes.spoofUserAgentWhenCrossPlatform) {
+		updateSpoofing(changes.spoofUserAgentWhenCrossPlatform.newValue === true);
 	}
 	if (area === 'local' && changes.lastKnownVersion) {
 		evaluateIconState();
