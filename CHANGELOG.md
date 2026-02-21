@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.0.1] - 2026-02-21
+
+### Fixed
+
+- Issue preventing playlist video change on the desktop site.
+- Issue preventing settings export when using FireFox mobile (hopefully fixed, not holding my breath- why does FireFox seem to becoming the new Internet Explorer... 🙄)
+
 ## [4.0.0] - 2026-02-17
 
 ### Added

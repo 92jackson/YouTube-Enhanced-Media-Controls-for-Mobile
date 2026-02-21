@@ -1662,6 +1662,7 @@ function customPlayer_onSeekbarUpdate(newTimePercentage, newTimeSeconds, isFinal
 /**
  * Handles playlist item clicks in the custom player
  * @param {string} itemId - The ID of the playlist item to play
+ * @param {boolean} manualClick - Whether this was a manual user click
  */
 function customPlayer_onPlaylistItemClick(itemId, manualClick = false) {
 	// Persist drawer state for snapshots
@@ -1699,7 +1700,11 @@ function customPlayer_onPlaylistItemClick(itemId, manualClick = false) {
 	if (playlistItemEl) {
 		logger.log('PlaylistClick', 'Clicking playlist item', playlistItemEl);
 		handlePreemptiveAdMuting(true);
-		playlistItemEl.click();
+		if ((navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window) {
+			DOMUtils.simulateTouch(playlistItemEl);
+		} else {
+			playlistItemEl.click();
+		}
 	} else {
 		// Fallback navigation
 		_navigateToVideo(itemId);

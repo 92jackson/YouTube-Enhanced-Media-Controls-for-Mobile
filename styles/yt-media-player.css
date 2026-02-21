@@ -4927,6 +4927,10 @@ body.yt-desktop.yt-custom-navbar-active #frosted-glass.with-chipbar {
 	z-index: 3 !important;
 }
 
+body.yt-desktop.yt-native-style-fixes-active tp-yt-paper-toast {
+	display: none !important;
+}
+
 @media (max-width: 1020px) {
 	body.yt-desktop.yt-native-style-fixes-active #ytemc-desktop-watch-panels-toggle {
 		display: flex;

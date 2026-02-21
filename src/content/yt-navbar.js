@@ -424,11 +424,6 @@ class YTCustomNavbar {
 
 				// Update icon state if player is available
 				if (window.ytPlayerInstance) {
-					// Defer slightly to ensure button is in DOM if needed,
-					// though here we are creating it, so we can just update it.
-					// Actually _updateDrawerToggleIcon searches by selector in navbarElement,
-					// so we need to wait until it is appended or manually set it.
-					// Let's just set the initial state if known.
 					const state = window.ytPlayerInstance.drawerState || 'closed';
 					let pathD =
 						'M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V6h14v12z';

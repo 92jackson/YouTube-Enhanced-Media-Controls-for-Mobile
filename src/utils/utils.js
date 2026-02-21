@@ -690,6 +690,36 @@ class DOMUtils {
 			String(container.classList.contains('marquee'))
 		);
 	}
+
+	static simulateTouch(element) {
+		if (!element) return;
+		try {
+			const touchObj = new Touch({
+				identifier: Date.now(),
+				target: element,
+				clientX: 0,
+				clientY: 0,
+				radiusX: 2.5,
+				radiusY: 2.5,
+				rotationAngle: 10,
+				force: 0.5,
+			});
+			const init = {
+				cancelable: true,
+				bubbles: true,
+				composed: true,
+				touches: [touchObj],
+				targetTouches: [touchObj],
+				changedTouches: [touchObj],
+				view: window,
+			};
+			element.dispatchEvent(new TouchEvent('touchstart', init));
+			element.dispatchEvent(new TouchEvent('touchend', init));
+		} catch (e) {
+			logger.warn('Navigation', 'Touch simulation failed, falling back to click', e);
+		}
+		element.click();
+	}
 }
 
 /**

@@ -1,5 +1,35 @@
 // yt-splash.js
 (function () {
+	// Prevent page scaling as this can break the layout on mobile
+	try {
+		const enforceViewport = () => {
+			const metas = document.querySelectorAll('meta[name="viewport"]');
+			if (metas.length === 0) {
+				const meta = document.createElement('meta');
+				meta.name = 'viewport';
+				meta.content =
+					'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+				(document.head || document.documentElement).appendChild(meta);
+			} else {
+				metas.forEach((meta) => {
+					if (
+						meta.content !==
+						'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'
+					) {
+						meta.content =
+							'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+					}
+				});
+			}
+		};
+		enforceViewport();
+
+		window.addEventListener('DOMContentLoaded', enforceViewport);
+		window.addEventListener('load', enforceViewport);
+	} catch (e) {
+		// ignore
+	}
+
 	let isSnapshotNavigation = false;
 	try {
 		isSnapshotNavigation = !!window.sessionStorage?.getItem('mc_activeMixSnapshotId');

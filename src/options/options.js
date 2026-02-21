@@ -2139,14 +2139,32 @@ async function exportUserSettings() {
 	const json = JSON.stringify(payload, null, '\t');
 	const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
 	const filename = `yt-emc-settings-${currentVersion || 'unknown'}-${timestamp}.json`;
-	const response = await sendRuntimeMessage({
-		action: 'downloadLogs',
-		logContent: json,
-		filename,
-		mimeType: 'application/json;charset=utf-8',
-	});
-	if (response && response.success === false) {
-		console.error('Enhanced Player: Failed to export settings', response.error || response);
+	let response = null;
+	try {
+		response = await sendRuntimeMessage({
+			action: 'downloadLogs',
+			logContent: json,
+			filename,
+			mimeType: 'application/json;charset=utf-8',
+		});
+	} catch (e) {
+		response = { success: false, error: String(e && e.message ? e.message : e) };
+	}
+	// Fallback if background downloads are unavailable
+	if (!response || response.success === false) {
+		try {
+			const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = filename;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		} catch (err) {
+			console.error('Enhanced Player: Failed to export settings', err || response);
+		}
 	}
 }
 
