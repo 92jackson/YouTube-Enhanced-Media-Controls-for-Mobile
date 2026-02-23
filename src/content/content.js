@@ -662,7 +662,7 @@ class ObserverManager {
 			});
 
 			observer.observe(target, options);
-			this.observers.set(name, { observer, logContext });
+			this.observers.set(name, { observer, target, logContext });
 			logger.log(logContext, `Observer '${name}' created and started`);
 			return observer;
 		} catch (error) {
@@ -703,6 +703,16 @@ class ObserverManager {
 	get(name) {
 		const observerData = this.observers.get(name);
 		return observerData ? observerData.observer : null;
+	}
+
+	/**
+	 * Gets the target element of an observer by name
+	 * @param {string} name
+	 * @returns {Element|null}
+	 */
+	getTarget(name) {
+		const observerData = this.observers.get(name);
+		return observerData ? observerData.target : null;
 	}
 }
 
@@ -2961,6 +2971,18 @@ function handleNativePlaylistChanges() {
 		return;
 	}
 
+	const currentObserverTarget = observerManager.getTarget('playlist');
+
+	// If we have an observer but the target element has changed (e.g. due to navigation/replacement),
+	// disconnect the old one so we can attach to the new one.
+	if (playlistContainer && currentObserverTarget && currentObserverTarget !== playlistContainer) {
+		logger.log(
+			'Observers',
+			'Playlist container changed (element replaced), reattaching observer.'
+		);
+		observerManager.disconnect('playlist');
+	}
+
 	if (playlistContainer && !observerManager.get('playlist')) {
 		if (
 			window.userSettings.enableCustomPlayer &&
@@ -2971,6 +2993,10 @@ function handleNativePlaylistChanges() {
 				'playlist',
 				playlistContainer,
 				() => {
+					console.log(
+						'Observers!!!!',
+						'Playlist container changed; re-evaluating playlist state.'
+					);
 					handleStuckPlaylist(playlistContainer);
 					clearTimeout(playlistUpdateDebounceTimer);
 

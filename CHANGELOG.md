@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.1.0] - 2026-02-23
+
+## Added
+
+- **Options Search Results Navigation** - Added the ability to navigate through search results on the options page.
+
+### Fixed
+
+- Settings export and logs downlaod fixed on FireFox.
+- Custom playlist on m.youtube not loading additional items as they were added to the native playlist area (usually on reaching the end of a mix).
+
 ## [4.0.1] - 2026-02-21
 
 ### Fixed

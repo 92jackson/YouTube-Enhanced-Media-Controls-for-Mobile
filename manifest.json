@@ -1,9 +1,9 @@
 ﻿{
 	"manifest_version": 3,
 	"name": "YouTube Enhanced Media Controls (for Mobile)",
-	"version": "4.0.1",
+	"version": "4.1.0",
 	"description": "Adds an enhanced player wrapper to the YouTube mobile site (m.youtube.com), adding greater accessibility and providing fixes.",
-	"permissions": ["storage", "declarativeNetRequestWithHostAccess", "downloads"],
+	"permissions": ["storage", "declarativeNetRequestWithHostAccess", "downloads", "tabs"],
 	"host_permissions": [
 		"*://m.youtube.com/*",
 		"*://www.youtube.com/*",
@@ -72,6 +72,16 @@
 		}
 	]
 }
+
+
+
+
+
+
+
+
+
+
 
 
 

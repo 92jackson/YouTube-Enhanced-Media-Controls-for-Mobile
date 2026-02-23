@@ -292,12 +292,18 @@ function setupSearch() {
 	const searchOverlay = document.getElementById('search-overlay');
 	const searchInput = document.getElementById('search-input-expanded');
 	const clearButton = document.getElementById('clear-search-expanded');
+	const matchCount = document.getElementById('search-match-count');
+	const prevButton = document.getElementById('search-prev-match');
+	const nextButton = document.getElementById('search-next-match');
 
 	console.log('Search elements found:', {
 		searchToggle,
 		searchOverlay,
 		searchInput,
 		clearButton,
+		matchCount,
+		prevButton,
+		nextButton,
 	});
 
 	if (!searchToggle || !searchOverlay || !searchInput || !clearButton) return;
@@ -305,6 +311,8 @@ function setupSearch() {
 	console.log('Search setup completed');
 
 	let isSearchExpanded = false;
+	let searchMatches = [];
+	let currentMatchIndex = -1;
 
 	// Toggle search expansion
 	function toggleSearch() {
@@ -319,13 +327,61 @@ function setupSearch() {
 		}
 	}
 
+	function updateSearchUI() {
+		if (!matchCount || !prevButton || !nextButton) return;
+
+		const total = searchMatches.length;
+		if (total === 0) {
+			matchCount.textContent = '';
+			matchCount.classList.add('hidden');
+			prevButton.disabled = true;
+			nextButton.disabled = true;
+		} else {
+			matchCount.textContent = `${currentMatchIndex + 1}/${total}`;
+			matchCount.classList.remove('hidden');
+			prevButton.disabled = false;
+			nextButton.disabled = false;
+		}
+	}
+
+	function navigateSearch(direction) {
+		if (searchMatches.length === 0) return;
+
+		// Remove active class from current match
+		if (currentMatchIndex >= 0 && searchMatches[currentMatchIndex]) {
+			searchMatches[currentMatchIndex].classList.remove('active');
+		}
+
+		if (direction === 'next') {
+			currentMatchIndex++;
+			if (currentMatchIndex >= searchMatches.length) currentMatchIndex = 0;
+		} else {
+			currentMatchIndex--;
+			if (currentMatchIndex < 0) currentMatchIndex = searchMatches.length - 1;
+		}
+
+		// Activate new match
+		const match = searchMatches[currentMatchIndex];
+		if (match) {
+			match.classList.add('active');
+			match.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		}
+
+		updateSearchUI();
+	}
+
 	// Search function
 	function performSearch() {
 		const searchTerm = searchInput.value.toLowerCase().trim();
 
+		// Reset navigation
+		searchMatches = [];
+		currentMatchIndex = -1;
+
 		if (!searchTerm) {
 			// Clear search - show all elements
 			clearSearch();
+			updateSearchUI();
 			return;
 		}
 
@@ -351,7 +407,20 @@ function setupSearch() {
 		} else {
 			if (noResultsMessage) hideElement(noResultsMessage);
 			if (mainContent) showElement(mainContent);
+
+			// Collect all highlighted spans for navigation
+			// We need to wait for DOM updates if any (though highlightText is synchronous)
+			searchMatches = Array.from(document.querySelectorAll('.search-highlight'));
+
+			// Automatically select first match if available
+			if (searchMatches.length > 0) {
+				// Don't scroll on initial type, just highlight
+				currentMatchIndex = 0;
+				searchMatches[0].classList.add('active');
+			}
 		}
+
+		updateSearchUI();
 	}
 
 	// Event listeners
@@ -374,12 +443,9 @@ function setupSearch() {
 		toggleSearch();
 	});
 
-	// Escape key to close search
-	searchInput.addEventListener('keydown', (e) => {
-		if (e.key === 'Escape') {
-			toggleSearch();
-		}
-	});
+	// Navigation buttons
+	if (prevButton) prevButton.addEventListener('click', () => navigateSearch('prev'));
+	if (nextButton) nextButton.addEventListener('click', () => navigateSearch('next'));
 
 	// Close search when clicking outside (only if search is empty)
 	document.addEventListener('click', (e) => {
@@ -2139,31 +2205,45 @@ async function exportUserSettings() {
 	const json = JSON.stringify(payload, null, '\t');
 	const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
 	const filename = `yt-emc-settings-${currentVersion || 'unknown'}-${timestamp}.json`;
-	let response = null;
-	try {
-		response = await sendRuntimeMessage({
-			action: 'downloadLogs',
-			logContent: json,
-			filename,
-			mimeType: 'application/json;charset=utf-8',
-		});
-	} catch (e) {
-		response = { success: false, error: String(e && e.message ? e.message : e) };
-	}
-	// Fallback if background downloads are unavailable
-	if (!response || response.success === false) {
+
+	const base64Content = btoa(unescape(encodeURIComponent(json)));
+	const dataUrl = `data:application/json;charset=utf-8;base64,${base64Content}`;
+
+	// Attempt 1: Direct downloads API
+	const downloadApi = (typeof browser !== 'undefined' ? browser : chrome).downloads;
+	if (downloadApi && typeof downloadApi.download === 'function') {
 		try {
-			const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
-			const url = URL.createObjectURL(blob);
+			await new Promise((resolve, reject) => {
+				downloadApi.download(
+					{
+						url: dataUrl,
+						filename: filename,
+						saveAs: false,
+						conflictAction: 'uniquify',
+					},
+					(id) => {
+						const lastError = (typeof browser !== 'undefined' ? browser : chrome)
+							.runtime.lastError;
+						if (lastError) reject(lastError);
+						else resolve(id);
+					}
+				);
+			});
+			return;
+		} catch (e) {
+			console.warn('Enhanced Player: Direct download API failed, trying fallback:', e);
+		}
+
+		// Fallback: Anchor tag
+		try {
 			const a = document.createElement('a');
-			a.href = url;
+			a.href = dataUrl;
 			a.download = filename;
 			document.body.appendChild(a);
 			a.click();
 			document.body.removeChild(a);
-			URL.revokeObjectURL(url);
 		} catch (err) {
-			console.error('Enhanced Player: Failed to export settings', err || response);
+			console.error('Enhanced Player: Failed to export settings', err);
 		}
 	}
 }
@@ -3085,11 +3165,13 @@ let lastY = window.scrollY;
 window.addEventListener('scroll', () => {
 	const currentY = window.scrollY;
 	const el = document.querySelector('.options-page');
+	const searchOverlay = document.getElementById('search-overlay');
+	const isSearchActive = searchOverlay && searchOverlay.classList.contains('active');
 
-	if (currentY > lastY) {
+	if (currentY > lastY && !isSearchActive) {
 		el.classList.add('compact'); // scrolling down
 	} else {
-		el.classList.remove('compact'); // scrolling up
+		el.classList.remove('compact'); // scrolling up or search active
 	}
 
 	lastY = currentY;

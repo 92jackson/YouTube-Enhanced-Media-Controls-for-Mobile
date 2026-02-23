@@ -1375,6 +1375,70 @@ System displays temporary NEW badge automatically.
 			color: var(--md-color-on-surface-medium);
 			font-style: italic;
 		}
+		.search-input-wrapper {
+			flex: 1;
+			position: relative;
+			display: flex;
+			align-items: center;
+		}
+
+		/* Override existing ID style */
+		#search-input-expanded {
+			width: 100%;
+			flex: auto;
+		}
+
+		.search-match-count {
+			font-size: 13px;
+			color: rgba(255, 255, 255, 0.9);
+			margin-left: 12px;
+			margin-right: 8px;
+			white-space: nowrap;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.search-navigation-buttons {
+			display: flex;
+			gap: 4px;
+			margin-right: 0;
+		}
+
+		.search-nav-button {
+			background: rgba(255, 255, 255, 0.1);
+			border: 1px solid rgba(255, 255, 255, 0.3);
+			border-radius: 4px;
+			width: 28px;
+			height: 28px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			cursor: pointer;
+			color: rgba(255, 255, 255, 0.9);
+			font-size: 12px;
+			transition: all 0.2s ease;
+		}
+
+		.search-nav-button:hover:not(:disabled) {
+			background-color: rgba(255, 255, 255, 0.25);
+			border-color: rgba(255, 255, 255, 0.6);
+			color: #fff;
+		}
+
+		.search-nav-button:disabled {
+			opacity: 0.3;
+			cursor: default;
+			border-color: transparent;
+		}
+
+		.search-highlight.active {
+			background-color: #ff9800 !important;
+			color: white !important;
+			outline: 2px solid #e65100;
+			border-radius: 2px;
+			box-shadow: 0 0 6px rgba(0,0,0,0.4);
+			z-index: 1;
+			position: relative;
+		}
 		</style>
 </head>
 
@@ -1393,8 +1457,15 @@ System displays temporary NEW badge automatically.
 			</div>
 			<div class="search-overlay" id="search-overlay">
 				<div class="search-expanded-container">
-					<input type="text" id="search-input-expanded" placeholder="Search settings..." />
-					<button id="clear-search-expanded" class="clear-search-button">✕</button>
+					<div class="search-input-wrapper">
+						<input type="text" id="search-input-expanded" placeholder="Search settings..." />
+						<button id="clear-search-expanded" class="clear-search-button">✕</button>
+					</div>
+					<span id="search-match-count" class="search-match-count hidden"></span>
+					<div class="search-navigation-buttons">
+						<button id="search-prev-match" class="search-nav-button" title="Previous match (Shift+Enter)" disabled>▲</button>
+						<button id="search-next-match" class="search-nav-button" title="Next match (Enter)" disabled>▼</button>
+					</div>
 				</div>
 			</div>
 		</header>
