@@ -524,11 +524,12 @@ class DOMHelper {
 	 * @returns {HTMLVideoElement|null}
 	 */
 	static findVideoElement() {
+		if (!PageUtils.isVideoWatchPage()) return null;
+
 		const video = DOMUtils.getElement(CSS_SELECTORS.videoElement);
 		if (video && video.tagName === 'VIDEO') {
 			return video;
 		}
-		logger.warn('DOMHelper', 'Video element not found or invalid');
 		return null;
 	}
 
@@ -2993,10 +2994,6 @@ function handleNativePlaylistChanges() {
 				'playlist',
 				playlistContainer,
 				() => {
-					console.log(
-						'Observers!!!!',
-						'Playlist container changed; re-evaluating playlist state.'
-					);
 					handleStuckPlaylist(playlistContainer);
 					clearTimeout(playlistUpdateDebounceTimer);
 

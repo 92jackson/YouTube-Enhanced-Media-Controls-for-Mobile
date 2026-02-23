@@ -622,6 +622,13 @@ class YTCustomNavbar {
 					this._hideCustomSearchOverlay();
 					return;
 				}
+
+				const logsOverlay = document.querySelector('.yt-logs-dialog-overlay');
+				if (logsOverlay && logsOverlay.classList.contains('visible')) {
+					this._hideLogsDialog();
+					return;
+				}
+
 				const overlay = document.querySelector('.yt-favourites-dialog-overlay');
 				if (overlay && overlay.classList.contains('visible')) {
 					this._hideFavouritesDialog();
@@ -1245,14 +1252,327 @@ class YTCustomNavbar {
 	}
 
 	/**
-	 * @description Handles debug logs button click to download logs.
+	 * @description Handles debug logs button click to show logs popup.
 	 */
 	_handleDebugLogsClick() {
 		logger.log('Navbar', 'Debug logs button clicked');
-		if (window.logger && typeof window.logger.downloadLogs === 'function') {
-			window.logger.downloadLogs();
+		this._showLogsDialog();
+	}
+
+	/**
+	 * @description Shows the debug logs dialog.
+	 */
+	_showLogsDialog() {
+		const existingDialog = document.querySelector('.yt-logs-dialog-overlay');
+		if (existingDialog) existingDialog.remove();
+
+		const overlay = document.createElement('div');
+		overlay.className = 'yt-favourites-dialog-overlay yt-logs-dialog-overlay';
+		overlay.addEventListener('click', (e) => {
+			if (e.target === overlay) this._hideLogsDialog();
+		});
+
+		const modal = document.createElement('div');
+		modal.className = 'yt-favourites-dialog-modal yt-logs-dialog-modal';
+		modal.addEventListener('click', (e) => e.stopPropagation());
+		modal.style.maxWidth = '800px';
+		modal.style.height = '80vh';
+		modal.style.display = 'flex';
+		modal.style.flexDirection = 'column';
+
+		const header = document.createElement('div');
+		header.className = 'yt-favourites-dialog-header';
+		header.style.flexShrink = '0';
+
+		const title = document.createElement('div');
+		title.className = 'yt-favourites-dialog-title';
+		title.textContent = 'Debug Logs';
+
+		const rightSection = document.createElement('div');
+		rightSection.className = 'yt-favourites-dialog-header-right';
+
+		const copyBtn = document.createElement('button');
+		copyBtn.className = 'yt-navbar-icon-button';
+		copyBtn.setAttribute('aria-label', 'Copy to Clipboard');
+		copyBtn.title = 'Copy to Clipboard';
+
+		const copySvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		copySvg.setAttribute('width', '16');
+		copySvg.setAttribute('height', '16');
+		copySvg.setAttribute('viewBox', '0 0 24 24');
+		copySvg.setAttribute('fill', 'currentColor');
+		const copyPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		copyPath.setAttribute(
+			'd',
+			'M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z'
+		);
+		copySvg.appendChild(copyPath);
+		copyBtn.appendChild(copySvg);
+
+		copyBtn.addEventListener('click', () => {
+			if (window.logger && window.logger.getLogHistory) {
+				const history = window.logger.getLogHistory();
+				const text = history
+					.map((entry) => {
+						const timestamp = new Date(entry.timestamp).toISOString();
+						return `[${timestamp}] [${entry.level}] [${entry.source}] ${entry.message} ${entry.args ? JSON.stringify(entry.args) : ''}`;
+					})
+					.join('\n');
+
+				const formattedText = '```\n' + text + '\n```';
+
+				navigator.clipboard
+					.writeText(formattedText)
+					.then(() => {
+						logger.log('Navbar', 'Logs copied to clipboard');
+						const originalPath = copyPath.getAttribute('d');
+						copyPath.setAttribute(
+							'd',
+							'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'
+						);
+						setTimeout(() => {
+							copyPath.setAttribute('d', originalPath);
+						}, 2000);
+					})
+					.catch((err) => {
+						logger.error('Navbar', 'Failed to copy logs', err);
+					});
+			}
+		});
+
+		const closeBtn = document.createElement('button');
+		closeBtn.className = 'yt-favourites-dialog-close';
+		closeBtn.setAttribute('aria-label', 'Close');
+		const closeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		closeSvg.setAttribute('width', '16');
+		closeSvg.setAttribute('height', '16');
+		closeSvg.setAttribute('viewBox', '0 0 24 24');
+		closeSvg.setAttribute('fill', 'currentColor');
+		const closePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		closePath.setAttribute(
+			'd',
+			'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'
+		);
+		closeSvg.appendChild(closePath);
+		closeBtn.appendChild(closeSvg);
+		closeBtn.addEventListener('click', () => this._hideLogsDialog());
+
+		rightSection.appendChild(copyBtn);
+		rightSection.appendChild(closeBtn);
+		header.appendChild(title);
+		header.appendChild(rightSection);
+
+		// --- Search Bar Implementation ---
+		const searchBar = document.createElement('div');
+		searchBar.style.display = 'flex';
+		searchBar.style.alignItems = 'center';
+		searchBar.style.padding = '8px 16px';
+		searchBar.style.borderBottom = '1px solid var(--yt-player-bg-secondary)';
+		searchBar.style.backgroundColor = 'var(--yt-player-bg-primary)';
+		searchBar.style.gap = '8px';
+		searchBar.style.flexShrink = '0';
+
+		const searchInput = document.createElement('input');
+		searchInput.type = 'text';
+		searchInput.className = 'yt-favourites-dialog-search-input';
+		searchInput.placeholder = 'Search logs...';
+
+		const clearBtn = document.createElement('button');
+		clearBtn.className = 'yt-favourites-dialog-search-clear';
+		clearBtn.textContent = '×';
+		clearBtn.title = 'Clear search';
+		clearBtn.style.display = 'none';
+
+		const counter = document.createElement('span');
+		counter.textContent = '0/0';
+		counter.style.fontSize = '12px';
+		counter.style.color = 'var(--yt-player-text-secondary)';
+		counter.style.minWidth = '40px';
+		counter.style.textAlign = 'center';
+
+		let matches = [];
+		let currentMatchIndex = -1;
+		let fullLogText = '';
+
+		const highlightCurrentMatch = () => {
+			// Reset styles for all matches
+			matches.forEach((m) => {
+				m.style.backgroundColor = 'rgba(255, 255, 0, 0.4)';
+				m.style.color = '#fff';
+			});
+
+			if (currentMatchIndex >= 0 && currentMatchIndex < matches.length) {
+				const active = matches[currentMatchIndex];
+				active.style.backgroundColor = 'rgba(255, 140, 0, 0.8)'; // Orange for active
+				active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+			}
+		};
+
+		const updateCounter = () => {
+			if (matches.length === 0) {
+				counter.textContent = '0/0';
+			} else {
+				counter.textContent = `${currentMatchIndex + 1}/${matches.length}`;
+			}
+		};
+
+		const navigateMatches = (direction) => {
+			if (matches.length === 0) return;
+			currentMatchIndex = (currentMatchIndex + direction + matches.length) % matches.length;
+			highlightCurrentMatch();
+			updateCounter();
+		};
+
+		const createNavButton = (label, onClick) => {
+			const btn = document.createElement('button');
+			btn.className = 'yt-navbar-icon-button';
+			btn.style.width = '32px';
+			btn.style.height = '32px';
+			btn.style.padding = '4px';
+			btn.addEventListener('click', onClick);
+
+			const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			svg.setAttribute('viewBox', '0 0 24 24');
+			svg.setAttribute('width', '24');
+			svg.setAttribute('height', '24');
+			svg.setAttribute('fill', 'currentColor');
+			const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+			if (label === 'prev') {
+				// Up arrow
+				path.setAttribute('d', 'M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z');
+				btn.setAttribute('aria-label', 'Previous match');
+			} else {
+				// Down arrow
+				path.setAttribute('d', 'M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z');
+				btn.setAttribute('aria-label', 'Next match');
+			}
+			svg.appendChild(path);
+			btn.appendChild(svg);
+			return btn;
+		};
+
+		const prevBtn = createNavButton('prev', () => navigateMatches(-1));
+		const nextBtn = createNavButton('next', () => navigateMatches(1));
+
+		searchBar.appendChild(searchInput);
+		searchBar.appendChild(clearBtn);
+		searchBar.appendChild(counter);
+		searchBar.appendChild(prevBtn);
+		searchBar.appendChild(nextBtn);
+
+		const content = document.createElement('div');
+		content.style.padding = '16px';
+		content.style.overflowY = 'auto';
+		content.style.flex = '1';
+		content.style.whiteSpace = 'pre-wrap';
+		content.style.textWrapMode = 'nowrap';
+		content.style.fontFamily = 'monospace';
+		content.style.fontSize = '12px';
+		content.style.color = 'var(--yt-player-text-primary)';
+
+		if (window.logger && window.logger.getLogHistory) {
+			const history = window.logger.getLogHistory();
+			fullLogText = history
+				.map((entry) => {
+					const timestamp = new Date(entry.timestamp).toISOString();
+					return `[${timestamp}] [${entry.level}] [${entry.source}] ${entry.message} ${entry.args ? JSON.stringify(entry.args) : ''}`;
+				})
+				.join('\n');
+			content.textContent = fullLogText;
 		} else {
-			logger.warn('Navbar', 'Logger download function not available');
+			fullLogText = 'No logs available.';
+			content.textContent = fullLogText;
+		}
+
+		const performSearch = (term) => {
+			matches = [];
+			currentMatchIndex = -1;
+			content.textContent = ''; // Clear content
+
+			if (!term) {
+				content.textContent = fullLogText;
+				updateCounter();
+				return;
+			}
+
+			// Escape regex special characters
+			const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			const regex = new RegExp(escapedTerm, 'gi');
+			let lastIndex = 0;
+			let match;
+
+			while ((match = regex.exec(fullLogText)) !== null) {
+				// Append text before match
+				if (match.index > lastIndex) {
+					content.appendChild(
+						document.createTextNode(fullLogText.substring(lastIndex, match.index))
+					);
+				}
+
+				// Append match
+				const span = document.createElement('span');
+				span.textContent = match[0];
+				span.style.backgroundColor = 'rgba(255, 255, 0, 0.4)';
+				span.style.color = '#fff';
+				content.appendChild(span);
+				matches.push(span);
+
+				lastIndex = regex.lastIndex;
+			}
+
+			// Append remaining text
+			if (lastIndex < fullLogText.length) {
+				content.appendChild(document.createTextNode(fullLogText.substring(lastIndex)));
+			}
+
+			if (matches.length > 0) {
+				currentMatchIndex = 0;
+				highlightCurrentMatch();
+			}
+			updateCounter();
+		};
+
+		searchInput.addEventListener('input', (e) => {
+			const value = e.target.value;
+			clearBtn.style.display = value ? 'flex' : 'none';
+			performSearch(value);
+		});
+
+		clearBtn.addEventListener('click', () => {
+			searchInput.value = '';
+			clearBtn.style.display = 'none';
+			performSearch('');
+			searchInput.focus();
+		});
+
+		modal.appendChild(header);
+		modal.appendChild(searchBar);
+		modal.appendChild(content);
+		overlay.appendChild(modal);
+		document.body.appendChild(overlay);
+
+		requestAnimationFrame(() => {
+			overlay.classList.add('visible');
+			modal.classList.add('slide-in');
+		});
+	}
+
+	/**
+	 * @description Hides the debug logs dialog.
+	 */
+	_hideLogsDialog() {
+		const overlay = document.querySelector('.yt-logs-dialog-overlay');
+		const modal = overlay ? overlay.querySelector('.yt-logs-dialog-modal') : null;
+
+		if (overlay && modal) {
+			overlay.classList.remove('visible');
+			modal.classList.remove('slide-in');
+			modal.classList.add('slide-out');
+
+			setTimeout(() => {
+				overlay.remove();
+			}, 300);
 		}
 	}
 

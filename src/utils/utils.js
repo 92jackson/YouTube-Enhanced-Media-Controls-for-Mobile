@@ -111,26 +111,6 @@ window.logger = (() => {
 		// Export log history for mobile debugging
 		getLogHistory: () => [...logHistory], // Return a copy to prevent external modification
 		clearLogHistory: () => (logHistory.length = 0),
-		downloadLogs: () => {
-			if (logHistory.length === 0) {
-				console.warn('No debug logs to download');
-				alert(
-					'No debug logs available. Make sure debug logging is enabled and some activity has occurred.'
-				);
-				return;
-			}
-
-			try {
-				const logContent = logHistory.map((entry) => entry.formatted).join('\n');
-				const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-				const filename = `ytemc-debug-logs-${timestamp}.log`;
-
-				DOMUtils.downloadFile(filename, logContent, 'text/plain;charset=utf-8');
-			} catch (error) {
-				console.error('Failed to download logs:', error);
-				alert('Failed to download logs: ' + error.message);
-			}
-		},
 	};
 })();
 
@@ -683,78 +663,6 @@ class DOMUtils {
 		element.click();
 	}
 
-	/**
-	 * Downloads a file content to the user's device.
-	 * Supports Firefox Android, Chrome, and Desktop browsers.
-	 *
-	 * @param {string} filename - The name of the file to save.
-	 * @param {string} content - The text content of the file.
-	 * @param {string} mimeType - The MIME type of the file.
-	 */
-	static async downloadFile(filename, content, mimeType = 'text/plain;charset=utf-8') {
-		const base64Content = btoa(unescape(encodeURIComponent(content)));
-		const dataUrl = `data:${mimeType};base64,${base64Content}`;
-
-		try {
-			// Method 1: Anchor tag with Data URL (matches options.js behavior which works)
-			// We force application/octet-stream to ensure download instead of display
-			const octetDataUrl = dataUrl.replace(
-				`data:${mimeType}`,
-				'data:application/octet-stream'
-			);
-
-			const a = document.createElement('a');
-			a.href = octetDataUrl;
-			a.download = filename;
-
-			// Use opacity 0 and absolute position to hide but keep clickable
-			a.style.opacity = '0';
-			a.style.position = 'absolute';
-			a.style.top = '-9999px';
-			a.style.left = '-9999px';
-
-			(document.body || document.documentElement).appendChild(a);
-			a.click();
-
-			setTimeout(() => {
-				(document.body || document.documentElement).removeChild(a);
-			}, 1000);
-
-			logger.log('DOMUtils', 'downloadFile: Download started via anchor tag (Data URL)');
-		} catch (err) {
-			logger.error('DOMUtils', 'downloadFile: Data URL download failed', err);
-
-			// Method 2: Blob URL (Fallback)
-			try {
-				const blob = new Blob([content], { type: 'application/octet-stream' });
-				const url = URL.createObjectURL(blob);
-
-				const a = document.createElement('a');
-				a.href = url;
-				a.download = filename;
-				a.style.display = 'none';
-				(document.body || document.documentElement).appendChild(a);
-				a.click();
-				(document.body || document.documentElement).removeChild(a);
-				setTimeout(() => URL.revokeObjectURL(url), 30000);
-
-				logger.log('DOMUtils', 'downloadFile: Download started via anchor tag (Blob URL)');
-			} catch (blobErr) {
-				logger.error('DOMUtils', 'downloadFile: Blob download failed', blobErr);
-				alert('Download failed: ' + blobErr.message);
-
-				// Method 3: Direct navigation (Last resort)
-				try {
-					window.location.href = dataUrl.replace(
-						`data:${mimeType}`,
-						'data:application/octet-stream'
-					);
-				} catch (e) {
-					console.error('Final fallback failed', e);
-				}
-			}
-		}
-	}
 }
 
 /**

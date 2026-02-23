@@ -2,9 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.1.1] - 2026-02-23
+
+### Changes
+
+- Functionality of the debug button changed to display the logs in a dialog rather than triggering a download - this should make reviewing logs easier and prevent cross-browser issues with triggering downloads.
+
 ## [4.1.0] - 2026-02-23
 
-## Added
+### Added
 
 - **Options Search Results Navigation** - Added the ability to navigate through search results on the options page.
 

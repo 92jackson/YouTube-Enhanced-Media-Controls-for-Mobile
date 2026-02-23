@@ -5328,6 +5328,11 @@ body.yt-desktop.yt-native-style-fixes-active tp-yt-paper-toast {
 	transition: background 0.2s;
 }
 
+.yt-desktop .yt-native-control-btn {
+	background-color: transparent;
+	margin-top: 2px;
+}
+
 .yt-native-control-btn:hover {
 	background: rgba(0, 0, 0, 0.5);
 }
