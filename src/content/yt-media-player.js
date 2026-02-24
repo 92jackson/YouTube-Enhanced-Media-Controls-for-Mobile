@@ -3090,6 +3090,8 @@ class YTMediaPlayer {
 			CSS_SELECTORS.chipCloudRenderer,
 			CSS_SELECTORS.infocardsCreatorCustomUrlButtons,
 			CSS_SELECTORS.playlistPanel,
+			'.yt-favourites-dialog-overlay.visible',
+			'.yt-context-menu-overlay.visible',
 		];
 
 		for (const selector of interactiveSelectors) {
@@ -4501,7 +4503,7 @@ class YTMediaPlayer {
 			return;
 		}
 
-		if (actionId === 'repeat') {
+		if (actionId === 'repeat' || actionId === 'repeat-show-when-active') {
 			if (!this.repeatButton) return;
 			const raw = window.userSettings.repeatStickyAcrossVideos;
 			const mode =

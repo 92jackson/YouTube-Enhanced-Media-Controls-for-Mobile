@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.1.2] - 2026-02-23
+
+### Fixed
+
+- Prevent gestures being fired while dialogs are open.
+- Repeat (Show When Active) button now functioning correctly.
+
 ## [4.1.1] - 2026-02-23
 
 ### Changes
